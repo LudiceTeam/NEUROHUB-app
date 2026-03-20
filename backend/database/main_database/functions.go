@@ -57,17 +57,12 @@ func create_user(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 		//fmt.Println("1")
 		return false
 	}
-	now := time.Now()
-
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
-	today_string := today.Format("2006-01-02")
 
 	_, err2 := pool.Exec(
 		ctx,
 		`INSERT INTO main_app_table (provider_id,provider,email,sub,date)
 		VALUES($1,$2,$3,$4,$5)`,
-		"123456", "apple", email, false, today_string,
+		"123456", "apple", email, false, "",
 	)
 
 	if err2 != nil {
@@ -75,6 +70,59 @@ func create_user(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 		return false
 	}
 	return true
+
+}
+
+func subscribe(ctx context.Context, pool *pgxpool.Pool, email string) bool {
+
+	res := is_user_exists(ctx, pool, email)
+
+	if !res {
+		return false
+	}
+
+	now := time.Now()
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	today_string := today.Format("2006-01-02")
+
+	_, err := pool.Exec(
+		ctx,
+		`UPDATE main_app_table
+		SET sub = true, 
+		date = $1
+		WHERE email = $2`,
+		today_string,
+		email,
+	)
+
+	if err != nil {
+		return false
+	}
+	return true
+
+}
+
+func is_user_subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool {
+	res := is_user_exists(ctx, pool, email)
+
+	var sub_flag bool
+
+	if !res {
+		return false
+	}
+
+	err := pool.QueryRow(
+		ctx,
+		`SELECT sub FROM main_app_table WHERE email = $1`,
+		email,
+	).Scan(&sub_flag)
+	if err != nil {
+		return false
+	}
+
+	return sub_flag
 
 }
 
@@ -101,12 +149,12 @@ func main() {
 
 	ctx := context.Background()
 
-	ok := create_user(ctx, pool, "test@gmail.com")
+	ok := is_user_exists(ctx, pool, "test@gmail.com")
 
 	if ok {
-		fmt.Println("user created")
+		fmt.Println("user exists")
 	} else {
-		fmt.Println("error user wanst created")
+		fmt.Println("user not found")
 	}
 
 }
