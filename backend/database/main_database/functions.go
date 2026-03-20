@@ -1,4 +1,4 @@
-package main
+package main_database
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func NewPool(databaseURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func is_user_exists(ctx context.Context, pool *pgxpool.Pool, username string) bool {
+func Is_User_Exists(ctx context.Context, pool *pgxpool.Pool, username string) bool {
 
 	var DbUsername string
 
@@ -51,8 +51,8 @@ func is_user_exists(ctx context.Context, pool *pgxpool.Pool, username string) bo
 
 }
 
-func create_user(ctx context.Context, pool *pgxpool.Pool, email string) bool {
-	res := is_user_exists(ctx, pool, email)
+func Create_User(ctx context.Context, pool *pgxpool.Pool, email string) bool {
+	res := Is_User_Exists(ctx, pool, email)
 	if res {
 		//fmt.Println("1")
 		return false
@@ -73,9 +73,9 @@ func create_user(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 
 }
 
-func subscribe(ctx context.Context, pool *pgxpool.Pool, email string) bool {
+func Subscribe(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 
-	res := is_user_exists(ctx, pool, email)
+	res := Is_User_Exists(ctx, pool, email)
 
 	if !res {
 		return false
@@ -105,7 +105,7 @@ func subscribe(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 }
 
 func is_user_subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool {
-	res := is_user_exists(ctx, pool, email)
+	res := Is_User_Exists(ctx, pool, email)
 
 	var sub_flag bool
 
@@ -126,7 +126,7 @@ func is_user_subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool 
 
 }
 
-func main() {
+func test_run() {
 
 	err_env := godotenv.Load()
 
@@ -149,7 +149,7 @@ func main() {
 
 	ctx := context.Background()
 
-	ok := is_user_exists(ctx, pool, "test@gmail.com")
+	ok := Is_User_Exists(ctx, pool, "test@gmail.com")
 
 	if ok {
 		fmt.Println("user exists")
