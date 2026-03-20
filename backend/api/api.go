@@ -12,4 +12,5 @@ func main() {
 			"message": "NEUROHUB",
 		})
 	})
+	r.Run(":8080")
 }

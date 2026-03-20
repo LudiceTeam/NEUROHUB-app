@@ -104,7 +104,7 @@ func Subscribe(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 
 }
 
-func is_user_subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool {
+func Is_User_Subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 	res := Is_User_Exists(ctx, pool, email)
 
 	var sub_flag bool
@@ -123,6 +123,15 @@ func is_user_subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool 
 	}
 
 	return sub_flag
+
+}
+
+func Unsub(ctx context.Context, pool *pgxpool.Pool, email string) {
+	res := Is_User_Exists(ctx, pool, email)
+
+	if !res {
+		return
+	}
 
 }
 
