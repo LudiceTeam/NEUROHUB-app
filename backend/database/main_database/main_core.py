@@ -41,4 +41,7 @@ async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
 
+
+#asyncio.run(drop_table())
+
 asyncio.run(create_table())

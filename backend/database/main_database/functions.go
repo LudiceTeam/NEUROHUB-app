@@ -1,5 +1,6 @@
-package main_database
+package main
 
+//package main_database
 import (
 	"context"
 	"fmt"
@@ -60,9 +61,9 @@ func Create_User(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 
 	_, err2 := pool.Exec(
 		ctx,
-		`INSERT INTO main_app_table (provider_id,provider,email,sub,date)
-		VALUES($1,$2,$3,$4,$5)`,
-		"123456", "apple", email, false, "",
+		`INSERT INTO main_app_table (provider_id,provider,email,sub,date,requests)
+		VALUES($1,$2,$3,$4,$5,$6)`,
+		"123456", "apple", email, false, "", 20,
 	)
 
 	if err2 != nil {
@@ -166,11 +167,33 @@ func Get_User_Sub_Date_End(ctx context.Context, pool *pgxpool.Pool, email string
 	if err != nil {
 		return ""
 	}
+
 	return date_end
 
 }
 
-func test_run() {
+func Get_User_Requests(ctx context.Context, pool *pgxpool.Pool, email string) int {
+	res := Is_User_Exists(ctx, pool, email)
+
+	if !res {
+		return 0
+	}
+
+	var requests int
+
+	err := pool.QueryRow(
+		ctx,
+		`SELECT requests FROM main_app_table WHERE email = $1`,
+		email,
+	).Scan(&requests)
+
+	if err != nil {
+		return 0
+	}
+	return requests
+}
+
+func main() {
 
 	err_env := godotenv.Load()
 
@@ -193,12 +216,8 @@ func test_run() {
 
 	ctx := context.Background()
 
-	ok := Is_User_Exists(ctx, pool, "test@gmail.com")
+	ok := Get_User_Requests(ctx, pool, "test@gmail.com")
 
-	if ok {
-		fmt.Println("user exists")
-	} else {
-		fmt.Println("user not found")
-	}
+	fmt.Println(ok)
 
 }
