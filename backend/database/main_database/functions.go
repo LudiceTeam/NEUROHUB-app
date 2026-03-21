@@ -126,12 +126,27 @@ func Is_User_Subbed(ctx context.Context, pool *pgxpool.Pool, email string) bool 
 
 }
 
-func Unsub(ctx context.Context, pool *pgxpool.Pool, email string) {
+func Unsub(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 	res := Is_User_Exists(ctx, pool, email)
 
 	if !res {
-		return
+		return false
 	}
+
+	_, err := pool.Exec(
+		ctx,
+		`UPDATE main_app_table
+		SET sub = false, 
+		date = $1
+		WHERE email = $2`,
+		"",
+		email,
+	)
+
+	if err != nil {
+		return false
+	}
+	return true
 
 }
 
