@@ -10,5 +10,6 @@ main_table = Table(
     Column("provider",String),
     Column("email",String),
     Column("sub",Boolean),
-    Column("date",String)
+    Column("date",String),
+    Column("requests",Integer)
 )

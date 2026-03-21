@@ -150,6 +150,26 @@ func Unsub(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 
 }
 
+func Get_User_Sub_Date_End(ctx context.Context, pool *pgxpool.Pool, email string) string {
+	res := Is_User_Exists(ctx, pool, email)
+	if !res {
+		return ""
+	}
+
+	var date_end string
+
+	err := pool.QueryRow(
+		ctx,
+		`SELECT date FROM main_app_table WHERE email = $1`,
+		email,
+	).Scan(&date_end)
+	if err != nil {
+		return ""
+	}
+	return date_end
+
+}
+
 func test_run() {
 
 	err_env := godotenv.Load()
