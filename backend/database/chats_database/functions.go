@@ -51,7 +51,36 @@ func Create_Chat(ctx context.Context, pool *pgxpool.Pool, email string) string {
 	return id_string
 }
 
-func main() {
+func Get_User_Chats(ctx context.Context, pool *pgxpool.Pool, email string) []string {
+
+	var chats []string
+
+	rows, err := pool.Query(
+		ctx,
+		`SELECT chat_id FROM chats_table WHERE email = $1`,
+		email,
+	)
+
+	if err != nil {
+		return nil
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var chat_id string
+
+		err := rows.Scan(&chat_id)
+		if err != nil {
+			return nil
+		}
+
+		chats = append(chats, chat_id)
+	}
+	return chats
+}
+
+func run_event() {
 	err_env := godotenv.Load()
 	if err_env != nil {
 		log.Fatal(err_env)
