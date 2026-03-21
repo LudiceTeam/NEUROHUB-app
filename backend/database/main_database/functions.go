@@ -83,9 +83,7 @@ func Subscribe(ctx context.Context, pool *pgxpool.Pool, email string) bool {
 	}
 
 	now := time.Now()
-
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
 	today_string := today.Format("2006-01-02")
 
 	_, err := pool.Exec(
@@ -172,7 +170,7 @@ func Get_User_Sub_Date_End(ctx context.Context, pool *pgxpool.Pool, email string
 
 }
 
-func Get_User_Requests(ctx context.Context, pool *pgxpool.Pool, email string) int {
+func Get_User_Amount_Requests(ctx context.Context, pool *pgxpool.Pool, email string) int {
 	res := Is_User_Exists(ctx, pool, email)
 
 	if !res {
@@ -191,6 +189,45 @@ func Get_User_Requests(ctx context.Context, pool *pgxpool.Pool, email string) in
 		return 0
 	}
 	return requests
+}
+
+func Remove_Request(ctx context.Context, pool *pgxpool.Pool, email string) {
+	res := Is_User_Exists(ctx, pool, email)
+
+	if !res {
+		return
+	}
+
+	_, err := pool.Exec(
+		ctx,
+		`UPDATE main_app_table SET requests = requests - 1 WHERE email = $1 AND requests > 0`,
+		email,
+	)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func Does_User_Have_Requests(ctx context.Context, pool *pgxpool.Pool, email string) bool {
+	res := Is_User_Exists(ctx, pool, email)
+
+	if !res {
+		return false
+	}
+
+	var amount int
+
+	err := pool.QueryRow(
+		ctx,
+		`SELECT requests FROM main_app_table WHERE email = $1`,
+		email,
+	).Scan(&amount)
+
+	if err != nil {
+		return false
+	}
+	return amount > 0
 }
 
 func main() {
@@ -216,7 +253,7 @@ func main() {
 
 	ctx := context.Background()
 
-	ok := Get_User_Requests(ctx, pool, "test@gmail.com")
+	ok := Get_User_Amount_Requests(ctx, pool, "test@gmail.com")
 
 	fmt.Println(ok)
 
