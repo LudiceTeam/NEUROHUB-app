@@ -49,3 +49,29 @@ func Create_Message(ctx context.Context, pool *pgxpool.Pool, email string, messa
 	return message_id_string
 
 }
+
+func Get_Chat_Messages(ctx context.Context, pool *pgxpool.Pool, chat_id string) []string {
+
+	var messages []string
+
+	rows, err := pool.Query(
+		ctx,
+		`SELECT messsge_text FROM messages_table WHERE chat_id = $1`,
+		chat_id,
+	)
+
+	if err != nil {
+		return messages
+	}
+
+	for rows.Next() {
+		var message string
+		err := rows.Scan(&message)
+		if err != nil {
+			return messages
+		}
+		messages = append(messages, message)
+	}
+	return messages
+
+}
