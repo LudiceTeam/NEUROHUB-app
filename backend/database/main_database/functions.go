@@ -230,6 +230,17 @@ func Does_User_Have_Requests(ctx context.Context, pool *pgxpool.Pool, email stri
 	return amount > 0
 }
 
+func GetMe(ctx context.Context, pool *pgxpool.Pool, email string) map[string]string {
+	res := Is_User_Exists(ctx, pool, email)
+
+	result := make(map[string]string)
+	if !res {
+		return result
+	}
+
+	return result
+}
+
 func main() {
 
 	err_env := godotenv.Load()
