@@ -40,8 +40,39 @@ async def drop_table():
 async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
+        
+async def is_user_exists(email:str) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.email).where(main_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            if data is not None:
+                return True
+            return False
+        except Exception as e:
+            raise Exception(f"Error : {e}")
+        
+        
+async def create_user(email:str,provider_id:str,provider:str = Literal["apple","google"]) -> bool:
+    if await is_user_exists(email):
+        return False
+    
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.insert().values(
+                    provider_id = provider_id,
+                    provider = provider,
+                    email = email,
+                    sub = False,
+                    date = "",
+                    requests = 20
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception as e:
+                raise Exception(f"Error : {e}")
 
 
 #asyncio.run(drop_table())
-
-asyncio.run(create_table())
