@@ -10,8 +10,11 @@ from main_models import metadata_obj,main_table
 import asyncio
 import atexit
 from sqlalchemy import func
+import logging
 #backend.database.
 
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -51,7 +54,8 @@ async def is_user_exists(email:str) -> bool:
                 return True
             return False
         except Exception as e:
-            raise Exception(f"Error : {e}")
+            logger.exception(f"Error : {e}")
+            return False
         
         
 async def create_user(email:str,provider_id:str,provider:str = Literal["apple","google"]) -> bool:
@@ -72,7 +76,22 @@ async def create_user(email:str,provider_id:str,provider:str = Literal["apple","
                 await conn.execute(stmt)
                 return True
             except Exception as e:
-                raise Exception(f"Error : {e}")
+                logger.exception(f"Error : {e}")
+                return False
+            
+
+async def subscribe(email:str) -> bool:
+
+    if not await is_user_exists(email):
+        return False
+    
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                pass
+            except Exception as e:
+                logger.exception(f"Error : {e}")
+                return False
 
 
 #asyncio.run(drop_table())
