@@ -73,7 +73,9 @@ async def create_user(email:str,provider_id:str,provider:str = Literal["apple","
                     provider = provider,
                     email = email,
                     sub = False,
+                    basic_sub = False,
                     date = "",
+                    last_refil_date = "",
                     requests = 20,
                     nano_req = 3
                 )
@@ -108,10 +110,30 @@ async def get_user_sub_date_end(email:str) -> str:
             logger.exception("MAIN SQL ERROR")
             return ""
 
-async def check_date_for_sub(datetime_now_str:str) -> bool:
+
+async def get_user_last_refil_date(email: str) -> str:
+    if not await is_user_exists(email):
+        return ""
+
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.last_refil_date).where(main_table.c.email == email)
+
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+
+            return data
+        except Exception as e:
+            logger.exception("MAIN SQL ERROR")
+            return ""
+
+
+# function to check user sub date end to unsub
+async def check_date_for_sub(email:str,datetime_now_str:str) -> bool:
     datetime_now_int = await transform_date_to_int(datetime_now_str)
-        
-    user_end_data:str = await get_user_sub_date_end()
+
+
+    user_end_data = await get_user_sub_date_end(email)
 
     user_end_data_int = await transform_date_to_int(user_end_data)
 
@@ -127,6 +149,12 @@ async def subscribe_premium(email:str) -> bool:
 
     if not await is_user_exists(email):
         return False
+
+
+    if await is_user_subbed(email):
+        return False
+
+    # check basic sub
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -134,6 +162,7 @@ async def subscribe_premium(email:str) -> bool:
                 stmt = main_table.update().where(main_table.c.email == email).values(
                     sub = True,
                     date = str(datetime.now().date()),
+                    last_refil_date = str(datetime.now().date()),
                     nano_req = 15
                 )
 
@@ -150,14 +179,19 @@ async def unsub_func_premium(email:str) -> bool:
         return False
 
 
+    if not await is_user_subbed(email):
+        return False
+
     datetime_now = datetime.now().date()
 
     datetime_now_str = str(datetime_now)
 
-    date_check_result:bool = await check_date_for_sub(datetime_now_str)
+    date_check_result:bool = await check_date_for_sub(email,datetime_now_str)
+
 
     if not date_check_result:
         return False
+
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -165,7 +199,8 @@ async def unsub_func_premium(email:str) -> bool:
                 stmt = main_table.update().where(main_table.c.email == email).values(
                     sub=False,
                     date="",
-                    nano_req = 3
+                    nano_req = 3,
+                    requests = 20
                 )
 
                 await conn.execute(stmt)
@@ -189,6 +224,17 @@ async def is_user_subbed(email:str) -> bool:
         except Exception as e:
             logger.exception(f"MAIN SQL Error")
             return False
+
+async def refil_nano_requests(email:str,req:int) -> bool:
+    if not await is_user_exists(email):
+        return False
+
+
+    if not await is_user_subbed(email):
+        return False
+
+
+
 
 # ---- REQUESTS ---- 
 
@@ -221,6 +267,24 @@ async def minus_one_req(email:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                pass
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    requests = main_table.c.requests -1
+                )
+                await conn.execute(stmt)
+            except Exception as e:
+                logger.exception(f"MAIN SQL Error")
+
+
+async def minus_one_req_nano(email: str):
+    if not await is_user_exists(email):
+        return
+
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    nano_req = main_table.c.nano_req - 1
+                )
+                await conn.execute(stmt)
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")

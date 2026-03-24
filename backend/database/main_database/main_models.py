@@ -12,6 +12,7 @@ main_table = Table(
     Column("sub",Boolean),
     Column("basic_sub",Boolean),
     Column("date",String),
+    Column("last_refil_date",String),
     Column("requests",Integer),
     Column("nano_req",Integer)
 )
