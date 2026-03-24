@@ -94,4 +94,4 @@ async def subscribe(email:str) -> bool:
                 return False
 
 
-#asyncio.run(drop_table())
+
