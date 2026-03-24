@@ -75,9 +75,9 @@ async def create_user(email:str,provider_id:str,provider:str = Literal["apple","
                     sub = False,
                     basic_sub = False,
                     date = "",
-                    last_refil_date = "",
+                    last_refil_date = str(datetime.now().date()),
                     requests = 20,
-                    nano_req = 3
+                    nano_req = 1
                 )
                 await conn.execute(stmt)
                 return True
@@ -142,9 +142,21 @@ async def check_date_for_sub(email:str,datetime_now_str:str) -> bool:
     
     return True
 
+#function to check user last refil day to refil today
+async def check_date_for_refil(email:str,datetime_now_str:str) -> bool:
+    datetime_now_int = await transform_date_to_int(datetime_now_str)
+    user_last_data = await get_user_last_refil_date(email)
+
+    user_last_data_int = await transform_date_to_int(user_last_data)
+
+    if datetime_now_int < user_last_data_int:
+        return False
+
+    return True
 
 
-# ---- PREMIUM SUB ---- 
+
+# ---- PREMIUM SUB ----
 async def subscribe_premium(email:str) -> bool:
 
     if not await is_user_exists(email):
@@ -225,7 +237,14 @@ async def is_user_subbed(email:str) -> bool:
             logger.exception(f"MAIN SQL Error")
             return False
 
-async def refil_nano_requests(email:str,req:int) -> bool:
+
+
+
+
+# ---- REQUESTS ----
+
+
+async def refil_nano_requests(email:str,amount:int) -> bool:
     if not await is_user_exists(email):
         return False
 
@@ -233,10 +252,26 @@ async def refil_nano_requests(email:str,req:int) -> bool:
     if not await is_user_subbed(email):
         return False
 
+    datetime_now = datetime.now().date()
 
+    datetime_now_str = str(datetime_now)
 
+    result_date:bool = await check_date_for_refil(email,datetime_now_str)
 
-# ---- REQUESTS ---- 
+    if result_date:
+        return False
+
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    nano_req = amount
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception as e:
+                logger.exception(f"MAIN SQL Error")
+                return False
 
 async def get_user_req_amount(email:str) -> dict:
     if not await is_user_exists(email):
