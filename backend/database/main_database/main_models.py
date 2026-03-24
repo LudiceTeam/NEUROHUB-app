@@ -10,6 +10,8 @@ main_table = Table(
     Column("provider",String),
     Column("email",String),
     Column("sub",Boolean),
+    Column("basic_sub",Boolean),
     Column("date",String),
-    Column("requests",Integer)
+    Column("requests",Integer),
+    Column("nano_req",Integer)
 )
