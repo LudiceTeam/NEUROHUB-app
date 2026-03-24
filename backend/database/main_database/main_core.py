@@ -88,7 +88,13 @@ async def subscribe(email:str) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                pass
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    sub = True,
+                    date = str(datetime.now().date())
+                )
+
+                await conn.execute(stmt)
+                return True
             except Exception as e:
                 logger.exception(f"Error : {e}")
                 return False
