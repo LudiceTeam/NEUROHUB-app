@@ -1,9 +1,15 @@
-from messages_models import metadata_obj
+from messages_models import metadata_obj,messages_table
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
 import asyncio
+import logging
+import uuid
+from typing import List
+from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -34,7 +40,38 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-#asyncio.run(drop_table())
+async def create_message(email:str,chat_id:str,message:str,response:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = messages_table.insert().values(
+                    email = email,
+                    chat_id = chat_id,
+                    message_id = str(uuid.uuid4()),
+                    message_text = message,
+                    response = response
+                )
+                await conn.execute(stmt)
 
-asyncio.run(create_table())
+            except Exception:
+                logger.exception("MESSAGES SQL ERROR")
+                return
+
+async def get_chat_messages(chat_id:str) -> List[str]:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id)
+            res = await conn.execute(stmt)
+            data = res.fetchall()
+
+            result:List[str] = []
+
+            for dt in data:
+                result.append(dt[0])
+            
+            return result
+        except Exception:
+            logger.exception("MESSAGES SQL ERROR")
+            return []
+
 
