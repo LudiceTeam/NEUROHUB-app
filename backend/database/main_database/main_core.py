@@ -493,3 +493,4 @@ async def profile(email:str) -> dict[str]:
         except Exception:
             logger.exception("MAIN SQL ERROR")
             return {}
+
