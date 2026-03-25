@@ -156,6 +156,7 @@ async def check_date_for_refil(email:str,datetime_now_str:str) -> bool:
 
 
 
+
 # ---- PREMIUM SUB ----
 async def subscribe_premium(email:str) -> bool:
 
@@ -249,8 +250,7 @@ async def refil_nano_requests(email:str,amount:int) -> bool:
         return False
 
 
-    if not await is_user_subbed(email):
-        return False
+
 
     datetime_now = datetime.now().date()
 
@@ -266,6 +266,33 @@ async def refil_nano_requests(email:str,amount:int) -> bool:
             try:
                 stmt = main_table.update().where(main_table.c.email == email).values(
                     nano_req = amount
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception as e:
+                logger.exception(f"MAIN SQL Error")
+                return False
+            
+
+async def refil_normal_requests(email:str,amount:int) -> bool:
+    if not await is_user_exists(email):
+        return False
+
+
+    datetime_now = datetime.now().date()
+
+    datetime_now_str = str(datetime_now)
+
+    result_date:bool = await check_date_for_refil(email,datetime_now_str)
+
+    if result_date:
+        return False
+
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    requests = amount
                 )
                 await conn.execute(stmt)
                 return True
