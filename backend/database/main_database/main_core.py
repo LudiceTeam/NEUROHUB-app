@@ -76,7 +76,7 @@ async def create_user(email:str,provider_id:str,provider:str = Literal["apple","
                     basic_sub = False,
                     date = "",
                     last_refil_date = str(datetime.now().date()),
-                    requests = 20,
+                    requests = 10,
                     nano_req = 1
                 )
                 await conn.execute(stmt)
@@ -167,7 +167,8 @@ async def subscribe_premium(email:str) -> bool:
     if await is_user_subbed(email):
         return False
 
-    # check basic sub
+    if await is_user_subbed_basic(email):
+        return False
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -213,7 +214,8 @@ async def unsub_func_premium(email:str) -> bool:
                     sub=False,
                     date="",
                     nano_req = 3,
-                    requests = 20
+                    requests = 20,
+                    last_refil_date = str(datetime.now().date())
                 )
 
                 await conn.execute(stmt)
@@ -265,7 +267,8 @@ async def refil_nano_requests(email:str,amount:int) -> bool:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.email == email).values(
-                    nano_req = amount
+                    nano_req = amount,
+                    last_refil_date = str(datetime.now().date())
                 )
                 await conn.execute(stmt)
                 return True
@@ -292,7 +295,8 @@ async def refil_normal_requests(email:str,amount:int) -> bool:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.email == email).values(
-                    requests = amount
+                    requests = amount,
+                    last_refil_date = str(datetime.now().date())
                 )
                 await conn.execute(stmt)
                 return True
@@ -300,7 +304,7 @@ async def refil_normal_requests(email:str,amount:int) -> bool:
                 logger.exception(f"MAIN SQL Error")
                 return False
 
-async def get_user_req_amount(email:str) -> dict:
+async def get_user_req_amount_all_requests(email:str) -> dict:
     if not await is_user_exists(email):
         return {}
 
@@ -326,6 +330,9 @@ async def minus_one_req(email:str):
     if not await is_user_exists(email):
         return
     
+    if is_user_subbed(email):
+        return
+    
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -335,6 +342,7 @@ async def minus_one_req(email:str):
                 await conn.execute(stmt)
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
+                return
 
 
 async def minus_one_req_nano(email: str):
@@ -350,3 +358,106 @@ async def minus_one_req_nano(email: str):
                 await conn.execute(stmt)
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
+                return
+
+
+async def does_user_have_requests(email:str) -> bool | None:
+
+    if not await is_user_exists(email):
+        return False
+    
+    if is_user_subbed(email):
+        return
+    
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.requests).where(main_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data != 0
+        except Exception as e:
+            logger.exception("MAIN SQL ERROR")
+            return 
+    
+
+async def does_user_have_nano_requests(email:str) -> bool | None:
+
+    if not await is_user_exists(email):
+        return False
+        
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.nano_req).where(main_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data != 0
+        except Exception as e:
+            logger.exception("MAIN SQL ERROR")
+            return 
+        
+# ---- BASIC SUB ----
+
+async def is_user_subbed_basic(email:str) -> bool:
+    if not await is_user_exists(email):
+        return False
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.basic_sub).where(main_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else False
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return False
+
+
+async def subscribe_basic(email:str) -> bool:
+    if not await is_user_exists(email):
+        return False
+    
+    if await is_user_subbed(email):
+        return False 
+    
+    if await is_user_subbed_basic(email):
+        return False
+    
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    date = str(datetime.now().date()),
+                    last_refil_date = str(datetime.now().date()),
+                    nano_req = 3,
+                    requests = 25
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception as e:
+                logger.exception("MAIN SQL ERROR")
+                return False
+
+async def unsub_basic(email:str) -> bool:
+
+    if not await is_user_exists(email):
+        return False
+    
+    if not await is_user_subbed_basic(email):
+        return False
+    
+    if await is_user_subbed(email):
+        return False
+    
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.email == email).values(
+                    date = "",
+                    last_refil_date = str(datetime.now().date()),
+                    nano_req = 1,
+                    requests = 10
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception:
+                logger.exception("MAIN SQL ERROR")
+                return False
