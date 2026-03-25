@@ -461,3 +461,35 @@ async def unsub_basic(email:str) -> bool:
             except Exception:
                 logger.exception("MAIN SQL ERROR")
                 return False
+            
+
+
+async def profile(email:str) -> dict[str]:
+    if not await is_user_exists(email):
+        return {}
+    
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.sub,main_table.c.basic_sub,main_table.c.date,main_table.c.requests, main_table.c.nano_req).where(main_table.c.email == email)
+
+            res = await conn.execute(stmt)
+
+            data = res.fetchone()
+
+
+            sub,basic_sub,date,requests,nano_req = data
+
+
+            return {
+                "email":email,
+                "Premium":sub,
+                "Basic":basic_sub,
+                "Date End": date,
+                "Requests":requests,
+                "Nano requests":nano_req
+
+            }
+
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return {}
