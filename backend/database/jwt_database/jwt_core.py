@@ -43,7 +43,7 @@ async def drop_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.drop_all)
 
-async def create_table():
+async def create_table():   
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
 
@@ -64,4 +64,43 @@ async def create_refresh_token(email:str,token:str) -> bool:
     if await is_user_exists(email):
         return False
     async with AsyncSession(async_engine) as conn:
-        pass
+        async with conn.begin() as conn:
+            try:
+                stmt = jwt_table.insert().values(
+                    email = email,
+                    token = token
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception:
+                logger.exception("JWT SQL ERROR")
+                return False
+
+async def update_refresh_token(email:str,token:str) -> bool:
+    if not await is_user_exists(email):
+        return False
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin() as conn:
+            try:
+                stmt = jwt_table.update().where(jwt_table.c.email == email).values(
+                    token = token
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception:
+                logger.exception("JWT SQL ERROR")
+                return False
+
+async def get_user_refresh_token(email:str) -> str:
+    if not await is_user_exists(email):
+        return ""
+
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(jwt_table.c.token).where(jwt_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("JWT SQL ERROR")
+            return ""
