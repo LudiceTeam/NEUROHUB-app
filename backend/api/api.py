@@ -62,7 +62,24 @@ async def safe_get(req: Request):
 
 
 # --- ROUTES ---
-
+@app.get("/")
 async def main():
     return "NEUROHUB-API"
+
+
+
+class UserAuthData(BaseModel):
+    id_token:str
+
+
+
+
+
+
+
+
+# --- RUN -- 
+
+if __name__ == "__main__":
+    uvicorn.run(app,host = "0.0.0.0",port = 8080)
 
