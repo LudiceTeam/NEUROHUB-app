@@ -3,3 +3,4 @@ env
 backend/database/main_database/.env
 backend/database/chats_database/.env
 backend/database/messages_database/.env
+backend/database/.env

@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 import asyncpg
 import os
 from dotenv import load_dotenv
-from jwt_models import metadata_obj,jwt_table
+from backend.database.jwt_database.jwt_models import metadata_obj,jwt_table
 import asyncio
 import atexit
 from sqlalchemy import func
@@ -104,3 +104,4 @@ async def get_user_refresh_token(email:str) -> str:
         except Exception:
             logger.exception("JWT SQL ERROR")
             return ""
+

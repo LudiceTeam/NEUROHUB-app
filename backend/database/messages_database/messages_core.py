@@ -1,4 +1,4 @@
-from messages_models import metadata_obj,messages_table
+from backend.database.messages_database.messages_models import metadata_obj,messages_table
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv

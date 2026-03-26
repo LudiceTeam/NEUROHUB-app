@@ -1,4 +1,4 @@
-from chats_models import metadata_obj,chats_table
+from backend.database.chats_database.chats_models import metadata_obj,chats_table
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
