@@ -9,6 +9,8 @@ main_table = Table(
     Column("provider_id",String,primary_key = True),
     Column("provider",String),
     Column("email",String),
+    Column("name",String),
+    Column("profile_pict",String),
     Column("sub",Boolean),
     Column("basic_sub",Boolean),
     Column("date",String),

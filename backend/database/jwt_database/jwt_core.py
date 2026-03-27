@@ -60,7 +60,7 @@ async def is_user_exists(email:str) -> bool:
             return False
 
 
-async def create_refresh_token(email:str,token:str) -> bool:
+async def create_refresh_token_db(email:str,token:str) -> bool:
     if await is_user_exists(email):
         return False
     async with AsyncSession(async_engine) as conn:

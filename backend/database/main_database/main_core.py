@@ -61,7 +61,7 @@ async def is_user_exists(email:str) -> bool:
             return False
         
         
-async def create_user(email:str,provider_id:str,provider:str = Literal["apple","google"]) -> bool:
+async def create_user(name:str,email:str,provider_id:str = None, provider:str = None,avatar_url:str = None ) -> bool:
     if await is_user_exists(email):
         return False
     
@@ -72,6 +72,8 @@ async def create_user(email:str,provider_id:str,provider:str = Literal["apple","
                     provider_id = provider_id,
                     provider = provider,
                     email = email,
+                    name = name,
+                    profile_pict = avatar_url,
                     sub = False,
                     basic_sub = False,
                     date = "",

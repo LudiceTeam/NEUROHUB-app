@@ -21,6 +21,8 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from jose import jwt
 from auth import create_access_token,create_refresh_token
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,is_user_subbed,refil_nano_requests,refil_normal_requests,get_user_req_amount_all_requests,minus_one_req,minus_one_req_nano,does_user_have_nano_requests,does_user_have_requests,is_user_subbed_basic,profile
+from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
 
 
 logger = logging.getLogger(__name__)
@@ -85,12 +87,63 @@ class AuthGoogle(BaseModel):
 async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            req.id_token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid google token")
+    
+    issuer = idinfo.get("iss")
+    if issuer not in ["accounts.google.com", "https://accounts.google.com"]:
+        raise HTTPException(status_code=401, detail="Invalid token issuer")
+
+    google_sub = idinfo.get("sub")
+    email = idinfo.get("email")
+    email_verified = idinfo.get("email_verified", False)
+    name = idinfo.get("name", "")
+    picture = idinfo.get("picture", "")
+
+    if not google_sub:
+        raise HTTPException(status_code=401, detail="Google sub not found")
+    
+    if email and not email_verified:
+        raise HTTPException(status_code=401, detail="Email is not verified")
 
 
+    try_create_user = await create_user(
+        name = name,
+        email = email,
+        provider_id = google_sub,
+        provider = "google",
+        avatar_url=picture
+    )
 
-class UserAuthData(BaseModel):
-    id_token:str
+    if not try_create_user:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already exists")
+    
+    user_data = {
+        "email":email,
+        "name":name,
+        "provider":"google"
+    }
 
+    acces_token:str = create_access_token(user_data)
+    refresh_token:str = create_refresh_token(user_data)
+
+    try_create_refresh = await create_refresh_token_db(email,refresh_token)
+
+    if not try_create_refresh:
+        await update_refresh_token(email,refresh_token)
+
+    return {
+        "access_token":acces_token,
+        "refresh_token":refresh_token,
+        "token_type":"bearer"
+    }
 
 
 
