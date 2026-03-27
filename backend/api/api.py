@@ -1,6 +1,6 @@
 from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 import uvicorn
 import json
 import hmac
@@ -16,9 +16,19 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import timedelta
 from typing import Optional
+import logging
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from jose import jwt
+from auth import create_access_token,create_refresh_token
+
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 app = FastAPI()
 
 limiter = Limiter(key_func=get_remote_address)
@@ -65,6 +75,16 @@ async def safe_get(req: Request):
 @app.get("/")
 async def main():
     return "NEUROHUB-API"
+
+
+class AuthGoogle(BaseModel):
+    id_token:str
+
+@app.post("/auth/google")
+@limiter.limit("20/minute")
+async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
 
 
