@@ -145,8 +145,14 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         "token_type":"bearer"
     }
 
+class AuthWithEmail(BaseModel):
+    email:str
+    
 
-
+@app.post("/auth/email")
+@limiter.limit("20/minute")
+async def auth_with_email(request:Request,req:AuthWithEmail,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    pass
 
 
 
