@@ -1,6 +1,6 @@
 from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 import uvicorn
 import json
 import hmac
@@ -20,10 +20,13 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from jose import jwt
-from auth import create_access_token,create_refresh_token
+from backend.api.auth import create_access_token,create_refresh_token
 from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,is_user_subbed,refil_nano_requests,refil_normal_requests,get_user_req_amount_all_requests,minus_one_req,minus_one_req_nano,does_user_have_nano_requests,does_user_have_requests,is_user_subbed_basic,profile
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
+from backend.database.email_code_db.email_core import create_code,check_code
+from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 import aiohttp
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +117,7 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         raise HTTPException(status_code=401, detail="Email is not verified")
 
 
-    try_create_user = await create_user(
+    await create_user(
         name = name,
         email = email,
         provider_id = google_sub,
@@ -122,9 +125,11 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         avatar_url=picture
     )
 
-    if not try_create_user:
-        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User already exists")
-    
+    await create_chat(
+        email = email
+    )
+
+
     user_data = {
         "email":email,
         "name":name,
@@ -145,16 +150,88 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         "token_type":"bearer"
     }
 
+
+async def send_email_code(email: str, code: str):
+    url = "https://api.resend.com/emails"
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('EMAIL_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "from": os.getenv("EMAIL_FROM"),
+        "to": [email],
+        "subject": "NEUROHUB LOGIN ",
+        "html": f"""
+        <h2>You`re code: {code}</h2>
+        <p>The code is valid for 2 minutes.</p>
+        """
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload, headers=headers) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                raise Exception(f"Ошибка отправки: {text}")
+
 class AuthWithEmail(BaseModel):
     email:str
     
 
-@app.post("/auth/email")
+@app.post("/send/code")
 @limiter.limit("20/minute")
-async def auth_with_email(request:Request,req:AuthWithEmail,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    pass
+async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
+    try:
+        email_parts = req.email.split("@")
+        if len(email_parts) != 2:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Incorrect email")
+        
+        code = random.randint(100000,999999)
+        try_create_code = await create_code(req.email,code)
+        if not try_create_code:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
+        
+        await send_email_code(req.email,code)
 
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("API ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+class Verify_Code(BaseModel):
+    email:str
+    code:int
+
+@app.post("/check/code")
+@limiter.limit("20/minute")
+async def check_code_router(request:Request,req:Verify_Code,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+        email_parts = req.email.split("@")
+        if len(email_parts) != 2:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Incorrect email")
+
+        check_result = await check_code(req.email,req.code)
+
+        if not check_result:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid code")
+        
+        # jwt creating and creating user data in SQL
+        return {
+            "message":"ACCES GRANTED"
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("API ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
 # --- RUN -- 

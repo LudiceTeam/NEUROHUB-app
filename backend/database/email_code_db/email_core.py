@@ -1,4 +1,5 @@
 from sqlalchemy import text,select,and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from datetime import datetime,timedelta
 from typing import List,Literal
@@ -12,7 +13,7 @@ import atexit
 from sqlalchemy import func
 import logging
 from datetime import datetime,timezone
-#backend.database.
+#backend.database.email_code_db.
 
 
 logger = logging.getLogger(__name__)
@@ -63,18 +64,23 @@ async def is_code_exists(email:str) -> bool:
             return False
         
 async def create_code(email:str,code:int) -> bool:
-    if await is_code_exists(email):
-        return False
-    
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 expires_at = datetime.now(timezone.utc) + timedelta(minutes = 2)
-                stmt = email_table.insert().values(
+                stmt = insert(email_table).values(
                     email = email,
                     code = code,
                     expires_at = expires_at
                 )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=[email_table.c.email],
+                    set_={
+                        "code": code,
+                        "expires_at": expires_at
+                    }
+                )
+
                 await conn.execute(stmt)
                 return True
             except Exception:
@@ -92,10 +98,7 @@ async def delete_line(email:str):
                 logger.exception("EMAIL SQL ERROR")
                 return
 
-async def check_code(email:str,code:str) -> bool:
-    if not await is_code_exists(email):
-        return False
-    
+async def check_code(email:str,code:int) -> bool:    
     async with AsyncSession(async_engine) as conn:
         try:
             stmt = select(email_table.c.code,email_table.c.expires_at).where(email_table.c.email == email)
@@ -119,4 +122,3 @@ async def check_code(email:str,code:str) -> bool:
             logger.exception("EMAIL SQL ERROR")
             return False
     
-        
