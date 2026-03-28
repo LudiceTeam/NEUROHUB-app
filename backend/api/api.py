@@ -117,6 +117,8 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         raise HTTPException(status_code=401, detail="Email is not verified")
 
 
+
+    # default sql data
     await create_user(
         name = name,
         email = email,
@@ -223,10 +225,43 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         if not check_result:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid code")
         
-        # jwt creating and creating user data in SQL
-        return {
-            "message":"ACCES GRANTED"
+
+        # default sql data
+
+        await create_user(
+            name = None,
+            email = req.email,
+            provider_id = None,
+            provider = "email",
+            avatar_url = None
+        )
+
+        await create_chat(
+            email = req.email
+        )
+
+
+
+        user_data = {
+        "email":req.email,
+        "provider":"email"
         }
+
+        acces_token:str = create_access_token(user_data)
+        refresh_token:str = create_refresh_token(user_data)
+
+        try_create_refresh = await create_refresh_token_db(req.email,refresh_token)
+
+        if not try_create_refresh:
+            await update_refresh_token(req.email,refresh_token)
+
+        return {
+            "access_token":acces_token,
+            "refresh_token":refresh_token,
+            "token_type":"bearer"
+        }
+        
+
     except HTTPException:
         raise
     except Exception:
