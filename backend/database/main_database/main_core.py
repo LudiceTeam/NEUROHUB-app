@@ -471,3 +471,20 @@ async def profile(email:str) -> dict:
             logger.exception("MAIN SQL ERROR")
             return {}
 
+async def get_user_avatar_and_name(email:str) -> dict:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = main_table.select(main_table.c.name,main_table.c.profile_pict).where(main_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.fetchone()
+            if not data:
+                return {}
+            
+            name,avatar = data
+            return {
+                "name":name,
+                "avatar":avatar
+            }
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return {}

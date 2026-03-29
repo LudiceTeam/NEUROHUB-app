@@ -311,7 +311,7 @@ async def refresh_token_api(request:Request,refresh_token:str):
         "token_type": "bearer"
     }
 
-async def get_current_user(token: str = Header(..., alias="Authorization")) -> dict:
+async def get_current_user(token: str = Header(..., alias="Authorization")) -> str:
     """
     Проверяет access token и возвращает данные пользователя.
     Токен должен передаваться в формате: "Bearer <token>"
