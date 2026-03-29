@@ -311,6 +311,51 @@ async def refresh_token_api(request:Request,refresh_token:str):
         "token_type": "bearer"
     }
 
+async def get_current_user(token: str = Header(..., alias="Authorization")) -> dict:
+    """
+    Проверяет access token и возвращает данные пользователя.
+    Токен должен передаваться в формате: "Bearer <token>"
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        # Проверяем формат токена
+        if not token.startswith("Bearer "):
+            raise credentials_exception
+        
+        # Извлекаем сам токен
+        token = token.replace("Bearer ", "")
+        
+        # Декодируем токен
+        payload = jwt.decode(
+            token, 
+            os.getenv("SECRET_KEY"), 
+            algorithms=[os.getenv("ALGORITHM")]
+        )
+        
+        email: str = payload.get("email")
+        if email is None:
+            raise credentials_exception
+            
+        return email
+        
+        
+    except jwt.ExpiredSignatureError:
+        # Токен истек - клиент должен использовать refresh
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except JWTError:
+        raise credentials_exception
+
+
+
 
 # --- RUN -- 
 
