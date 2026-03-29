@@ -362,7 +362,25 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
         )
     except JWTError:
         raise credentials_exception
+    
 
+
+
+@app.post("/profile")
+@limiter.limit("20/minute")
+async def profile_hadnler(request:Request,email:str = Depends(get_current_user)):
+
+    try:
+        profile_dict = await profile(email)
+
+        if profile_dict == {}:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,deatil = "User not found")
+
+        return profile_dict
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
 

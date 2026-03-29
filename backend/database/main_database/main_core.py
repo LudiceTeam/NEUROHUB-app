@@ -236,8 +236,8 @@ async def unsub_func_premium(email:str) -> bool:
                 stmt = main_table.update().where(main_table.c.email == email).values(
                     sub=False,
                     date="",
-                    nano_req = 3,
-                    requests = 20,
+                    nano_req = 1,
+                    requests = 10,
                     last_refil_date = str(datetime.now().date())
                 )
 
@@ -260,12 +260,19 @@ async def unsub_func_premium(email:str) -> bool:
 # ---- REQUESTS ----
 
 
-async def refil_nano_requests(email:str,amount:int) -> bool:
+async def refil_nano_requests(email:str) -> bool:
     user = await get_user_state(email)
 
     if not user:
         return False
     
+    amount = 1
+
+    if user["sub"]:
+        amount = 15
+    
+    elif user["basic_sub"]:
+        amount = 3
 
     datetime_now = datetime.now().date()
 
@@ -292,12 +299,21 @@ async def refil_nano_requests(email:str,amount:int) -> bool:
                 return False
             
 
-async def refil_normal_requests(email:str,amount:int) -> bool:
+async def refil_normal_requests(email:str) -> bool:
 
     user = await get_user_state(email)
 
     if not user:
         return False
+    
+
+    amount = 10
+
+    if user["sub"]:
+        return False 
+    
+    elif user["basic_sub"]:
+        amount = 25
     
     datetime_now = datetime.now().date()
 
