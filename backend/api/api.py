@@ -21,7 +21,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from jose import jwt
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,is_user_subbed,refil_nano_requests,refil_normal_requests,get_user_req_amount_all_requests,minus_one_req,minus_one_req_nano,does_user_have_nano_requests,does_user_have_requests,is_user_subbed_basic,profile
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
@@ -244,6 +244,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
         user_data = {
         "email":req.email,
+        "name":email_parts[0],
         "provider":"email"
         }
 
@@ -267,6 +268,48 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
     except Exception:
         logger.exception("API ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+@limiter.limit("20/minute")
+@app.post("/refresh",dependencies=[Depends(safe_get)])
+async def refresh_token_api(request:Request,refresh_token:str):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Invalid refresh token",
+    )
+    
+    try:
+        payload = jwt.decode(refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
+        email: str = payload.get("email")
+        
+        
+        if email is None:
+            raise credentials_exception
+        
+        stored_token = await get_user_refresh_token(email)
+        if stored_token != refresh_token:
+            raise credentials_exception
+        
+        user_data = await get_user_data_for_jwt(email)
+        if user_data == {} or not user_data.get("provider"):
+            raise credentials_exception
+                
+    except JWTError:
+        raise credentials_exception
+    
+    
+    new_access_token = create_access_token(user_data)
+    
+    new_refresh_token = create_refresh_token(user_data)
+    
+    await update_refresh_token(email,new_refresh_token)
+    
+    
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer"
+    }
 
 
 # --- RUN -- 

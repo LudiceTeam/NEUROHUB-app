@@ -1,5 +1,6 @@
 from sqlalchemy import text,select,and_
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime,timedelta
 from typing import List,Literal
 from sqlalchemy.orm import sessionmaker
@@ -62,13 +63,11 @@ async def is_user_exists(email:str) -> bool:
         
         
 async def create_user(name:str,email:str,provider_id:str = None, provider:str = None,avatar_url:str = None ) -> bool:
-    if await is_user_exists(email):
-        return False
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = main_table.insert().values(
+                stmt = insert(main_table).values(
                     provider_id = provider_id,
                     provider = provider,
                     email = email,
@@ -80,8 +79,12 @@ async def create_user(name:str,email:str,provider_id:str = None, provider:str = 
                     last_refil_date = str(datetime.now().date()),
                     requests = 10,
                     nano_req = 1
+                ).on_conflict_do_nothing(
+                    index_elements=[main_table.c.email]
                 )
-                await conn.execute(stmt)
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
@@ -90,54 +93,68 @@ async def create_user(name:str,email:str,provider_id:str = None, provider:str = 
 
 # ---- HELPERS ----
 
-async def transform_date_to_int(date:str) -> int:
+def transform_date_to_int(date:str) -> int:
         dt:str = ""
         for tm in str(date).split('-'):
             dt += tm
         return int(dt)
 
-async def get_user_sub_date_end(email:str) -> str:
-    if not await is_user_exists(email):
-        return ""
+async def get_user_state(email: str) -> dict:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(
+                main_table.c.email,
+                main_table.c.sub,
+                main_table.c.basic_sub,
+                main_table.c.date,
+                main_table.c.last_refil_date,
+                main_table.c.requests,
+                main_table.c.nano_req
+            ).where(main_table.c.email == email)
+
+            res = await conn.execute(stmt)
+            row = res.fetchone()
+
+            if row is None:
+                return {}
+
+            return dict(row._mapping)
+
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return {}
+        
+async def get_user_data_for_jwt(email:str) -> dict:
     
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(main_table.c.date).where(main_table.c.email == email)
-
+            stmt = select(main_table.c.name,main_table.c.provider).where(main_table.c.email == email)
             res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
+            data = res.fetchone()
 
-            return data
-        except Exception as e:
+            if not data:
+                return {}
+            
+            name,provider = data
+
+            return {
+                "email":email,
+                "name":name,
+                "provider":provider
+            }
+
+
+        except Exception:
             logger.exception("MAIN SQL ERROR")
-            return ""
-
-
-async def get_user_last_refil_date(email: str) -> str:
-    if not await is_user_exists(email):
-        return ""
-
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(main_table.c.last_refil_date).where(main_table.c.email == email)
-
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-
-            return data
-        except Exception as e:
-            logger.exception("MAIN SQL ERROR")
-            return ""
+            return {}
 
 
 # function to check user sub date end to unsub
-async def check_date_for_sub(email:str,datetime_now_str:str) -> bool:
-    datetime_now_int = await transform_date_to_int(datetime_now_str)
+def check_date_for_sub(datetime_now_str:str,user_end_data:str) -> bool:
+    datetime_now_int = transform_date_to_int(datetime_now_str)
 
 
-    user_end_data = await get_user_sub_date_end(email)
-
-    user_end_data_int = await transform_date_to_int(user_end_data)
+    user_end_data_int = transform_date_to_int(user_end_data)
 
     if datetime_now_int < user_end_data_int:
         return False
@@ -145,13 +162,12 @@ async def check_date_for_sub(email:str,datetime_now_str:str) -> bool:
     return True
 
 #function to check user last refil day to refil today
-async def check_date_for_refil(email:str,datetime_now_str:str) -> bool:
-    datetime_now_int = await transform_date_to_int(datetime_now_str)
-    user_last_data = await get_user_last_refil_date(email)
+def check_date_for_refil(datetime_now_str:str,user_last_refil_data:str) -> bool:
+    datetime_now_int =  transform_date_to_int(datetime_now_str)
 
-    user_last_data_int = await transform_date_to_int(user_last_data)
+    user_last_data_int = transform_date_to_int(user_last_refil_data)
 
-    if datetime_now_int < user_last_data_int:
+    if datetime_now_int <= user_last_data_int:
         return False
 
     return True
@@ -161,28 +177,32 @@ async def check_date_for_refil(email:str,datetime_now_str:str) -> bool:
 
 # ---- PREMIUM SUB ----
 async def subscribe_premium(email:str) -> bool:
+    user = await get_user_state(email)
 
-    if not await is_user_exists(email):
+    if not user:
         return False
 
-
-    if await is_user_subbed(email):
+    if user["sub"]:
         return False
 
-    if await is_user_subbed_basic(email):
+    if user["basic_sub"]:
         return False
+    
+    date = datetime.now().date() + timedelta(days = 30)
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.email == email).values(
                     sub = True,
-                    date = str(datetime.now().date()),
+                    date = str(date),
                     last_refil_date = str(datetime.now().date()),
                     nano_req = 15
                 )
 
-                await conn.execute(stmt)
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
@@ -191,18 +211,19 @@ async def subscribe_premium(email:str) -> bool:
 
 
 async def unsub_func_premium(email:str) -> bool:
-    if not await is_user_exists(email):
+    user = await get_user_state(email)
+
+    if not user:
         return False
-
-
-    if not await is_user_subbed(email):
+    
+    if not user["sub"]:
         return False
 
     datetime_now = datetime.now().date()
 
     datetime_now_str = str(datetime_now)
 
-    date_check_result:bool = await check_date_for_sub(email,datetime_now_str)
+    date_check_result:bool = check_date_for_sub(datetime_now_str,user["date"])
 
 
     if not date_check_result:
@@ -220,27 +241,17 @@ async def unsub_func_premium(email:str) -> bool:
                     last_refil_date = str(datetime.now().date())
                 )
 
-                await conn.execute(stmt)
+
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
+                
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
                 return False
 
 
-async def is_user_subbed(email:str) -> bool:
-    if not await is_user_exists(email):
-        return False
-
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(main_table.c.sub).where(main_table.c.email == email)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-
-            return data if data is not None else False
-        except Exception as e:
-            logger.exception(f"MAIN SQL Error")
-            return False
 
 
 
@@ -250,19 +261,19 @@ async def is_user_subbed(email:str) -> bool:
 
 
 async def refil_nano_requests(email:str,amount:int) -> bool:
-    if not await is_user_exists(email):
+    user = await get_user_state(email)
+
+    if not user:
         return False
-
-
-
+    
 
     datetime_now = datetime.now().date()
 
     datetime_now_str = str(datetime_now)
 
-    result_date:bool = await check_date_for_refil(email,datetime_now_str)
+    result_date:bool = check_date_for_refil(datetime_now_str,user["last_refil_date"])
 
-    if result_date:
+    if not result_date:
         return False
 
     async with AsyncSession(async_engine) as conn:
@@ -272,7 +283,9 @@ async def refil_nano_requests(email:str,amount:int) -> bool:
                     nano_req = amount,
                     last_refil_date = str(datetime.now().date())
                 )
-                await conn.execute(stmt)
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
@@ -280,17 +293,19 @@ async def refil_nano_requests(email:str,amount:int) -> bool:
             
 
 async def refil_normal_requests(email:str,amount:int) -> bool:
-    if not await is_user_exists(email):
+
+    user = await get_user_state(email)
+
+    if not user:
         return False
-
-
+    
     datetime_now = datetime.now().date()
 
     datetime_now_str = str(datetime_now)
 
-    result_date:bool = await check_date_for_refil(email,datetime_now_str)
+    result_date:bool = check_date_for_refil(datetime_now_str,user["last_refil_date"])
 
-    if result_date:
+    if not result_date:
         return False
 
     async with AsyncSession(async_engine) as conn:
@@ -306,33 +321,17 @@ async def refil_normal_requests(email:str,amount:int) -> bool:
                 logger.exception(f"MAIN SQL Error")
                 return False
 
-async def get_user_req_amount_all_requests(email:str) -> dict:
-    if not await is_user_exists(email):
-        return {}
 
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(main_table.c.requests,main_table.c.nano_req).where(main_table.c.email == email)
-            res = await conn.execute(stmt)
-            data = res.fetchone()
-
-            requests,nano_req = data
-
-            return {
-                "requests":requests,
-                "nano_requests":nano_req
-            }
-            
-        except Exception as e:
-            logger.exception(f"MAIN SQL Error")
-            return {}
         
 
 async def minus_one_req(email:str):
-    if not await is_user_exists(email):
+    user = await get_user_state(email)
+
+    if not user:
         return
     
-    if is_user_subbed(email):
+    
+    if user["sub"]:
         return
     
     async with AsyncSession(async_engine) as conn:
@@ -348,8 +347,6 @@ async def minus_one_req(email:str):
 
 
 async def minus_one_req_nano(email: str):
-    if not await is_user_exists(email):
-        return
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -363,91 +360,66 @@ async def minus_one_req_nano(email: str):
                 return
 
 
-async def does_user_have_requests(email:str) -> bool | None:
-
-    if not await is_user_exists(email):
-        return False
-    
-    if is_user_subbed(email):
-        return
-    
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(main_table.c.requests).where(main_table.c.email == email)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-            return data != 0
-        except Exception as e:
-            logger.exception("MAIN SQL ERROR")
-            return 
-    
-
-async def does_user_have_nano_requests(email:str) -> bool | None:
-
-    if not await is_user_exists(email):
-        return False
-        
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(main_table.c.nano_req).where(main_table.c.email == email)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-            return data != 0
-        except Exception as e:
-            logger.exception("MAIN SQL ERROR")
-            return 
         
 # ---- BASIC SUB ----
 
-async def is_user_subbed_basic(email:str) -> bool:
-    if not await is_user_exists(email):
-        return False
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(main_table.c.basic_sub).where(main_table.c.email == email)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-            return data if data is not None else False
-        except Exception:
-            logger.exception("MAIN SQL ERROR")
-            return False
 
 
 async def subscribe_basic(email:str) -> bool:
-    if not await is_user_exists(email):
+    user = await get_user_state(email)
+
+    if not user:
         return False
     
-    if await is_user_subbed(email):
+    if user["sub"]:
         return False 
     
-    if await is_user_subbed_basic(email):
+    if user["basic_sub"]:
         return False
+    
+    date = datetime.now().date() + timedelta(days = 30)
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.email == email).values(
-                    date = str(datetime.now().date()),
+                    date = str(date),
                     last_refil_date = str(datetime.now().date()),
                     nano_req = 3,
-                    requests = 25
+                    requests = 25,
+                    basic_sub = True
                 )
-                await conn.execute(stmt)
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
                 return True
             except Exception as e:
                 logger.exception("MAIN SQL ERROR")
                 return False
 
 async def unsub_basic(email:str) -> bool:
+    
+    user = await get_user_state(email)
 
-    if not await is_user_exists(email):
+    if not user:
         return False
     
-    if not await is_user_subbed_basic(email):
+    if not user["basic_sub"]:
         return False
     
-    if await is_user_subbed(email):
+    if user["sub"]:
         return False
+    
+    datetime_now = datetime.now().date()
+
+    datetime_now_str = str(datetime_now)
+
+    date_check_result:bool = check_date_for_sub(datetime_now_str,user["date"])
+
+
+    if not date_check_result:
+        return False
+
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -456,9 +428,12 @@ async def unsub_basic(email:str) -> bool:
                     date = "",
                     last_refil_date = str(datetime.now().date()),
                     nano_req = 1,
-                    requests = 10
+                    requests = 10,
+                    basic_sub = False
                 )
-                await conn.execute(stmt)
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
                 return True
             except Exception:
                 logger.exception("MAIN SQL ERROR")
@@ -466,9 +441,7 @@ async def unsub_basic(email:str) -> bool:
             
 
 
-async def profile(email:str) -> dict[str]:
-    if not await is_user_exists(email):
-        return {}
+async def profile(email:str) -> dict:
     
     async with AsyncSession(async_engine) as conn:
         try:
@@ -478,6 +451,8 @@ async def profile(email:str) -> dict[str]:
 
             data = res.fetchone()
 
+            if data is None:
+                return {}
 
             sub,basic_sub,date,requests,nano_req = data
 
