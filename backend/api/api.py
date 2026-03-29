@@ -25,6 +25,7 @@ from backend.database.main_database.main_core import create_user,subscribe_basic
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
+from backend.database.ai_choose_db.ai_core import create_default_user_model_name
 import aiohttp
 import random
 
@@ -128,6 +129,10 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
     )
 
     await create_chat(
+        email = email
+    )
+
+    await create_default_user_model_name(
         email = email
     )
 
@@ -237,6 +242,10 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         )
 
         await create_chat(
+            email = req.email
+        )
+
+        await create_default_user_model_name(
             email = req.email
         )
 
