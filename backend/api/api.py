@@ -19,15 +19,19 @@ from typing import Optional
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from jose import jwt
+from jose import jwt,JWTError
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
-from backend.database.ai_choose_db.ai_core import create_default_user_model_name
+from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
+from backend.database.messages_database.messages_core import create_message,get_chat_messages
 import aiohttp
 import random
+from openai import AsyncOpenAI
+from typing import List
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -167,15 +171,104 @@ async def send_email_code(email: str, code: str):
     }
 
     payload = {
-        "from": os.getenv("EMAIL_FROM"),
-        "to": [email],
-        "subject": "NEUROHUB LOGIN ",
-        "html": f"""
-        <h2>You`re code: {code}</h2>
-        <p>The code is valid for 2 minutes.</p>
-        """
+    "from": os.getenv("EMAIL_FROM"),
+    "to": [email],
+    "subject": "NEUROHUB Login Verification",
+    "html": f"""
+    <div style="font-family: Arial, sans-serif; background-color:#0f172a; padding:40px; color:#ffffff;">
+        <div style="max-width:600px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; text-align:center;">
+            
+            <h1 style="color:#38bdf8;">NEUROHUB</h1>
+            
+            <h2 style="margin-top:20px;">Login Verification</h2>
+            
+            <p style="color:#cbd5f5; font-size:16px;">
+                We received a request to log in to your account.
+                Please use the verification code below to proceed.
+            </p>
+            
+            <div style="margin:30px 0;">
+                <span style="
+                    display:inline-block;
+                    font-size:32px;
+                    letter-spacing:8px;
+                    padding:15px 25px;
+                    background:#0ea5e9;
+                    border-radius:10px;
+                    color:#ffffff;
+                    font-weight:bold;
+                ">
+                    {code}
+                </span>
+            </div>
+            
+            <p style="color:#94a3b8;">
+                This code is valid for <b>2 minutes</b>.
+            </p>
+
+            <p style="margin-top:20px; color:#64748b; font-size:14px;">
+                If you didn’t request this, you can safely ignore this email.
+            </p>
+
+        </div>
+    </div>
+    """
+}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload, headers=headers) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                raise Exception(f"Ошибка отправки: {text}")
+            
+async def send_email_sub_over(email: str):
+    url = "https://api.resend.com/emails"
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('EMAIL_API_KEY')}",
+        "Content-Type": "application/json"
     }
 
+    payload = {
+    "from": os.getenv("EMAIL_FROM"),
+    "to": [email],
+    "subject": "Your NEUROHUB Subscription Has Ended",
+    "html": f"""
+    <div style="font-family: Arial, sans-serif; background-color:#020617; padding:40px; color:#ffffff;">
+        <div style="max-width:650px; margin:0 auto; background:#0f172a; border-radius:16px; padding:35px;">
+            
+            <h1 style="text-align:center; color:#38bdf8;">NEUROHUB</h1>
+            
+            <h2 style="margin-top:25px; text-align:center;">Subscription Expired</h2>
+            
+            <p style="margin-top:20px; color:#cbd5f5; font-size:16px; line-height:1.6;">
+                We wanted to let you know that your NEUROHUB subscription has officially come to an end.
+            </p>
+            
+            <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
+                We truly appreciate the time you spent with us. During your subscription, you had access to advanced AI tools,
+                powerful features, and an enhanced experience designed to boost your productivity and creativity.
+            </p>
+
+            <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
+                We hope NEUROHUB helped you achieve your goals, whether it was building projects, exploring new ideas,
+                or simply making your workflow faster and smarter.
+            </p>
+
+
+            <p style="color:#94a3b8; font-size:15px; line-height:1.6;">
+                If you wish to continue using premium features, you can renew your subscription at any time.
+                We’ll be happy to have you back.
+            </p>
+
+            <p style="margin-top:25px; color:#64748b; font-size:14px;">
+                Thank you for choosing NEUROHUB 💙
+            </p>
+
+        </div>
+    </div>
+    """
+}
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json=payload, headers=headers) as resp:
             if resp.status >= 400:
@@ -366,6 +459,20 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
 
 
 
+async def refil_unsub(email:str):
+    user_data = await get_user_state(email)
+
+    await refil_nano_requests(email)
+    await refil_normal_requests(email)
+    res_basic = await unsub_basic(email)
+    res_premium = await unsub_func_premium(email)
+
+    if res_basic:
+        await send_email_sub_over(email)
+
+    if res_premium:
+        await send_email_sub_over(email)
+
 @app.post("/profile")
 @limiter.limit("20/minute")
 async def profile_hadnler(request:Request,email:str = Depends(get_current_user)):
@@ -383,6 +490,153 @@ async def profile_hadnler(request:Request,email:str = Depends(get_current_user))
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+
+
+
+OPEN_AI_KEY = os.getenv("OPEN_AI")
+
+
+client = AsyncOpenAI(
+    api_key=OPEN_AI_KEY,
+    base_url="https://openrouter.ai/api/v1",
+    timeout=60.0,
+    max_retries=2
+)
+
+async def ask_chat_gpt(request: str | List[str], user_model:str) -> str | bytes:
+    try:
+        req = ""
+        image_base64 = None
+        if isinstance(request, list):
+            req = request[0]
+            image_base64 = request[1]
+        else:
+            req = request  
+        
+        
+        content = [
+                        {
+                            "type": "text",
+                            "text": req
+                        }
+                    ]
+            
+        if image_base64:
+            content.append(
+                {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}"
+                        }
+                }
+            )
+
+
+        if user_model == "google/gemini-3-pro-image-preview":
+            response = await client.chat.completions.create(
+            model=user_model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ],
+            extra_body={
+                "modalities": ["image", "text"],  # КЛЮЧЕВОЙ ПАРАМЕТР!
+            }
+        )
+            message = response.choices[0].message
+            if hasattr(message, 'images') and message.images:
+                img_dict = message.images[0]
+                if 'image_url' in img_dict:
+                    img_data = img_dict['image_url']  # <-- ВОТ ТАК ПРАВИЛЬНО!
+                    
+                    true_img_data = img_data["url"]
+                   
+                    if ',' in true_img_data:
+                        base64_str = true_img_data.split(',')[1]
+                    else:
+                        base64_str = true_img_data
+                    
+                    
+                    image_bytes = base64.b64decode(base64_str)
+                    return base64_str
+            return f"🤔 Нет изображения в ответе."
+            
+            
+
+        response = await client.chat.completions.create(  # <-- ВАЖНО: используем chat.completions
+            model=user_model,  # <-- ПРАВИЛЬНОЕ имя модели
+            messages=[
+                {"role": "user", "content": content}
+            ]
+        )
+        
+        result = response.choices[0].message.content.strip()
+        if not result:
+            return "🤔 Gemini вернул пустой ответ."
+        
+        return result
+        
+    except Exception as e:
+        print(f"OpenAI SDK error: {e}")
+        return f"❌ Ошибка: {str(e)[:100]}"
+
+
+
+
+
+
+
+class AskText(BaseModel):
+    chat_id:str
+    request:str
+
+@app.post("/ask_text")
+@limiter.limit("20/minute")
+async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+
+    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+        
+
+    try:
+
+        user_data = get_user_state(email)
+
+        await refil_unsub(email)
+
+        user_model = await get_user_model_name(email)
+        if user_model == "google/gemini-3-pro-image-preview":
+
+            user_nano_req = user_data["nano_req"]
+            if user_nano_req == 0:
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+
+            response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
+
+
+            await minus_one_req_nano(email)    
+            return response #  либо текст, либо base64 код картинки
+
+
+
+        current_chat_messages = await get_chat_messages()
+        promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
+
+История сообщений пользователя (для понимания стиля и контекста):
+{current_chat_messages}
+
+Текущее сообщение пользователя (на которое нужно ответить):
+{str(req.request)}
+
+Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
+""" 
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 # --- RUN -- 
 
