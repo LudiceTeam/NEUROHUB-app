@@ -461,7 +461,7 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
 
 
 async def refil_unsub(email:str):
-    
+
     await refil_nano_requests(email)
     await refil_normal_requests(email)
     res_basic = await unsub_basic(email)
@@ -602,11 +602,15 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
         await refil_unsub(email)
 
 
-        current_chat_messages = await get_chat_messages()
+        current_chat_messages = await get_chat_messages(req.chat_id)
+        decoded_messages = []
+        for message in current_chat_messages:
+            decoded_messages.append(decrypt(message))
+
         promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
 
 История сообщений пользователя (для понимания стиля и контекста):
-{current_chat_messages}
+{decoded_messages}
 
 Текущее сообщение пользователя (на которое нужно ответить):
 {str(req.request)}
@@ -626,7 +630,9 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
 
 
             await minus_one_req_nano(email)    
-            return response #  либо текст, либо base64 код картинки
+            return {
+                "image":response
+            } #  либо текст, либо base64 код картинки
 
         if not user_data["sub"]:
             if user_data["requests"] == 0:
@@ -668,6 +674,115 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
         raise
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+
+
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+@app.post("/ask_photo")
+@limiter.limit("20/minute")
+async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(...),email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+        
+    try:
+        if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported file type"
+            )
+        
+        image_bytes = image.read()
+
+        if len(image_bytes) > MAX_IMAGE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="Image too large"
+            )
+        
+        image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
+
+
+        user_data = get_user_state(email)
+
+        await refil_unsub(email)
+
+
+        current_chat_messages = await get_chat_messages(req.chat_id)
+        decoded_messages = []
+        for message in current_chat_messages:
+            decoded_messages.append(decrypt(message))
+
+
+        promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
+
+История сообщений пользователя (для понимания стиля и контекста):
+{decoded_messages}
+
+Текущее сообщение пользователя (на которое нужно ответить):
+{str(req.request)}
+
+Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
+""" 
+        user_model = await get_user_model_name(email)
+        if user_model == "google/gemini-3-pro-image-preview":
+
+            user_nano_req = user_data["nano_req"]
+            if user_nano_req == 0:
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+
+            response = await ask_chat_gpt([req.request,image_base_64],"google/gemini-3-pro-image-preview")
+
+
+            await minus_one_req_nano(email)    
+            return {
+                "image":response
+            } #  либо текст, либо base64 код картинки
+        
+
+
+        if not user_data["sub"]:
+            if user_data["requests"] == 0:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+
+            response = await ask_chat_gpt([promt,image_base_64],user_model)
+
+            await minus_one_req(email)
+
+            encrypted_message = encrypt(req.request)
+
+            await create_message(
+                email = email,
+                chat_id = req.chat_id,
+                message = encrypted_message,
+                response = response
+            )
+
+            return {
+                "message":response
+            }
+        else:
+            response = await ask_chat_gpt([promt,image_base_64],user_model)
+            encrypted_message = encrypt(req.request)
+
+            await create_message(
+                email = email,
+                chat_id = req.chat_id,
+                message = encrypted_message,
+                response = response
+            )
+
+            return {
+                "message":response
+            }
+        
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
 
 # --- RUN -- 
 
