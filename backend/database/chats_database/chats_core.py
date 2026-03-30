@@ -8,7 +8,7 @@ import logging
 from typing import List
 from sqlalchemy import select
 import uuid
-
+from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
 
@@ -41,34 +41,29 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_chat(email:str):
+async def create_chat(email:str) -> str:
+
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = chats_table.insert().values(
+                chat_id = str(uuid.uuid4())
+                stmt = insert(chats_table).values(
                     email = email,
-                    chat_id = str(uuid.uuid4())
+                    chat_id = chat_id
+                ).on_conflict_do_nothing(
+                    index_elements=[chats_table.c.chat_id]
                 )
                 await conn.execute(stmt)
+
+                return chat_id
             except Exception:
                 logger.exception("CHATS SQL ERROR")
                 return
             
-async def is_chat_exists(chat_id:str) -> bool:
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(chats_table.c.chat_id).where(chats_table.c.chat_id == chat_id)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-
-            return True if data is not None else False
-        except Exception:
-            logger.exception("CHATS SQL ERROR")
-            return False
 
 async def delete_chat(chat_id:str) -> bool:
-    if not await is_chat_exists(chat_id):
-        return False
+
+
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -81,6 +76,7 @@ async def delete_chat(chat_id:str) -> bool:
 
 
 async def get_user_chats(email:str) -> List[str]:
+
     async with AsyncSession(async_engine) as conn:
         try:
             stmt = select(chats_table.c.chat_id).where(chats_table.c.email == email)

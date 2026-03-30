@@ -1,6 +1,6 @@
-from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile
+from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile,Form
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel,EmailStr
 import uvicorn
 import json
 import hmac
@@ -33,6 +33,7 @@ import random
 from openai import AsyncOpenAI
 from typing import List
 import base64
+from jose.exceptions import ExpiredSignatureError, JWTError
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,8 @@ async def safe_get(req: Request):
         
         if not await asyncio.to_thread(hmac.compare_digest, api, os.getenv("api")):
             raise HTTPException(status_code=401, detail="Invalid API key")
-            
+    except HTTPException:
+        raise      
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid api key")
 
@@ -94,7 +96,7 @@ class AuthGoogle(BaseModel):
 @app.post("/auth/google")
 @limiter.limit("20/minute")
 async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
@@ -133,9 +135,6 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         avatar_url=picture
     )
 
-    await create_chat(
-        email = email
-    )
 
     await create_default_user_model_name(
         email = email
@@ -277,7 +276,7 @@ async def send_email_sub_over(email: str):
                 raise Exception(f"Ошибка отправки: {text}")
 
 class AuthWithEmail(BaseModel):
-    email:str
+    email:EmailStr
     
 
 @app.post("/send/code")
@@ -287,10 +286,7 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-        email_parts = req.email.split("@")
-        if len(email_parts) != 2:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Incorrect email")
-        
+       
         code = random.randint(100000,999999)
         try_create_code = await create_code(req.email,code)
         if not try_create_code:
@@ -305,7 +301,7 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 class Verify_Code(BaseModel):
-    email:str
+    email:EmailStr
     code:int
 
 @app.post("/check/code")
@@ -316,8 +312,6 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
     try:
         email_parts = req.email.split("@")
-        if len(email_parts) != 2:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Incorrect email")
 
         check_result = await check_code(req.email,req.code)
 
@@ -335,9 +329,6 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
             avatar_url = None
         )
 
-        await create_chat(
-            email = req.email
-        )
 
         await create_default_user_model_name(
             email = req.email
@@ -447,7 +438,7 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
         return email
         
         
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         # Токен истек - клиент должен использовать refresh
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -481,7 +472,7 @@ async def profile_hadnler(request:Request,email:str = Depends(get_current_user))
         profile_dict = await profile(email)
 
         if profile_dict == {}:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,deatil = "User not found")
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User not found")
 
         return profile_dict
     except HTTPException:
@@ -584,33 +575,46 @@ async def ask_chat_gpt(request: str | List[str], user_model:str) -> str | bytes:
 
 
 class AskText(BaseModel):
-    chat_id:str
+    chat_id:Optional[str] = None
     request:str
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
 async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
 
-    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
         
 
     try:
 
-        user_data = get_user_state(email)
-
         await refil_unsub(email)
 
+        
+        chat_id = req.chat_id
+        if req.chat_id is None:
+            chat_id = await create_chat(email)
 
-        current_chat_messages = await get_chat_messages(req.chat_id)
+        user_data = await get_user_state(email)
+
+        if user_data == {}:
+            return {
+                "message":"None"
+            }
+
+
+
+        current_chat_messages = await get_chat_messages(chat_id)
         decoded_messages = []
         for message in current_chat_messages:
             decoded_messages.append(decrypt(message))
 
+        message_history:str = "\n".join(decoded_messages)
+
         promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
 
 История сообщений пользователя (для понимания стиля и контекста):
-{decoded_messages}
+{message_history}
 
 Текущее сообщение пользователя (на которое нужно ответить):
 {str(req.request)}
@@ -647,7 +651,7 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
 
             await create_message(
                 email = email,
-                chat_id = req.chat_id,
+                chat_id = chat_id,
                 message = encrypted_message,
                 response = response
             )
@@ -655,13 +659,14 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
             return {
                 "message":response
             }
+        
         else:
             response = await ask_chat_gpt(promt,user_model)
             encrypted_message = encrypt(req.request)
 
             await create_message(
                 email = email,
-                chat_id = req.chat_id,
+                chat_id = chat_id,
                 message = encrypted_message,
                 response = response
             )
@@ -681,10 +686,18 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
-async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(...),email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
-        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-        
+async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
+    request_text: str = Form(...),image:UploadFile = File(...),email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    
+    data_to_verify = {
+        "chat_id":chat_id_form,
+        "request":request_text
+    }
+
+    if not verify_signature(data_to_verify,x_signature,x_timestamp):
+         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+
     try:
         if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
             raise HTTPException(
@@ -692,7 +705,7 @@ async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(
                 detail="Unsupported file type"
             )
         
-        image_bytes = image.read()
+        image_bytes = await image.read()
 
         if len(image_bytes) > MAX_IMAGE_SIZE:
             raise HTTPException(
@@ -702,25 +715,34 @@ async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(
         
         image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
 
-
-        user_data = get_user_state(email)
-
         await refil_unsub(email)
 
+        user_data = await get_user_state(email)
 
-        current_chat_messages = await get_chat_messages(req.chat_id)
+        chat_id = chat_id_form
+
+        if chat_id_form is None:
+            chat_id:str = await create_chat(email)
+        
+        if user_data == {}:
+            return {
+                "message":"None"
+            }
+
+        current_chat_messages = await get_chat_messages(chat_id)
         decoded_messages = []
         for message in current_chat_messages:
             decoded_messages.append(decrypt(message))
 
+        message_history:str = "\n".join(decoded_messages)
 
         promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
 
 История сообщений пользователя (для понимания стиля и контекста):
-{decoded_messages}
+{message_history}
 
 Текущее сообщение пользователя (на которое нужно ответить):
-{str(req.request)}
+{str(request_text)}
 
 Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
 """ 
@@ -732,7 +754,7 @@ async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([req.request,image_base_64],"google/gemini-3-pro-image-preview")
+            response = await ask_chat_gpt([request_text,image_base_64],"google/gemini-3-pro-image-preview")
 
 
             await minus_one_req_nano(email)    
@@ -751,11 +773,11 @@ async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(
 
             await minus_one_req(email)
 
-            encrypted_message = encrypt(req.request)
+            encrypted_message = encrypt(request_text)
 
             await create_message(
                 email = email,
-                chat_id = req.chat_id,
+                chat_id = chat_id,
                 message = encrypted_message,
                 response = response
             )
@@ -765,11 +787,11 @@ async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(
             }
         else:
             response = await ask_chat_gpt([promt,image_base_64],user_model)
-            encrypted_message = encrypt(req.request)
+            encrypted_message = encrypt(request_text)
 
             await create_message(
                 email = email,
-                chat_id = req.chat_id,
+                chat_id = chat_id,
                 message = encrypted_message,
                 response = response
             )
@@ -782,7 +804,8 @@ async def ask_photo_handler(request:Request,req:AskText,image:UploadFile = File(
         raise
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-        
+
+
 
 # --- RUN -- 
 
