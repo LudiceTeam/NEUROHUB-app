@@ -313,7 +313,7 @@ async def refil_normal_requests(email:str) -> bool:
         return False 
     
     elif user["basic_sub"]:
-        amount = 25
+        amount = 25 
     
     datetime_now = datetime.now().date()
 

@@ -8,6 +8,7 @@ import logging
 import uuid
 from typing import List
 from sqlalchemy import select
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ async def create_message(email:str,chat_id:str,message:str,response:str):
                     chat_id = chat_id,
                     message_id = str(uuid.uuid4()),
                     message_text = message,
-                    response = response
+                    response = response,
+                    created_at = str(datetime.now().date())
                 )
                 await conn.execute(stmt)
 
@@ -74,4 +76,5 @@ async def get_chat_messages(chat_id:str) -> List[str]:
             logger.exception("MESSAGES SQL ERROR")
             return []
 
-
+async def delete_chat_messages(chat_id:str):
+    pass

@@ -27,6 +27,7 @@ from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages
+from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -460,8 +461,7 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
 
 
 async def refil_unsub(email:str):
-    user_data = await get_user_state(email)
-
+    
     await refil_nano_requests(email)
     await refil_normal_requests(email)
     res_basic = await unsub_basic(email)
@@ -583,11 +583,6 @@ async def ask_chat_gpt(request: str | List[str], user_model:str) -> str | bytes:
         return f"❌ Ошибка: {str(e)[:100]}"
 
 
-
-
-
-
-
 class AskText(BaseModel):
     chat_id:str
     request:str
@@ -606,6 +601,19 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
 
         await refil_unsub(email)
 
+
+        current_chat_messages = await get_chat_messages()
+        promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
+
+История сообщений пользователя (для понимания стиля и контекста):
+{current_chat_messages}
+
+Текущее сообщение пользователя (на которое нужно ответить):
+{str(req.request)}
+
+Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
+""" 
+
         user_model = await get_user_model_name(email)
         if user_model == "google/gemini-3-pro-image-preview":
 
@@ -620,19 +628,42 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
             await minus_one_req_nano(email)    
             return response #  либо текст, либо base64 код картинки
 
+        if not user_data["sub"]:
+            if user_data["requests"] == 0:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-        current_chat_messages = await get_chat_messages()
-        promt = f"""Ты — ассистент, который помогает пользователю, учитывая контекст переписки.
+            response = await ask_chat_gpt(promt,user_model)
 
-История сообщений пользователя (для понимания стиля и контекста):
-{current_chat_messages}
+            await minus_one_req(email)
 
-Текущее сообщение пользователя (на которое нужно ответить):
-{str(req.request)}
+            encrypted_message = encrypt(req.request)
 
-Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
-""" 
+            await create_message(
+                email = email,
+                chat_id = req.chat_id,
+                message = encrypted_message,
+                response = response
+            )
+
+            return {
+                "message":response
+            }
+        else:
+            response = await ask_chat_gpt(promt,user_model)
+            encrypted_message = encrypt(req.request)
+
+            await create_message(
+                email = email,
+                chat_id = req.chat_id,
+                message = encrypted_message,
+                response = response
+            )
+
+            return {
+                "message":response
+            }
+        
     except HTTPException:
         raise
     except Exception:

@@ -1,4 +1,4 @@
-from sqlalchemy import Table,Column,MetaData,String 
+from sqlalchemy import Table,Column,MetaData,String,Date
 
 
 metadata_obj = MetaData()
@@ -10,5 +10,6 @@ messages_table = Table(
     Column("chat_id",String),
     Column("message_id",String,primary_key=True),
     Column("message_text",String),
-    Column("response",String)
+    Column("response",String),
+    Column("creted_at",Date)
 )
