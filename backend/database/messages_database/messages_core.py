@@ -9,6 +9,7 @@ import uuid
 from typing import List
 from sqlalchemy import select
 from datetime import datetime,timezone
+from backend.api.psw_hash import decrypt
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +95,10 @@ async def get_chat_first_message(chat_id:str) -> str:
             data = res.scalar_one_or_none()
             
             if data is not None:
-                if len(data) > 14:
-                    return data[:14]
-                return data
+                decoded_message = decrypt(data)
+                if len(decoded_message) > 14:
+                    return decoded_message[:14]
+                return decoded_message
             return ""
         except Exception:
             logger.exception("MESSAGES SQL ERROR")

@@ -286,7 +286,7 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-       
+        
         code = random.randint(100000,999999)
         try_create_code = await create_code(req.email,code)
         if not try_create_code:
@@ -312,7 +312,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
     try:
         email_parts = req.email.split("@")
-
+        
         check_result = await check_code(req.email,req.code)
 
         if not check_result:
@@ -694,7 +694,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         "request":request_text
     }
 
-    if not await verify_signature(data_to_verify,x_signature,x_timestamp):
+    if not verify_signature(data_to_verify,x_signature,x_timestamp):
          raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
 
