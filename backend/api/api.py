@@ -653,12 +653,13 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
             await minus_one_req(email)
 
             encrypted_message = encrypt(req.request)
+            encrypted_response = encrypt(response)
 
             await create_message(
                 email = email,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = response
+                response = encrypted_response
             )
 
             return {
@@ -668,12 +669,13 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
         else:
             response = await ask_chat_gpt(promt,user_model)
             encrypted_message = encrypt(req.request)
+            encrypted_response = encrypt(response)
 
             await create_message(
                 email = email,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = response
+                response = encrypted_response
             )
 
             return {
@@ -740,6 +742,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             return {
                 "message":"None"
             }
+        
+
+        true_request = request_text is not None if request_text else ""
 
         current_chat_messages = await get_chat_messages(chat_id)
         decoded_messages = []
@@ -754,7 +759,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 {message_history}
 
 Текущее сообщение пользователя (на которое нужно ответить):
-{str(request_text)}
+{true_request}
 
 Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
 """ 
@@ -785,13 +790,16 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             await minus_one_req(email)
 
+
             encrypted_message = encrypt(request_text)
+
+            encrypted_response = encrypt(response)
 
             await create_message(
                 email = email,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = response
+                response = encrypted_response
             )
 
             return {
@@ -800,12 +808,13 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         else:
             response = await ask_chat_gpt([promt,list_base64_images],user_model)
             encrypted_message = encrypt(request_text)
+            encrypted_response = encrypt(response)
 
             await create_message(
                 email = email,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = response
+                response = encrypted_response
             )
 
             return {

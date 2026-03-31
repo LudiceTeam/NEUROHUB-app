@@ -30,3 +30,4 @@ def decrypt(encrypted_message:str) -> str:
 
     decrypted = f.decrypt(encrypted_message.encode())
     return decrypted.decode()
+
