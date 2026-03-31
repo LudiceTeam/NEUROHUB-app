@@ -97,7 +97,7 @@ async def get_chat_first_message(chat_id:str) -> str:
             if data is not None:
                 decoded_message = decrypt(data)
                 if len(decoded_message) > 14:
-                    return decoded_message[:14]
+                    return decoded_message[:14] + "..."
                 return decoded_message
             return ""
         except Exception:
