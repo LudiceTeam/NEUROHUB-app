@@ -694,7 +694,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         "request":request_text
     }
 
-    if not verify_signature(data_to_verify,x_signature,x_timestamp):
+    if not await verify_signature(data_to_verify,x_signature,x_timestamp):
          raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
 
