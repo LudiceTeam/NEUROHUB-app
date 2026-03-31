@@ -494,13 +494,14 @@ client = AsyncOpenAI(
     max_retries=2
 )
 
-async def ask_chat_gpt(request: str | List[str], user_model:str) -> str | bytes:
+async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     try:
         req = ""
-        image_base64 = None
+        images_base64 = None
         if isinstance(request, list):
             req = request[0]
-            image_base64 = request[1]
+            images_base64 = request[1]
+
         else:
             req = request  
         
@@ -512,15 +513,19 @@ async def ask_chat_gpt(request: str | List[str], user_model:str) -> str | bytes:
                         }
                     ]
             
-        if image_base64:
-            content.append(
-                {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_base64}"
-                        }
-                }
-            )
+        if images_base64:
+            for image in images_base64:
+
+                content.append(
+                    {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image}"
+                            }
+                    }
+                )
+
+
 
 
         if user_model == "google/gemini-3-pro-image-preview":
@@ -687,7 +692,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text: str = Form(...),image:UploadFile = File(...),email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     data_to_verify = {
         "chat_id":chat_id_form,
@@ -699,21 +704,28 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
     try:
-        if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unsupported file type"
-            )
+        if len(image_list) > 7:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
         
-        image_bytes = await image.read()
 
-        if len(image_bytes) > MAX_IMAGE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail="Image too large"
-            )
-        
-        image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
+        list_base64_images = []
+        for image in image_list:
+            if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Unsupported file type"
+                )
+            
+            image_bytes = await image.read()
+
+            if len(image_bytes) > MAX_IMAGE_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail="Image too large"
+                )
+            
+            image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
+            list_base64_images.append(image_base_64)
 
         await refil_unsub(email)
 
@@ -754,7 +766,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([request_text,image_base_64],"google/gemini-3-pro-image-preview")
+            response = await ask_chat_gpt([request_text,list_base64_images],"google/gemini-3-pro-image-preview")
 
 
             await minus_one_req_nano(email)    
@@ -769,7 +781,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([promt,image_base_64],user_model)
+            response = await ask_chat_gpt([promt,list_base64_images],user_model)
 
             await minus_one_req(email)
 
@@ -786,7 +798,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 "message":response
             }
         else:
-            response = await ask_chat_gpt([promt,image_base_64],user_model)
+            response = await ask_chat_gpt([promt,list_base64_images],user_model)
             encrypted_message = encrypt(request_text)
 
             await create_message(
@@ -804,8 +816,6 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         raise
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-
-
 
 # --- RUN -- 
 
