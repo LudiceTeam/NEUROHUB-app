@@ -8,7 +8,7 @@ import logging
 import uuid
 from typing import List
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime,timezone
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ async def create_message(email:str,chat_id:str,message:str,response:str):
                     message_id = str(uuid.uuid4()),
                     message_text = message,
                     response = response,
-                    created_at = str(datetime.now().date())
+                    created_at = str(datetime.now(timezone.utc))
                 )
                 await conn.execute(stmt)
 
@@ -77,4 +77,27 @@ async def get_chat_messages(chat_id:str) -> List[str]:
             return []
 
 async def delete_chat_messages(chat_id:str):
-    pass
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = messages_table.delete().where(messages_table.c.chat_id == chat_id)
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MESSAGE SQL ERROR")
+                return
+
+async def get_chat_first_message(chat_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.desc()).limit(1)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            
+            if data is not None:
+                if len(data) > 14:
+                    return data[:14]
+                return data
+            return ""
+        except Exception:
+            logger.exception("MESSAGES SQL ERROR")
+            return ""
