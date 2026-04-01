@@ -26,7 +26,7 @@ from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_u
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages
 from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
@@ -855,15 +855,24 @@ async def get_user_chats_handler(request:Request,email:str = Depends(get_current
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-class ChatDelete(BaseModel):
+class ChatId(BaseModel):
     chat_id :str
 
 @app.post("/delete/chat")
 @limiter.limit("20/minute")
-async def delete_chat_handler(request:Request,req:ChatDelete,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def delete_chat_handler(request:Request,req:ChatId,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        await delete_chat(email,req.chat_id)
+        await delete_chat_messages(req.chat_id)
+        
+    except HTTPException:
+        raise 
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 # --- RUN -- 
 

@@ -61,18 +61,15 @@ async def create_chat(email:str) -> str:
                 return
             
 
-async def delete_chat(chat_id:str) -> bool:
-
-
+async def delete_chat(chat_id:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 stmt = chats_table.delete().where(chats_table.c.chat_id == chat_id)
                 await conn.execute(stmt)
-                return True
             except Exception:
                 logger.exception("CHATS SQL ERROR")
-                return False
+                return
 
 
 async def get_user_chats(email:str) -> List[str]:
