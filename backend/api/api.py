@@ -923,7 +923,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-@app.get("/get_model_name",Depends(safe_get))
+@app.get("/get_model_name",dependencies = [Depends(safe_get)])
 @limiter.limit("20/minute")
 async def get_model_name_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
