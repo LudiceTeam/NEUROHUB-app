@@ -103,3 +103,23 @@ async def get_chat_first_message(chat_id:str) -> str:
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return ""
+        
+async def get_chat_messages_for_front_end(chat_id:str) -> List:
+
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(messages_table.c.message_text,messages_table.c.response).where(messages_table.c.chat_id == chat_id)
+            res = await conn.execute(stmt)
+            data = res.fetchall()
+            result:List = []
+            for msg,resp in data:
+                result.append(
+                    {
+                        "message" : decrypt(msg),
+                        "response": decrypt(resp)
+                    }
+                )
+            return result
+        except Exception:
+            logger.exception()
+            return []

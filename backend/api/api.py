@@ -26,7 +26,7 @@ from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_u
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end
 from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
@@ -471,9 +471,6 @@ async def profile_hadnler(request:Request,email:str = Depends(get_current_user))
     try:
         profile_dict = await profile(email)
 
-        if profile_dict == {}:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "User not found")
-
         return profile_dict
     except HTTPException:
         raise
@@ -841,6 +838,9 @@ async def get_user_chats_handler(request:Request,email:str = Depends(get_current
     try:
         user_chats = await get_user_chats(email)
 
+        if user_chats == []:
+            return {}
+
         result = {}
         
         # chat_id and its first message as in ChatGPT app
@@ -873,6 +873,23 @@ async def delete_chat_handler(request:Request,req:ChatId,email:str = Depends(get
         raise 
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+@app.post("/get_chat_messages")
+@limiter.limit("20/minute")
+async def get_chat_messages(request:Request,req:ChatId,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        result = await get_chat_messages_for_front_end(req.chat_id)
+        return {
+            "result":result
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
 # --- RUN -- 
 
