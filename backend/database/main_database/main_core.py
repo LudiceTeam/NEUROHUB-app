@@ -495,3 +495,14 @@ async def get_user_avatar_and_name(user_id:str) -> dict:
         except Exception:
             logger.exception("MAIN SQL ERROR")
             return {}
+
+async def get_user_email_by_user_id(user_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = main_table.select(main_table.c.email).where(main_table.c.user_id == user_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return ""

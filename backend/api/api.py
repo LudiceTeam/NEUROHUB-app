@@ -20,7 +20,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
@@ -33,6 +33,8 @@ from openai import AsyncOpenAI
 from typing import List
 import base64
 from jose.exceptions import ExpiredSignatureError, JWTError
+import uuid 
+
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +126,10 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         raise HTTPException(status_code=401, detail="Email is not verified")
 
 
-
+    user_id = str(uuid.uuid4())
     # default sql data
     await create_user(
+        user_id = user_id,
         name = name,
         email = email,
         provider_id = google_sub,
@@ -136,12 +139,12 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
 
 
     await create_default_user_model_name(
-        email = email
+        user_id = user_id
     )
 
 
     user_data = {
-        "email":email,
+        "user_id":user_id,
         "name":name,
         "provider":"google"
     }
@@ -149,12 +152,13 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
     acces_token:str = create_access_token(user_data)
     refresh_token:str = create_refresh_token(user_data)
 
-    try_create_refresh = await create_refresh_token_db(email,refresh_token)
+    try_create_refresh = await create_refresh_token_db(user_id,refresh_token)
 
     if not try_create_refresh:
-        await update_refresh_token(email,refresh_token)
+        await update_refresh_token(user_id,refresh_token)
 
     return {
+        "user_id":user_id,
         "access_token":acces_token,
         "refresh_token":refresh_token,
         "token_type":"bearer"
@@ -320,7 +324,9 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
         # default sql data
 
+        user_id = str(uuid.uuid4())
         await create_user(
+            user_id = user_id,
             name = None,
             email = req.email,
             provider_id = None,
@@ -330,13 +336,13 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
 
         await create_default_user_model_name(
-            email = req.email
+            user_id = user_id
         )
 
 
 
         user_data = {
-        "email":req.email,
+        "user_id":user_id,
         "name":email_parts[0],
         "provider":"email"
         }
@@ -344,12 +350,13 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         acces_token:str = create_access_token(user_data)
         refresh_token:str = create_refresh_token(user_data)
 
-        try_create_refresh = await create_refresh_token_db(req.email,refresh_token)
+        try_create_refresh = await create_refresh_token_db(user_id,refresh_token)
 
         if not try_create_refresh:
-            await update_refresh_token(req.email,refresh_token)
+            await update_refresh_token(user_id,refresh_token)
 
         return {
+            "user_id":user_id,
             "access_token":acces_token,
             "refresh_token":refresh_token,
             "token_type":"bearer"
@@ -373,17 +380,17 @@ async def refresh_token_api(request:Request,refresh_token:str):
     
     try:
         payload = jwt.decode(refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
-        email: str = payload.get("email")
+        user_id: str = payload.get("user_id")
         
         
-        if email is None:
+        if user_id is None:
             raise credentials_exception
         
-        stored_token = await get_user_refresh_token(email)
+        stored_token = await get_user_refresh_token(user_id)
         if stored_token != refresh_token:
             raise credentials_exception
         
-        user_data = await get_user_data_for_jwt(email)
+        user_data = await get_user_data_for_jwt(user_id)
         if user_data == {} or not user_data.get("provider"):
             raise credentials_exception
                 
@@ -395,10 +402,11 @@ async def refresh_token_api(request:Request,refresh_token:str):
     
     new_refresh_token = create_refresh_token(user_data)
     
-    await update_refresh_token(email,new_refresh_token)
+    await update_refresh_token(user_id,new_refresh_token)
     
     
     return {
+        "user_id":user_id,
         "access_token": new_access_token,
         "refresh_token": new_refresh_token,
         "token_type": "bearer"
@@ -430,11 +438,11 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
             algorithms=[os.getenv("ALGORITHM")]
         )
         
-        email: str = payload.get("email")
-        if email is None:
+        user_id: str = payload.get("user_id")
+        if user_id is None:
             raise credentials_exception
             
-        return email
+        return user_id
         
         
     except ExpiredSignatureError:
@@ -450,25 +458,27 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
 
 
 
-async def refil_unsub(email:str):
+async def refil_unsub(user_id:str):
 
-    await refil_nano_requests(email)
-    await refil_normal_requests(email)
-    res_basic = await unsub_basic(email)
-    res_premium = await unsub_func_premium(email)
+    await refil_nano_requests(user_id)
+    await refil_normal_requests(user_id)
+    res_basic = await unsub_basic(user_id)
+    res_premium = await unsub_func_premium(user_id)
 
-    if res_basic:
+    email:str = await get_user_email_by_user_id(user_id)
+
+    if res_basic and email != "":
         await send_email_sub_over(email)
 
-    if res_premium:
+    if res_premium and email != "":
         await send_email_sub_over(email)
 
 @app.post("/profile")
 @limiter.limit("20/minute")
-async def profile_hadnler(request:Request,email:str = Depends(get_current_user)):
+async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user)):
 
     try:
-        profile_dict = await profile(email)
+        profile_dict = await profile(user_id)
 
         return profile_dict
     except HTTPException:
@@ -583,7 +593,7 @@ class AskText(BaseModel):
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
-async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
 
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
@@ -591,14 +601,14 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
 
     try:
 
-        await refil_unsub(email)
+        await refil_unsub(user_id)
 
         
         chat_id = req.chat_id
         if req.chat_id is None:
-            chat_id = await create_chat(email)
+            chat_id = await create_chat(user_id)
 
-        user_data = await get_user_state(email)
+        user_data = await get_user_state(user_id)
 
         if user_data == {}:
             return {
@@ -625,7 +635,7 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
 Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
 """ 
 
-        user_model = await get_user_model_name(email)
+        user_model = await get_user_model_name(user_id)
         if user_model == "google/gemini-3-pro-image-preview":
 
             user_nano_req = user_data["nano_req"]
@@ -636,7 +646,7 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
             response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
 
 
-            await minus_one_req_nano(email)    
+            await minus_one_req_nano(user_id)    
             return {
                 "image":response
             } #  либо текст, либо base64 код картинки
@@ -648,13 +658,13 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
 
             response = await ask_chat_gpt(promt,user_model)
 
-            await minus_one_req(email)
+            await minus_one_req(user_id)
 
             encrypted_message = encrypt(req.request)
             encrypted_response = encrypt(response)
 
             await create_message(
-                email = email,
+                user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response
@@ -670,7 +680,7 @@ async def ask_text_handler(request:Request,req:AskText,email:str = Depends(get_c
             encrypted_response = encrypt(response)
 
             await create_message(
-                email = email,
+                user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response
@@ -692,7 +702,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     data_to_verify = {
         "chat_id":chat_id_form,
@@ -727,14 +737,15 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
             list_base64_images.append(image_base_64)
 
-        await refil_unsub(email)
+        await refil_unsub(user_id)
 
-        user_data = await get_user_state(email)
+
+        user_data = await get_user_state(user_id)
 
         chat_id = chat_id_form
 
         if chat_id_form is None:
-            chat_id:str = await create_chat(email)
+            chat_id:str = await create_chat(user_id)
         
         if user_data == {}:
             return {
@@ -761,7 +772,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 Задача: Ответь на текущее сообщение пользователя, опираясь на историю переписки. Сохраняй релевантность и последовательность диалога.
 """ 
-        user_model = await get_user_model_name(email)
+        user_model = await get_user_model_name(user_id)
         if user_model == "google/gemini-3-pro-image-preview":
 
             user_nano_req = user_data["nano_req"]
@@ -772,7 +783,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             response = await ask_chat_gpt([request_text,list_base64_images],"google/gemini-3-pro-image-preview")
 
 
-            await minus_one_req_nano(email)    
+            await minus_one_req_nano(user_id)    
             return {
                 "image":response
             } #  либо текст, либо base64 код картинки
@@ -786,7 +797,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             response = await ask_chat_gpt([promt,list_base64_images],user_model)
 
-            await minus_one_req(email)
+            await minus_one_req(user_id)
 
 
             encrypted_message = encrypt(request_text)
@@ -794,7 +805,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             encrypted_response = encrypt(response)
 
             await create_message(
-                email = email,
+                user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response
@@ -809,7 +820,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             encrypted_response = encrypt(response)
 
             await create_message(
-                email = email,
+                user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response
@@ -827,9 +838,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 @app.post("/get_user_chats")
 @limiter.limit("20/minute")
-async def get_user_chats_handler(request:Request,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def get_user_chats_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     data_to_verify = {
-        "email":email
+        "user_id":user_id
     }
 
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
@@ -837,7 +848,7 @@ async def get_user_chats_handler(request:Request,email:str = Depends(get_current
 
 
     try:
-        user_chats = await get_user_chats(email)
+        user_chats = await get_user_chats(user_id)
 
         if user_chats == []:
             return {}
@@ -861,13 +872,13 @@ class ChatId(BaseModel):
 
 @app.post("/delete/chat")
 @limiter.limit("20/minute")
-async def delete_chat_handler(request:Request,req:ChatId,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def delete_chat_handler(request:Request,req:ChatId,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
-        await delete_chat(email,req.chat_id)
+        await delete_chat(user_id,req.chat_id)
         await delete_chat_messages(req.chat_id)
         
     except HTTPException:
@@ -877,7 +888,7 @@ async def delete_chat_handler(request:Request,req:ChatId,email:str = Depends(get
     
 @app.post("/get_chat_messages")
 @limiter.limit("20/minute")
-async def get_chat_messages(request:Request,req:ChatId,email:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def get_chat_messages(request:Request,req:ChatId,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
