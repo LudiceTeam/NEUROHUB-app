@@ -903,6 +903,43 @@ async def get_chat_messages(request:Request,req:ChatId,user_id:str = Depends(get
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+
+class ChooseModel(BaseModel):
+    model_name:str
+
+@app.post("/change_model")
+@limiter.limit("20/minute")
+async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        await change_user_model_name(user_id,req.model_name)
+        return {
+            "message":"Model changed"
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+@app.get("/get_model_name",Depends(safe_get))
+@limiter.limit("20/minute")
+async def get_model_name_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        model_name = await get_user_model_name(user_id)
+        return {
+            "model_name":model_name
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+
 # --- RUN -- 
 
 if __name__ == "__main__":
