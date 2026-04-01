@@ -19,7 +19,6 @@ from typing import Optional
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from jose import jwt,JWTError
 from backend.api.auth import create_access_token,create_refresh_token
 from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
@@ -554,7 +553,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                     
                     image_bytes = base64.b64decode(base64_str)
                     return base64_str
-            return f"🤔 Нет изображения в ответе."
+            return f"No image in response"
             
             
 
@@ -573,7 +572,9 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         
     except Exception as e:
         print(f"OpenAI SDK error: {e}")
-        return f"❌ Ошибка: {str(e)[:100]}"
+        logger.exception("OpenAI SDK error")
+        return "Some error happened"
+
 
 
 class AskText(BaseModel):
@@ -741,7 +742,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             }
         
 
-        true_request = request_text is not None if request_text else ""
+        true_request = request_text if request_text is not None else ""
 
         current_chat_messages = await get_chat_messages(chat_id)
         decoded_messages = []

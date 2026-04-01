@@ -42,12 +42,12 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_message(email:str,chat_id:str,message:str,response:str):
+async def create_message(user_id:str,chat_id:str,message:str,response:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 stmt = messages_table.insert().values(
-                    email = email,
+                    user_id = user_id,
                     chat_id = chat_id,
                     message_id = str(uuid.uuid4()),
                     message_text = message,

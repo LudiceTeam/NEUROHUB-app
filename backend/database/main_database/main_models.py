@@ -7,6 +7,7 @@ main_table = Table(
     "main_app_table",
     metadata_obj,
     Column("provider_id",String,primary_key = True),
+    Column("user_id",String,primary_key = True),
     Column("provider",String),
     Column("email",String),
     Column("name",String),

@@ -11,6 +11,7 @@ import asyncio
 import atexit
 from sqlalchemy import func
 import logging
+from sqlalchemy.dialects.postgresql import insert
 
 
 
@@ -48,26 +49,31 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def is_user_exists(email:str) -> bool:
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(jwt_table.c.email).where(jwt_table.c.email == email)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-            return data is not None
-        except Exception:
-            logger.exception("JWT SQL ERROR")
-            return False
 
 
-async def create_refresh_token_db(email:str,token:str) -> bool:
-    if await is_user_exists(email):
-        return False
+async def create_refresh_token_db(user_id:str,token:str) -> bool:
+
     async with AsyncSession(async_engine) as conn:
         async with conn.begin() as conn:
             try:
-                stmt = jwt_table.insert().values(
-                    email = email,
+                stmt = insert(jwt_table).values(
+                    user_id = user_id,
+                    token = token
+                ).on_conflict_do_update(
+                    index_elements=[jwt_table.c.user_id],
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception:
+                logger.exception("JWT SQL ERROR")
+                return False
+
+async def update_refresh_token(user_id:str,token:str) -> bool:
+    
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin() as conn:
+            try:
+                stmt = jwt_table.update().where(jwt_table.c.user_id == user_id).values(
                     token = token
                 )
                 await conn.execute(stmt)
@@ -76,28 +82,11 @@ async def create_refresh_token_db(email:str,token:str) -> bool:
                 logger.exception("JWT SQL ERROR")
                 return False
 
-async def update_refresh_token(email:str,token:str) -> bool:
-    if not await is_user_exists(email):
-        return False
-    async with AsyncSession(async_engine) as conn:
-        async with conn.begin() as conn:
-            try:
-                stmt = jwt_table.update().where(jwt_table.c.email == email).values(
-                    token = token
-                )
-                await conn.execute(stmt)
-                return True
-            except Exception:
-                logger.exception("JWT SQL ERROR")
-                return False
-
-async def get_user_refresh_token(email:str) -> str:
-    if not await is_user_exists(email):
-        return ""
+async def get_user_refresh_token(user_id:str) -> str:
 
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(jwt_table.c.token).where(jwt_table.c.email == email)
+            stmt = select(jwt_table.c.token).where(jwt_table.c.user_id == user_id)
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
             return data if data is not None else ""

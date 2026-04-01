@@ -53,17 +53,17 @@ async def get_all_data():
             raise Exception(f"Error : {e}")  
 
 
-async def create_default_user_model_name(email:str):
+async def create_default_user_model_name(user_id:str):
 
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 stmt = insert(ai_table).values(
-                    email = email,
+                    user_id = user_id,
                     ai_name = "google/gemini-3-flash-preview"
                 ).on_conflict_do_nothing(
-                    index_elements=[ai_table.c.email]
+                    index_elements=[ai_table.c.user_id]
                 )
                 result = await conn.execute(stmt)
                 if result.rowcount == 0:
@@ -72,12 +72,12 @@ async def create_default_user_model_name(email:str):
                 raise Exception(f"Error : {e}")       
 
 
-async def get_user_model_name(email:str) -> str:
+async def get_user_model_name(user_id:str) -> str:
 
 
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(ai_table.c.ai_name).where(ai_table.c.email == email)
+            stmt = select(ai_table.c.ai_name).where(ai_table.c.user_id == user_id)
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
             return str(data) if data is not None else ""
@@ -86,12 +86,12 @@ async def get_user_model_name(email:str) -> str:
 
 
 
-async def change_user_model_name(email:str,new_ai_name:str):
+async def change_user_model_name(user_id:str,new_ai_name:str):
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = ai_table.update().where(ai_table.c.email == email).values(
+                stmt = ai_table.update().where(ai_table.c.user_id == user_id).values(
                     ai_name = new_ai_name
                 )
                 await conn.execute(stmt)
