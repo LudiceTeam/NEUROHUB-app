@@ -12,6 +12,9 @@ import atexit
 from sqlalchemy import func
 import logging
 from sqlalchemy.dialects.postgresql import insert
+import uuid
+from sqlalchemy.dialects.postgresql import insert
+from datetime import datetime,timezone
 
 
 
@@ -47,4 +50,53 @@ async def drop_table():
 async def create_table():   
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
+
+
+async def create_new_log(
+    notification_type:str,
+    subtype:str,
+    raw_payload:str,
+    status:str
+) -> str:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                notification_id = str(uuid.uuid4())
+                stmt = insert(apple_table).values(
+                    notification_uuid = notification_id,
+                    notification_type = notification_type,
+                    subtype = subtype,
+                    raw_payload = raw_payload,
+                    created_at = str(datetime.now(timezone.utc)),
+                    status = status
+                ).on_conflict_do_nothing(
+                    index_elements=['notification_uuid']
+                )
+                await conn.execute(stmt)
+                return notification_id
+            except Exception:
+                logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
+                return ""   
+
+async def get_log_status(notification_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(apple_table.c.status).where(apple_table.c.notification_uuid == notification_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
+            return ""
+
+async def update_log_status(notification_id:str,status:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = apple_table.update().where(apple_table.c.notification_uuid == notification_id).values(
+                    status = status
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
 
