@@ -848,8 +848,6 @@ async def get_user_chats_handler(request:Request,email:str = Depends(get_current
             result[chat_id] = await get_chat_first_message(chat_id)
         
         return result
-    
-
 
     except HTTPException:
         raise
@@ -857,7 +855,15 @@ async def get_user_chats_handler(request:Request,email:str = Depends(get_current
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+class ChatDelete(BaseModel):
+    chat_id :str
 
+@app.post("/delete/chat")
+@limiter.limit("20/minute")
+async def delete_chat_handler(request:Request,req:ChatDelete,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
 # --- RUN -- 
 
