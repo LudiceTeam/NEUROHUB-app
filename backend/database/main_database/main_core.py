@@ -50,9 +50,21 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
         
 
+async def get_user_id_by_provider(provider_id:str,provider:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.user_id).where(
+                main_table.c.provider == provider,
+                main_table.c.provider_id == provider_id
+            )
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return "" 
         
-        
-async def create_user(user_id:str,name:str,email:str,provider_id:str = None, provider:str = None,avatar_url:str = None ) -> bool:
+async def create_user(user_id:str,name:str,email:str,provider_id:str = None, provider:str = None,avatar_url:str = None ) -> bool | str:
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -71,11 +83,15 @@ async def create_user(user_id:str,name:str,email:str,provider_id:str = None, pro
                     requests = 10,
                     nano_req = 1
                 ).on_conflict_do_nothing(
-                    index_elements=[main_table.c.user_id]
+                    index_elements=[main_table.c.provider_id]
                 )
                 result = await conn.execute(stmt)
                 if result.rowcount == 0:
-                    return False
+                    user_id = await get_user_id_by_provider(
+                        provider = provider,
+                        provider_id=provider_id
+                    )
+                    return user_id
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")

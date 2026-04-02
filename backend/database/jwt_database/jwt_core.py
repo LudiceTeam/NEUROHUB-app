@@ -62,7 +62,10 @@ async def create_refresh_token_db(user_id:str,token:str) -> bool:
                 ).on_conflict_do_update(
                     index_elements=[jwt_table.c.user_id],
                 )
-                await conn.execute(stmt)
+                result = await conn.execute(stmt)
+                
+                if result.rowcount == 0:
+                    return False
                 return True
             except Exception:
                 logger.exception("JWT SQL ERROR")

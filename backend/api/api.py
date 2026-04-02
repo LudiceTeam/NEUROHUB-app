@@ -126,25 +126,28 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         raise HTTPException(status_code=401, detail="Email is not verified")
 
 
-    user_id = str(uuid.uuid4())
+    user_id_main = str(uuid.uuid4())
     # default sql data
-    await create_user(
-        user_id = user_id,
+    user_id_try = await create_user(
+        user_id = user_id_main,
         name = name,
         email = email,
         provider_id = google_sub,
         provider = "google",
         avatar_url=picture
     )
+    
+    if type(user_id_try) == str:
+        user_id_main = user_id_try
 
 
     await create_default_user_model_name(
-        user_id = user_id
+        user_id = user_id_main
     )
 
 
     user_data = {
-        "user_id":user_id,
+        "user_id":user_id_main,
         "name":name,
         "provider":"google"
     }
@@ -152,18 +155,62 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
     acces_token:str = create_access_token(user_data)
     refresh_token:str = create_refresh_token(user_data)
 
-    try_create_refresh = await create_refresh_token_db(user_id,refresh_token)
+    try_create_refresh = await create_refresh_token_db(user_id_main,refresh_token)
 
     if not try_create_refresh:
-        await update_refresh_token(user_id,refresh_token)
+        await update_refresh_token(user_id_main,refresh_token)
 
     return {
-        "user_id":user_id,
+        "user_id":user_id_main,
         "access_token":acces_token,
         "refresh_token":refresh_token,
         "token_type":"bearer"
     }
 
+
+APPLE_ISSUER = os.getenv("APPLE_ISSUER")
+APPLE_AUDIENCE = os.getenv("APPLE_AUDIENCE")
+
+
+class AuthApple(BaseModel):
+    identity_token:str
+    
+@app.post("/auth/apple")
+@limiter.limit("20/minute")
+async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(APPLE_AUDIENCE) as resp:
+            json_data = resp.json()
+            try:
+            
+                header = jwt.get_unverified_header(req.identity_token)
+                key = next(
+                k for k in json_data["keys"]
+                if k["kid"] == header["kid"]
+                )
+                payload = jwt.decode(
+                    req.identity_token,
+                    key,
+                    algorithms=["RS256"],
+                    audience=APPLE_AUDIENCE,
+                    issuer=APPLE_ISSUER
+                )
+
+            except Exception:
+                raise HTTPException(401, "Invalid Apple token")
+        
+    apple_sub = payload.get("sub")
+    email = payload.get("email")
+    
+    if not apple_sub:
+        raise HTTPException(400, "Invalid payload")
+    
+    
+    
+    
 
 async def send_email_code(email: str, code: str):
     url = "https://api.resend.com/emails"
@@ -323,44 +370,49 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         
 
         # default sql data
-
-        user_id = str(uuid.uuid4())
-        await create_user(
-            user_id = user_id,
-            name = None,
+        user_id_main = str(uuid.uuid4())
+        
+        
+        user_id_try = await create_user(
+            user_id = user_id_main,
+            name = email_parts[0],
             email = req.email,
             provider_id = None,
             provider = "email",
-            avatar_url = None
+            avatar_url=None
         )
+        
+        if type(user_id_try) == str:
+            user_id_main = user_id_try
 
 
         await create_default_user_model_name(
-            user_id = user_id
+            user_id = user_id_main
         )
 
 
-
         user_data = {
-        "user_id":user_id,
-        "name":email_parts[0],
-        "provider":"email"
+            "user_id":user_id_main,
+            "name":email_parts[0],
+            "provider":"google"
         }
 
         acces_token:str = create_access_token(user_data)
         refresh_token:str = create_refresh_token(user_data)
 
-        try_create_refresh = await create_refresh_token_db(user_id,refresh_token)
+        try_create_refresh = await create_refresh_token_db(user_id_main,refresh_token)
 
         if not try_create_refresh:
-            await update_refresh_token(user_id,refresh_token)
+            await update_refresh_token(user_id_main,refresh_token)
 
         return {
-            "user_id":user_id,
+            "user_id":user_id_main,
             "access_token":acces_token,
             "refresh_token":refresh_token,
             "token_type":"bearer"
         }
+
+        
         
 
     except HTTPException:
@@ -943,8 +995,19 @@ async def get_model_name_handler(request:Request,user_id:str = Depends(get_curre
 
 @app.post("/get_user_avatar_name")
 @limiter.limit("20/minute")
-async def get_user_avatar_name_handler():
-    pass
+async def get_user_avatar_name_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        result = await get_user_avatar_and_name(user_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception:
+         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
+        
 
 # --- SUBSCRIBTION ---
 
