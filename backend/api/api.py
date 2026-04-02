@@ -697,7 +697,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
     
 
 
-MAX_IMAGE_SIZE = 5 * 1024 * 1024
+MAX_IMAGE_SIZE = 8 * 1024 * 1024
 
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
@@ -938,7 +938,18 @@ async def get_model_name_handler(request:Request,user_id:str = Depends(get_curre
         raise
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
+
+
+# --- SUBSCRIBTION ---
+
+class Validate(BaseModel):
+    user_id:str
+    transaction_id:str
+
+@app.post("/billing/apple/validate")
+@limiter.limit("20/minute")
+async def apple_validate():
+    pass
 
 # --- RUN -- 
 
