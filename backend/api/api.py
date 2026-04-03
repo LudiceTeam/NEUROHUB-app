@@ -205,9 +205,55 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
     apple_sub = payload.get("sub")
     email = payload.get("email")
     
-    if not apple_sub:
-        raise HTTPException(400, "Invalid payload")
+    email_parts = email.split("@")
     
+    
+    if not apple_sub:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail =  "Invalid payload")
+    
+    
+    
+    user_id_main = str(uuid.uuid4())
+        
+        
+    user_id_try = await create_user(
+        user_id = user_id_main,
+        name = email_parts[0],
+        email = req.email,
+        provider_id = apple_sub,
+        provider = "apple",
+        avatar_url=None
+    )
+    
+    if type(user_id_try) == str:
+        user_id_main = user_id_try
+
+
+    await create_default_user_model_name(
+        user_id = user_id_main
+    )
+
+
+    user_data = {
+        "user_id":user_id_main,
+        "name":email_parts[0],
+        "provider":"apple"
+    }
+
+    acces_token:str = create_access_token(user_data)
+    refresh_token:str = create_refresh_token(user_data)
+
+    try_create_refresh = await create_refresh_token_db(user_id_main,refresh_token)
+
+    if not try_create_refresh:
+        await update_refresh_token(user_id_main,refresh_token)
+
+    return {
+        "user_id":user_id_main,
+        "access_token":acces_token,
+        "refresh_token":refresh_token,
+        "token_type":"bearer"
+    }
     
     
     
