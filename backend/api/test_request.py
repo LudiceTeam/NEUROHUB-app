@@ -4,7 +4,7 @@ import json
 import hmac
 import hashlib
 
-URL = "http://127.0.0.1:8080/check/code"
+URL = "http://127.0.0.1:8080/send/code"
 SECRET = "some_signature_key"  # тот же что в .env
 
 def generate_signature(data: dict) -> tuple[str, str]:
@@ -61,4 +61,4 @@ def check_code():
 
 
 if __name__ == "__main__":
-    check_code()
+    send_request()

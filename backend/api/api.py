@@ -1070,7 +1070,7 @@ class Validate(BaseModel):
     transaction_id:str
 
 @app.post("/billing/apple/validate")
-@limiter.limit("20/minute")
+#@limiter.limit("20/minute")
 async def apple_validate():
     pass
 
