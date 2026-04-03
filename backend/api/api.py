@@ -1057,7 +1057,6 @@ async def get_user_avatar_name_handler(request:Request,user_id:str = Depends(get
 async def leave_accaunt(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
     try:
         await delete_jwt_tokens(user_id)
     except Exception:
@@ -1068,12 +1067,21 @@ async def leave_accaunt(request:Request,user_id:str = Depends(get_current_user),
 class Validate(BaseModel):
     user_id:str
     transaction_id:str
+    product_id:str
 
 @app.post("/billing/apple/validate")
-#@limiter.limit("20/minute")
-async def apple_validate():
-    pass
-
+@limiter.limit("20/minute")
+async def apple_validate(request:Request,req:Validate,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    try:
+        if req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic":
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
 # --- RUN -- 
 
 if __name__ == "__main__":
