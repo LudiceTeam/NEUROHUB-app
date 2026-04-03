@@ -394,7 +394,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         user_data = {
             "user_id":user_id_main,
             "name":email_parts[0],
-            "provider":"google"
+            "provider":"email"
         }
 
         acces_token:str = create_access_token(user_data)
@@ -411,9 +411,6 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
             "refresh_token":refresh_token,
             "token_type":"bearer"
         }
-
-        
-        
 
     except HTTPException:
         raise

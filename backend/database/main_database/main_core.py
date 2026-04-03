@@ -87,11 +87,13 @@ async def create_user(user_id:str,name:str,email:str,provider_id:str = None, pro
                 )
                 result = await conn.execute(stmt)
                 if result.rowcount == 0:
-                    user_id = await get_user_id_by_provider(
-                        provider = provider,
-                        provider_id=provider_id
-                    )
-                    return user_id
+                    if provider_id is not None:
+                        user_id = await get_user_id_by_provider(
+                            provider = provider,
+                            provider_id=provider_id
+                        )
+                        return user_id
+                    
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
