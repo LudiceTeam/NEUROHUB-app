@@ -63,6 +63,17 @@ async def get_user_id_by_provider(provider_id:str,provider:str) -> str:
         except Exception:
             logger.exception("MAIN SQL ERROR")
             return "" 
+
+async def get_user_id_by_email(email:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table.c.user_id).where(main_table.c.email == email)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return ""
         
 async def create_user(user_id:str,name:str,email:str,provider_id:str = None, provider:str = None,avatar_url:str = None ) -> bool | str:
     
@@ -93,7 +104,9 @@ async def create_user(user_id:str,name:str,email:str,provider_id:str = None, pro
                             provider_id=provider_id
                         )
                         return user_id
-                    
+                    elif provider == "email" and provider_id is None:
+                        user_id = await get_user_id_by_email(email)
+                        return user_id
                 return True
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
