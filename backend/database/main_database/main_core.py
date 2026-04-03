@@ -496,7 +496,7 @@ async def profile(user_id:str) -> dict:
 
 
             return {
-                "email":email,
+                "Email":email,
                 "Premium":sub,
                 "Basic":basic_sub,
                 "Date End": date,

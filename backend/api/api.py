@@ -21,7 +21,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
 from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name
-from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token
+from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
@@ -574,6 +574,7 @@ async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user
 
     try:
         profile_dict = await profile(user_id)
+        await refil_unsub(user_id)
 
         return profile_dict
     except HTTPException:
@@ -1050,7 +1051,17 @@ async def get_user_avatar_name_handler(request:Request,user_id:str = Depends(get
     except Exception:
          raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         
-        
+
+@app.post("/leave")
+@limiter.limit("20/minute")
+async def leave_accaunt(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        await delete_jwt_tokens(user_id)
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 # --- SUBSCRIBTION ---
 

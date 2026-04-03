@@ -97,3 +97,14 @@ async def get_user_refresh_token(user_id:str) -> str:
             logger.exception("JWT SQL ERROR")
             return ""
 
+async def delete_jwt_tokens(user_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = jwt_table.delete().where(
+                    jwt_table.c.user_id == user_id
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("JWT SQL ERROR")
+                return
