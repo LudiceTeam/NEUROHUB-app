@@ -55,7 +55,7 @@ async def create_table():
 async def create_new_log(
     notification_type:str,
     subtype:str,
-    raw_payload:str,
+    raw_payload,
     status:str
 ) -> str:
     async with AsyncSession(async_engine) as conn:

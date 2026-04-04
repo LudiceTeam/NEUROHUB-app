@@ -26,6 +26,7 @@ from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end
+from backend.database.apple_notification_log.apple_core import create_new_log,get_log_status,update_log_status
 from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
@@ -34,7 +35,10 @@ from typing import List
 import base64
 from jose.exceptions import ExpiredSignatureError, JWTError
 import uuid 
-
+from appstoreserverlibrary.api_client import APIException
+from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
+from appstoreserverlibrary.models.Environment import Environment
+from backend.api.apple_client import get_apple_api_client
 
 logger = logging.getLogger(__name__)
 
@@ -1064,19 +1068,111 @@ async def leave_accaunt(request:Request,user_id:str = Depends(get_current_user),
 
 # --- SUBSCRIBTION ---
 
+def build_verifier() -> SignedDataVerifier:
+    env_name = os.getenv("APPLE_ENV", "sandbox").lower()
+    environment = Environment.SANDBOX if env_name == "sandbox" else Environment.PRODUCTION
+
+    # В реале сюда передаются Apple root certificates
+    # Ниже каркас, чтобы показать архитектуру
+    return SignedDataVerifier(
+        root_certificates=[],
+        enable_online_checks=True,
+        environment=environment,
+        bundle_id=os.getenv("APPLE_BUNDLE_ID"),
+        app_apple_id=int(os.getenv("APPLE_APP_ID", "0")) if environment == Environment.PRODUCTION else None,
+    )
+
 class Validate(BaseModel):
-    user_id:str
     transaction_id:str
     product_id:str
 
 @app.post("/billing/apple/validate")
 @limiter.limit("20/minute")
-async def apple_validate(request:Request,req:Validate,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     try:
+        client = get_apple_api_client()
+        verifier = build_verifier()
+
+        try:
+            response = client.get_transaction_info(req.transaction_id)
+        except APIException as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Apple API error: {str(e)}"
+            )
+        
+        signed_transaction_info = response.signedTransactionInfo
+        if not signed_transaction_info:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No signedTransactionInfo returned by Apple"
+            )
+        
+        try:
+            decoded_tx = verifier.verify_and_decode_signed_transaction(signed_transaction_info)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid Apple signed transaction: {str(e)}"
+            )
+
+        # decoded_tx содержит данные покупки
+        product_id = decoded_tx.productId
+        transaction_id = decoded_tx.transactionId
+        original_transaction_id = decoded_tx.originalTransactionId
+        expires_date = getattr(decoded_tx, "expiresDate", None)
+        bundle_id = decoded_tx.bundleId
+
+
+        payload = {
+            "product_id":product_id,
+            "transaction_id":transaction_id,
+            "original_id":original_transaction_id,
+            "date":expires_date
+        }
+        if bundle_id != os.getenv("APPLE_BUNDLE_ID"):
+            raise HTTPException(status_code=400, detail="Wrong bundle_id")
+        
+
         if req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic":
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
+        
+
+        sub_type = "premium" if req.product_id == "neurohub_premium" else "basic"
+        await create_new_log(
+            notification_type=f"subscibtion : {sub_type}",
+            subtype=sub_type,
+            raw_payload= payload,
+            status = "payed"
+        )
+
+        if sub_type == "premium":
+            result = await subscribe_premium(user_id)
+
+            if not result:
+                raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
+            
+        
+        elif sub_type == "basic":
+            result = await subscribe_basic(user_id)
+            if not result:
+                raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
+        
+        return {
+            "ok": True,
+            "user_id": user_id,
+            "product_id": product_id,
+            "transaction_id": transaction_id,
+            "original_transaction_id": original_transaction_id,
+            "expires_date": expires_date,
+        }
+
+
+
+
     except HTTPException:
         raise
     except Exception:
