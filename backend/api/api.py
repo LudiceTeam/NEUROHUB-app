@@ -1127,12 +1127,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         bundle_id = decoded_tx.bundleId
 
 
-        payload = {
-            "product_id":product_id,
-            "transaction_id":transaction_id,
-            "original_id":original_transaction_id,
-            "date":expires_date
-        }
+    
         if bundle_id != os.getenv("APPLE_BUNDLE_ID"):
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
@@ -1142,12 +1137,6 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         
 
         sub_type = "premium" if req.product_id == "neurohub_premium" else "basic"
-        await create_new_log(
-            notification_type=f"subscibtion : {sub_type}",
-            subtype=sub_type,
-            raw_payload= payload,
-            status = "payed"
-        )
 
         if sub_type == "premium":
             result = await subscribe_premium(user_id)
@@ -1178,6 +1167,37 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
+
+class AppleNotificationRequest(BaseModel):
+    signedPayload:str
+
+@app.post("/notification")
+@limiter.limit("20/minute")
+async def apple_notification(request:Request,req:AppleNotificationRequest,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump,x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    verifier = build_verifier()
+
+    try:
+        decoded_notification = verifier.verify_and_decode_notification(req.signedPayload)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid signedPayload: {str(e)}"
+        )
+
+    notification_type = decoded_notification.notificationType
+    subtype = decoded_notification.subtype
+    data = decoded_notification.data
+
+    # Внутри data обычно есть ещё signedTransactionInfo и/или signedRenewalInfo
+    signed_transaction_info = getattr(data, "signedTransactionInfo", None)
+    signed_renewal_info = getattr(data, "signedRenewalInfo", None)
+
+    # 1. вытащить notificationUUID
+    notification_uuid = getattr(decoded_notification, "notificationUUID", None)
+
 # --- RUN -- 
 
 if __name__ == "__main__":

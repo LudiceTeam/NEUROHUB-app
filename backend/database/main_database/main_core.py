@@ -274,7 +274,18 @@ async def unsub_func_premium(user_id:str) -> bool:
                 return False
 
 
-
+async def renew_sub(user_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
+                    date = str(datetime.now().date() + timedelta(days = 30)),
+                    last_refil_date = str(datetime.now().date())
+                )   
+                await conn.execute(stmt)
+            except Exception as e:
+                logger.exception(f"MAIN SQL Error")
+                return
 
 
 

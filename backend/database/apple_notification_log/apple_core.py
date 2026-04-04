@@ -54,6 +54,7 @@ async def create_table():
 
 async def create_new_log(
     notification_type:str,
+    notification_id:str,
     subtype:str,
     raw_payload,
     status:str
@@ -61,7 +62,6 @@ async def create_new_log(
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                notification_id = str(uuid.uuid4())
                 stmt = insert(apple_table).values(
                     notification_uuid = notification_id,
                     notification_type = notification_type,
@@ -100,3 +100,5 @@ async def update_log_status(notification_id:str,status:str):
             except Exception:
                 logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
 
+async def is_notification_exists(uuid:str) -> bool:
+    pass
