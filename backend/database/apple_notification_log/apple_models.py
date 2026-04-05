@@ -8,6 +8,6 @@ apple_table = Table(
     Column("notification_uuid",String,primary_key = True,unique = True),
     Column("notification_type",String),
     Column("subtype",String),
-    Column("raw_payload",JSON),
+    Column("raw_payload",String),
     Column("created_at",DateTime(timezone=True))
 )

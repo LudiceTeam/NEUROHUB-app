@@ -56,7 +56,7 @@ async def create_new_log(
     notification_type:str,
     notification_id:str,
     subtype:str,
-    raw_payload
+    raw_payload:str
 ) -> str:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():

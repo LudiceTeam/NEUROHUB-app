@@ -1132,7 +1132,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
 
-        if req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic":
+        if (req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic") or req.product_id != product_id:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
 
@@ -1173,10 +1173,7 @@ class AppleNotificationRequest(BaseModel):
 
 @app.post("/notification")
 @limiter.limit("20/minute")
-async def apple_notification(request:Request,req:AppleNotificationRequest,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature(req.model_dump,x_signature,x_timestamp):
-        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+async def apple_notification(request:Request,req:AppleNotificationRequest):
     verifier = build_verifier()
 
     try:
