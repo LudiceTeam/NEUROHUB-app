@@ -26,7 +26,7 @@ from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end
-from backend.database.apple_notification_log.apple_core import create_new_log,get_log_status,update_log_status
+from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
@@ -1197,6 +1197,29 @@ async def apple_notification(request:Request,req:AppleNotificationRequest,x_sign
 
     # 1. вытащить notificationUUID
     notification_uuid = getattr(decoded_notification, "notificationUUID", None)
+
+    if await is_notification_exists(notification_uuid):
+        return {"ok": True, "duplicate": True}
+    
+    await create_new_log(
+        notification_type = notification_type,
+        notification_id= notification_uuid,
+        subtype = subtype,
+        raw_payload = req.signedPayload
+    )
+
+
+    return {
+        "ok": True,
+        "notification_type": notification_type,
+        "subtype": subtype,
+        "notification_uuid": notification_uuid,
+        "has_signed_transaction_info": bool(signed_transaction_info),
+        "has_signed_renewal_info": bool(signed_renewal_info),
+    }
+    
+
+    
 
 # --- RUN -- 
 

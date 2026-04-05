@@ -56,8 +56,7 @@ async def create_new_log(
     notification_type:str,
     notification_id:str,
     subtype:str,
-    raw_payload,
-    status:str
+    raw_payload
 ) -> str:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -68,7 +67,6 @@ async def create_new_log(
                     subtype = subtype,
                     raw_payload = raw_payload,
                     created_at = str(datetime.now(timezone.utc)),
-                    status = status
                 ).on_conflict_do_nothing(
                     index_elements=['notification_uuid']
                 )
@@ -78,27 +76,15 @@ async def create_new_log(
                 logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
                 return ""   
 
-async def get_log_status(notification_id:str) -> str:
-    async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = select(apple_table.c.status).where(apple_table.c.notification_uuid == notification_id)
-            res = await conn.execute(stmt)
-            data = res.scalar_one_or_none()
-            return data if data is not None else ""
-        except Exception:
-            logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
-            return ""
-
-async def update_log_status(notification_id:str,status:str):
-    async with AsyncSession(async_engine) as conn:
-        async with conn.begin():
-            try:
-                stmt = apple_table.update().where(apple_table.c.notification_uuid == notification_id).values(
-                    status = status
-                )
-                await conn.execute(stmt)
-            except Exception:
-                logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
 
 async def is_notification_exists(uuid:str) -> bool:
-    pass
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(apple_table.c.notification_uuid).where(apple_table.c.notification_uuid == uuid)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return True if data is not None else False
+        except Exception:
+            logger.exception("APPLE NOTIFICATION LOG SQL ERROR")
+            return False
+        

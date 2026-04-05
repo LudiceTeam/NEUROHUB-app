@@ -9,6 +9,5 @@ apple_table = Table(
     Column("notification_type",String),
     Column("subtype",String),
     Column("raw_payload",JSON),
-    Column("created_at",DateTime(timezone=True)),
-    Column("status",String)
+    Column("created_at",DateTime(timezone=True))
 )
