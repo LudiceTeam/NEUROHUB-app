@@ -1173,7 +1173,8 @@ class AppleNotificationRequest(BaseModel):
 
 @app.post("/notification")
 @limiter.limit("20/minute")
-async def apple_notification(request:Request,req:AppleNotificationRequest):
+async def apple_notification(request:Request,req:AppleNotificationRequest,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+
     verifier = build_verifier()
 
     try:
