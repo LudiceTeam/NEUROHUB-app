@@ -54,12 +54,12 @@ async def create_table():
 async def create_refresh_token_db(user_id:str,token:str) -> bool:
 
     async with AsyncSession(async_engine) as conn:
-        async with conn.begin() as conn:
+        async with conn.begin():
             try:
                 stmt = insert(jwt_table).values(
                     user_id = user_id,
                     token = token
-                ).on_conflict_do_update(
+                ).on_conflict_do_nothing(
                     index_elements=[jwt_table.c.user_id],
                 )
                 result = await conn.execute(stmt)
@@ -74,7 +74,7 @@ async def create_refresh_token_db(user_id:str,token:str) -> bool:
 async def update_refresh_token(user_id:str,token:str) -> bool:
     
     async with AsyncSession(async_engine) as conn:
-        async with conn.begin() as conn:
+        async with conn.begin():
             try:
                 stmt = jwt_table.update().where(jwt_table.c.user_id == user_id).values(
                     token = token

@@ -428,7 +428,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
             user_id = user_id_main,
             name = email_parts[0],
             email = req.email,
-            provider_id = None,
+            provider_id = req.email,
             provider = "email",
             avatar_url=None
         )
