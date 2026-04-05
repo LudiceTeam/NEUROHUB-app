@@ -279,8 +279,7 @@ async def renew_sub(user_id:str):
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    date = str(datetime.now().date() + timedelta(days = 30)),
-                    last_refil_date = str(datetime.now().date())
+                    date = str(datetime.now().date() + timedelta(days = 30))
                 )   
                 await conn.execute(stmt)
             except Exception as e:

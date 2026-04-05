@@ -53,7 +53,7 @@ async def create_new_trasacrion(
     product_id:str,
     expires_date:datetime,
     raw_payload:str
-):
+) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -67,10 +67,16 @@ async def create_new_trasacrion(
                 ).on_conflict_do_nothing(
                     index_elements=[transaction_table.c.transaction_id]
                 )
-                await conn.execute(stmt)
+                res = await conn.execute(stmt)
+                if res.rowcount == 0:
+                    return False
+                
+                return True
+            
             except Exception:
                 logger.exception("TRANSACTION SQL ERROR")
-                return
+                return False
+            
 
 async def is_transaction_exists(transaction_id:str) -> bool:
     async with AsyncSession(async_engine) as conn:
@@ -82,3 +88,38 @@ async def is_transaction_exists(transaction_id:str) -> bool:
         except Exception:
             logger.exception("TRANSACTION SQL ERROR")
             return False
+        
+async def get_user_by_original_transaction_id(original_transaction_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(transaction_table.c.user_id).where(transaction_table.c.original_transaction_id == original_transaction_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("TRANSACTION SQL ERROR")
+            return ""
+        
+
+async def update_transaction(
+        original_transaction_id:str,
+        transaction_id:str,
+        product_id:str,
+        expires_date:str,
+
+) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = transaction_table.update().where(
+                    transaction_table.c.original_transaction_id == original_transaction_id
+                ).values(
+                    transaction_id = transaction_id,
+                    product_id = product_id,
+                    expires_date = expires_date
+                )
+                await conn.execute(stmt)
+                return True
+            except Exception:
+                logger.exception("TRANSACTION SQL ERROR")
+                return False

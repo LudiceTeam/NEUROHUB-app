@@ -20,13 +20,14 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
+from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
@@ -561,16 +562,6 @@ async def refil_unsub(user_id:str):
 
     await refil_nano_requests(user_id)
     await refil_normal_requests(user_id)
-    res_basic = await unsub_basic(user_id)
-    res_premium = await unsub_func_premium(user_id)
-
-    email:str = await get_user_email_by_user_id(user_id)
-
-    if res_basic and email != "":
-        await send_email_sub_over(email)
-
-    if res_premium and email != "":
-        await send_email_sub_over(email)
 
 @app.post("/profile")
 @limiter.limit("20/minute")
@@ -1132,9 +1123,29 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
 
-        if (req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic") or req.product_id != product_id:
+        if req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic":
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
+        if req.product_id != product_id:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Product id mismatch")
+
+        if await is_transaction_exists(transaction_id):
+            return {"ok": True, "duplicate": True}
+        
+
+
+        try_new_tr:bool = await create_new_trasacrion(
+            transaction_id = transaction_id,
+            original_transaction_id = original_transaction_id,
+            user_id = user_id,
+            product_id = product_id,
+            expires_date = expires_date,
+            raw_payload = signed_transaction_info
+        )
+
+
+        if not try_new_tr:
+            raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Transaction already exists")
 
         sub_type = "premium" if req.product_id == "neurohub_premium" else "basic"
 
@@ -1149,6 +1160,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
             result = await subscribe_basic(user_id)
             if not result:
                 raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
+        
         
         return {
             "ok": True,
@@ -1171,9 +1183,8 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
 class AppleNotificationRequest(BaseModel):
     signedPayload:str
 
-@app.post("/notification")
-@limiter.limit("20/minute")
-async def apple_notification(request:Request,req:AppleNotificationRequest):
+@app.post("/webhook/apple/notification")
+async def apple_notification(req:AppleNotificationRequest):
 
     verifier = build_verifier()
 
@@ -1199,12 +1210,61 @@ async def apple_notification(request:Request,req:AppleNotificationRequest):
     if await is_notification_exists(notification_uuid):
         return {"ok": True, "duplicate": True}
     
+
+
+    
     await create_new_log(
         notification_type = notification_type,
         notification_id= notification_uuid,
         subtype = subtype,
         raw_payload = req.signedPayload
     )
+
+    if signed_transaction_info:
+        try:
+            decoded_tx = verifier.verify_and_decode_signed_transaction(signed_transaction_info)
+            transaction_id = decoded_tx.transactionId
+            original_transaction_id = decoded_tx.originalTransactionId
+            product_id = decoded_tx.productId
+            expires_date = getattr(decoded_tx, "expiresDate", None)
+
+            user_id = await get_user_by_original_transaction_id(original_transaction_id)
+
+            if user_id != "":
+
+                if notification_type in ["SUBSCRIBED", "DID_RENEW"]:
+                    await renew_sub(user_id)
+                    await update_transaction(
+                        transaction_id=transaction_id,
+                        original_transaction_id=original_transaction_id,
+                        product_id=product_id,
+                        expires_date=expires_date
+                    )
+
+                elif notification_type in ["EXPIRED", "REFUND", "REVOKE"]:
+                        email = await get_user_email_by_user_id(user_id)
+                        if product_id == "neurohub_premium":
+                            await unsub_func_premium(user_id)
+
+                            
+                        elif product_id == "neurohub_basic":
+                            await unsub_basic(user_id)
+
+
+                        await update_transaction(
+                            transaction_id=transaction_id,
+                            original_transaction_id=original_transaction_id,
+                            product_id=product_id,
+                            expires_date=expires_date
+                        )
+
+
+                        if email != "":
+                            await send_email_sub_over(email)
+
+
+        except Exception:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail="Invalid signedTransactionInfo")
 
 
     return {
