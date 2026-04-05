@@ -68,7 +68,7 @@ async def create_new_log(
                     raw_payload = raw_payload,
                     created_at = str(datetime.now(timezone.utc)),
                 ).on_conflict_do_nothing(
-                    index_elements=['notification_uuid']
+                    index_elements=[apple_table.c.notification_uuid]
                 )
                 await conn.execute(stmt)
                 return notification_id

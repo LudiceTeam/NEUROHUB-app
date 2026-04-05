@@ -10,5 +10,5 @@ transaction_table = Table(
     Column("user_id",String),
     Column("product_id",String),
     Column("expires_date",DateTime(timezone=True)),
-    Column("rasw_payload",String)
+    Column("raw_payload",String)
 )

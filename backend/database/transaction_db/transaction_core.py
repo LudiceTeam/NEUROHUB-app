@@ -10,8 +10,11 @@ from backend.database.transaction_db.transaction_models import metadata_obj,tran
 import asyncio
 import atexit
 from sqlalchemy.dialects.postgresql import insert
+import logging
 
 #backend.database.ai_choose_database.
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -51,4 +54,31 @@ async def create_new_trasacrion(
     expires_date:datetime,
     raw_payload:str
 ):
-    pass
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = insert(transaction_table).values(
+                    transaction_id = transaction_id,
+                    original_transaction_id = original_transaction_id,
+                    user_id = user_id,
+                    product_id = product_id,
+                    expires_date = expires_date,
+                    raw_payload = raw_payload
+                ).on_conflict_do_nothing(
+                    index_elements=[transaction_table.c.transaction_id]
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("TRANSACTION SQL ERROR")
+                return
+
+async def is_transaction_exists(transaction_id:str) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(transaction_table.c.transaction_id).where(transaction_table.c.transaction_id == transaction_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return True if data is not None else False
+        except Exception:
+            logger.exception("TRANSACTION SQL ERROR")
+            return False
