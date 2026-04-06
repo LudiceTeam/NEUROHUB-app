@@ -393,6 +393,7 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
         
+        print(code)
         await send_email_code(req.email,code)
 
     except HTTPException:
@@ -470,8 +471,8 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-@limiter.limit("20/minute")
 @app.post("/refresh",dependencies=[Depends(safe_get)])
+@limiter.limit("20/minute")
 async def refresh_token_api(request:Request,refresh_token:str):
     credentials_exception = HTTPException(
         status_code=401,
@@ -783,10 +784,10 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
         
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
-
 
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
 
@@ -979,7 +980,7 @@ async def delete_chat_handler(request:Request,req:ChatId,user_id:str = Depends(g
     
 @app.post("/get_chat_messages")
 @limiter.limit("20/minute")
-async def get_chat_messages(request:Request,req:ChatId,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def get_chat_messages_handler(request:Request,req:ChatId,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
@@ -1021,7 +1022,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
         if req.model_name not in models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
         
-        
+
         await change_user_model_name(user_id,req.model_name)
         return {
             "message":"Model changed"

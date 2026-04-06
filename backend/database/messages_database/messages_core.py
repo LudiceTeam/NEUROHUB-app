@@ -52,7 +52,7 @@ async def create_message(user_id:str,chat_id:str,message:str,response:str):
                     message_id = str(uuid.uuid4()),
                     message_text = message,
                     response = response,
-                    created_at = str(datetime.now(timezone.utc))
+                    created_at = datetime.now(timezone.utc)
                 )
                 await conn.execute(stmt)
 
