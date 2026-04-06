@@ -72,6 +72,9 @@ async def get_chat_messages(chat_id:str) -> List[str]:
             for dt in data:
                 result.append(dt[0])
             
+            if len(result) > 20:
+                return result[-20:]
+            
             return result
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
