@@ -82,8 +82,9 @@ async def safe_get(req: Request):
         if not api:
             raise HTTPException(status_code=401, detail="Invalid API key")
         
-        if not await asyncio.to_thread(hmac.compare_digest, api, os.getenv("api")):
+        if not await asyncio.to_thread(hmac.compare_digest, api, os.getenv("X-API-KEY")):
             raise HTTPException(status_code=401, detail="Invalid API key")
+        
     except HTTPException:
         raise      
     except Exception as e:
@@ -912,7 +913,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 ====================
 
 ТЕКУЩЕЕ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:
-{str(req.request)}
+{true_request}
 
 ====================
 ПРАВИЛА РАБОТЫ:
@@ -1068,12 +1069,13 @@ async def delete_chat_handler(request:Request,req:ChatId,user_id:str = Depends(g
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
-        await delete_chat(user_id,req.chat_id)
+        await delete_chat(req.chat_id)
         await delete_chat_messages(req.chat_id)
         
     except HTTPException:
         raise 
     except Exception:
+        logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
 @app.post("/get_chat_messages")
@@ -1107,14 +1109,14 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
 
         models = [
             "google/gemini-3-flash-preview",
-            "google/gemini-2.5-flash"
+            "google/gemini-2.5-flash",
             "openai/gpt-4",
             "openai/gpt-4-turbo",
-            "anthropic/claude-opus-4.6"
-            "anthropic/claude-sonnet-4.6"
-            "mistralai/mistral-large"
-            "deepseek/deepseek-chat"
-            "google/gemini-3-pro-image-preview"
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "mistralai/mistral-large",
+            "deepseek/deepseek-chat",
+            "google/gemini-3-pro-image-preview",
         ]   
 
         if req.model_name not in models:
