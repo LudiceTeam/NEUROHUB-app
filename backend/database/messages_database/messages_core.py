@@ -6,7 +6,7 @@ import os
 import asyncio
 import logging
 import uuid
-from typing import List
+from typing import List,Optional
 from sqlalchemy import select
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt
@@ -42,7 +42,7 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_message(user_id:str,chat_id:str,message:str,response:str):
+async def create_message(user_id:str,chat_id:str,message:str,response:str,image:Optional[str],image_response:str = Optional[str]):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -52,6 +52,8 @@ async def create_message(user_id:str,chat_id:str,message:str,response:str):
                     message_id = str(uuid.uuid4()),
                     message_text = message,
                     response = response,
+                    image_message = image,
+                    image_response = image_response,
                     created_at = datetime.now(timezone.utc)
                 )
                 await conn.execute(stmt)

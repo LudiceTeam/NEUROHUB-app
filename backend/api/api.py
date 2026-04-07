@@ -676,7 +676,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         return result
         
     except Exception as e:
-        print(f"OpenAI SDK error: {e}")
+        #print(f"OpenAI SDK error: {e}")
         logger.exception("OpenAI SDK error")
         return "Some error happened"
 

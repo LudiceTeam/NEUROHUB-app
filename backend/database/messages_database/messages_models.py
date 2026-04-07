@@ -11,5 +11,7 @@ messages_table = Table(
     Column("message_id",String,primary_key=True),
     Column("message_text",String),
     Column("response",String),
+    Column("image_message",String),
+    Column("image_response",String),
     Column("created_at",DateTime(timezone=True))
 )
