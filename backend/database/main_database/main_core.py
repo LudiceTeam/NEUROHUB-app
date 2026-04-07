@@ -292,19 +292,22 @@ async def renew_sub(user_id:str):
 # ---- REQUESTS ----
 
 
-async def refil_nano_requests(user_id:str) -> bool:
+async def refil_all_requests(user_id:str) -> bool:
     user = await get_user_state(user_id)
 
     if not user:
         return False
     
-    amount = 1
+    amount_nano = 1
+
+    amount_requests = 10
 
     if user["sub"]:
-        amount = 15
+        amount_nano = 15
     
     elif user["basic_sub"]:
-        amount = 3
+        amount_nano = 3
+        amount_requests = 25
 
     datetime_now = datetime.now().date()
 
@@ -319,7 +322,8 @@ async def refil_nano_requests(user_id:str) -> bool:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    nano_req = amount,
+                    nano_req = amount_nano,
+                    requests = amount_requests,
                     last_refil_date = str(datetime.now().date())
                 )
                 result = await conn.execute(stmt)
@@ -330,45 +334,6 @@ async def refil_nano_requests(user_id:str) -> bool:
                 logger.exception(f"MAIN SQL Error")
                 return False
             
-
-async def refil_normal_requests(user_id:str) -> bool:
-
-    user = await get_user_state(user_id)
-
-    if not user:
-        return False
-    
-
-    amount = 10
-
-    if user["sub"]:
-        return False 
-    
-    elif user["basic_sub"]:
-        amount = 25 
-    
-    datetime_now = datetime.now().date()
-
-    datetime_now_str = str(datetime_now)
-
-    result_date:bool = check_date_for_refil(datetime_now_str,user["last_refil_date"])
-
-    if not result_date:
-        return False
-
-    async with AsyncSession(async_engine) as conn:
-        async with conn.begin():
-            try:
-                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    requests = amount,
-                    last_refil_date = str(datetime.now().date())
-                )
-                await conn.execute(stmt)
-                return True
-            except Exception as e:
-                logger.exception(f"MAIN SQL Error")
-                return False
-
 
         
 

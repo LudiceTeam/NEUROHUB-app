@@ -20,7 +20,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,refil_nano_requests,refil_normal_requests,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
@@ -434,6 +434,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
             provider = "email",
             avatar_url=None
         )
+
         
         if type(user_id_try) == str:
             user_id_main = user_id_try
@@ -560,19 +561,17 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
 
 
 
-async def refil_unsub(user_id:str):
 
-    await refil_nano_requests(user_id)
-    await refil_normal_requests(user_id)
 
 @app.post("/profile")
 @limiter.limit("20/minute")
 async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user)):
 
     try:
-        profile_dict = await profile(user_id)
-        await refil_unsub(user_id)
+        await refil_all_requests(user_id)
 
+        profile_dict = await profile(user_id)
+        
         return profile_dict
     except HTTPException:
         raise
@@ -694,7 +693,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
     try:
 
-        await refil_unsub(user_id)
+        await refil_all_requests(user_id)
 
         
         chat_id = req.chat_id
@@ -879,7 +878,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
             list_base64_images.append(image_base_64)
 
-        await refil_unsub(user_id)
+        await refil_all_requests(user_id)
 
 
         user_data = await get_user_state(user_id)
