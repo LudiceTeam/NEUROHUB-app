@@ -42,7 +42,7 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_message(user_id:str,chat_id:str,message:str,response:str,image:Optional[str],image_response:str = Optional[str]):
+async def create_message(user_id:str,chat_id:str,message:str,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -65,7 +65,7 @@ async def create_message(user_id:str,chat_id:str,message:str,response:str,image:
 async def get_chat_messages(chat_id:str) -> List[str]:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id)
+            stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.asc())
             res = await conn.execute(stmt)
             data = res.fetchall()
 
@@ -95,7 +95,7 @@ async def delete_chat_messages(chat_id:str):
 async def get_chat_first_message(chat_id:str) -> str:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.desc()).limit(1)
+            stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.asc()).limit(1)
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
             
@@ -113,15 +113,17 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
 
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(messages_table.c.message_text,messages_table.c.response).where(messages_table.c.chat_id == chat_id)
+            stmt = select(messages_table.c.message_text,messages_table.c.response,messages_table.c.image_message,messages_table.c.image_response).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.asc())
             res = await conn.execute(stmt)
             data = res.fetchall()
             result:List = []
-            for msg,resp in data:
+            for msg,resp,image_mes,image_resp in data:
                 result.append(
                     {
                         "message" : decrypt(msg),
-                        "response": decrypt(resp)
+                        "response": decrypt(resp) if resp is not None else None,
+                        "image_message" : image_mes,
+                        "image_response" : image_resp
                     }
                 )
             return result

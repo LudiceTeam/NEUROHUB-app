@@ -787,8 +787,17 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
+            encrypted_message = encrypt(req.request)
+
             response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
 
+            await create_message(
+                user_id = user_id,
+                chat_id = chat_id,
+                message = encrypted_message,
+                response = None,
+                image_response = response
+            )
 
             await minus_one_req_nano(user_id)    
             return {
@@ -975,6 +984,16 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             response = await ask_chat_gpt([request_text,list_base64_images],"google/gemini-3-pro-image-preview")
 
+            encrypted_message = encrypt(request_text)
+
+            await create_message(
+                user_id = user_id,
+                chat_id = chat_id,
+                message = encrypted_message,
+                response = None,
+                image = list_base64_images,
+                image_response = response
+            )
 
             await minus_one_req_nano(user_id)    
             return {
@@ -1001,7 +1020,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = encrypted_response
+                response = encrypted_response,
+                image =  list_base64_images
             )
 
             return {
@@ -1016,7 +1036,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = encrypted_response
+                response = encrypted_response,
+                image = list_base64_images
             )
 
             return {
