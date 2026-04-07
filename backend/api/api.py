@@ -473,16 +473,19 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+class RefreshToken(BaseModel):
+    refresh_token:str
+
 @app.post("/refresh",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")
-async def refresh_token_api(request:Request,refresh_token:str):
+async def refresh_token_api(request:Request,req:RefreshToken):
     credentials_exception = HTTPException(
         status_code=401,
         detail="Invalid refresh token",
     )
     
     try:
-        payload = jwt.decode(refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
+        payload = jwt.decode(req.refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
         user_id: str = payload.get("user_id")
         
         
@@ -490,7 +493,7 @@ async def refresh_token_api(request:Request,refresh_token:str):
             raise credentials_exception
         
         stored_token = await get_user_refresh_token(user_id)
-        if stored_token != refresh_token:
+        if stored_token != req.refresh_token:
             raise credentials_exception
         
         user_data = await get_user_data_for_jwt(user_id)
@@ -588,7 +591,7 @@ OPEN_AI_KEY = os.getenv("OPEN_AI")
 client = AsyncOpenAI(
     api_key=OPEN_AI_KEY,
     base_url="https://openrouter.ai/api/v1",
-    timeout=60.0,
+    timeout=120.0,
     max_retries=2
 )
 
