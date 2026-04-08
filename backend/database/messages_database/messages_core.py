@@ -144,11 +144,11 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
                     {
                         "message" : decrypt(msg) if msg is not None else None,
                         "response": decrypt(resp) if resp is not None else None,
-                        "image_message" : decode_images_list_base64([image_mes])[0] if image_mes is not None else None,
+                        "image_message" : decode_images_list_base64(image_mes) if image_mes is not None else None,
                         "image_response" : decrypt(image_resp) if image_resp is not None else None
                     }
                 )
             return result
         except Exception:
-            logger.exception()
+            logger.exception("MESSAGES SQL ERROR")
             return []

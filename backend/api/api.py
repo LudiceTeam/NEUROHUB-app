@@ -1114,7 +1114,8 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_id:str = Dep
         }
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
