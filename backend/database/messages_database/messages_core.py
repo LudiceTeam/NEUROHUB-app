@@ -9,7 +9,7 @@ import uuid
 from typing import List,Optional
 from sqlalchemy import select
 from datetime import datetime,timezone
-from backend.api.psw_hash import decrypt
+from backend.api.psw_hash import decrypt,encrypt
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,29 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_message(user_id:str,chat_id:str,message:str,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None):
+def encode_images_base64(images:List[str]) -> List[str]:
+    new_coded_list = []
+
+    for image in images:
+        coded_image = encrypt(image)
+        new_coded_list.append(coded_image)
+    
+    return new_coded_list
+
+
+def decode_images_list_base64(images:List[str]) -> List[str]:
+
+    new_decoded_list = []
+
+    for image in images:
+        decoded_image = decrypt(image)
+        new_decoded_list.append(decoded_image)
+    
+    return new_decoded_list
+
+
+
+async def create_message(user_id:str,chat_id:str,message:str | None,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -52,8 +74,8 @@ async def create_message(user_id:str,chat_id:str,message:str,response:str | None
                     message_id = str(uuid.uuid4()),
                     message_text = message,
                     response = response,
-                    image_message = image,
-                    image_response = image_response,
+                    image_message = encode_images_base64(image) if image is not None else None,
+                    image_response = encrypt(image_response) if image_response is not None else None,
                     created_at = datetime.now(timezone.utc)
                 )
                 await conn.execute(stmt)
@@ -120,10 +142,10 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
             for msg,resp,image_mes,image_resp in data:
                 result.append(
                     {
-                        "message" : decrypt(msg),
+                        "message" : decrypt(msg) if msg is not None else None,
                         "response": decrypt(resp) if resp is not None else None,
-                        "image_message" : image_mes,
-                        "image_response" : image_resp
+                        "image_message" : decode_images_list_base64([image_mes])[0] if image_mes is not None else None,
+                        "image_response" : decrypt(image_resp) if image_resp is not None else None
                     }
                 )
             return result
