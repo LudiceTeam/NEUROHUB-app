@@ -658,7 +658,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                     
                     image_bytes = base64.b64decode(base64_str)
                     return base64_str
-            return f"No image in response"
+            return "No image in response"
             
             
 
@@ -671,14 +671,17 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         
         result = response.choices[0].message.content.strip()
         if not result:
-            return "🤔 Gemini вернул пустой ответ."
+            return "No text result."
         
         return result
+    
+    except TimeoutError:
+        return "Generation took to long. Try again."
         
     except Exception as e:
         #print(f"OpenAI SDK error: {e}")
         logger.exception("OpenAI SDK error")
-        return "Some error happened"
+        return "Some error happened."
 
 
 
@@ -783,14 +786,17 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
         if user_model == "google/gemini-3-pro-image-preview":
 
             user_nano_req = user_data["nano_req"]
-            if user_nano_req == 0:
+            if user_nano_req <= 0:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
             encrypted_message = encrypt(req.request)
 
             response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
-
+            
+            if response in ["No image in response","Generation took to long. Try again."]:
+                return "No text result. Try again"
+            
             await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
@@ -805,11 +811,12 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
             } #  либо текст, либо base64 код картинки
 
         if not user_data["sub"]:
-            if user_data["requests"] == 0:
+            if user_data["requests"] <= 0:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
             response = await ask_chat_gpt(promt,user_model)
+
 
             await minus_one_req(user_id)
 
@@ -978,11 +985,17 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if user_model == "google/gemini-3-pro-image-preview":
 
             user_nano_req = user_data["nano_req"]
-            if user_nano_req == 0:
+            if user_nano_req <= 0:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
             response = await ask_chat_gpt([request_text,list_base64_images],"google/gemini-3-pro-image-preview")
+
+
+
+            if response in ["No image in response","Generation took to long. Try again."]:
+                return "No text result. Try again"
+            
 
             encrypted_message = encrypt(request_text)
 
@@ -1003,7 +1016,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
         if not user_data["sub"]:
-            if user_data["requests"] == 0:
+            if user_data["requests"] <= 0:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
