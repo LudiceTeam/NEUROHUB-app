@@ -9,6 +9,7 @@ from typing import List
 from sqlalchemy import select
 import uuid
 from sqlalchemy.dialects.postgresql import insert
+from datetime import datetime,timezone
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ async def create_chat(email:str) -> str:
                 chat_id = str(uuid.uuid4())
                 stmt = insert(chats_table).values(
                     email = email,
-                    chat_id = chat_id
+                    chat_id = chat_id,
+                    created_at = datetime.now(timezone.utc)
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -76,7 +78,7 @@ async def get_user_chats(email:str) -> List[str]:
 
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(chats_table.c.chat_id).where(chats_table.c.email == email)
+            stmt = select(chats_table.c.chat_id).where(chats_table.c.email == email).order_by(chats_table.c.created_at.desc())
             res = await conn.execute(stmt)
             data = res.fetchall()
 
@@ -85,7 +87,7 @@ async def get_user_chats(email:str) -> List[str]:
             for dt in data:
                 result.append(dt[0])
             
-            return result
+            return result # just chat_id list
         except Exception:
             logger.exception("CHATS SQL ERROR")
             return [] 
