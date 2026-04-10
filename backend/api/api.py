@@ -1446,7 +1446,7 @@ async def apple_notification(req:AppleNotificationRequest):
 
 
         except Exception:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail="Invalid signedTransactionInfo")
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
     return {
@@ -1457,7 +1457,46 @@ async def apple_notification(req:AppleNotificationRequest):
         "has_signed_transaction_info": bool(signed_transaction_info),
         "has_signed_renewal_info": bool(signed_renewal_info),
     }
+
+
+async def translate_google(text: str, target: str) -> str:
+    url = "https://translate.googleapis.com/translate_a/single"
+    params = {
+        "client": "gtx",
+        "sl": "auto",
+        "tl": target,
+        "dt": "t",
+        "q": text,
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as response:
+            data = await response.json()
+            return data[0][0][0]
     
+    return "Error while translating"
+
+
+
+class TranslateText(BaseModel):
+    text:str
+    target_language:str
+
+@app.post("/translate")
+@limiter.limit("20/minute")
+async def translate_handler(req:TranslateText,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        result_text:str = await translate_google(req.text,req.target_language)
+        return result_text
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("TRANSLATION ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
 
     
 
