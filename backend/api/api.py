@@ -395,7 +395,11 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
         
+
+        # delete this
         print(code)
+
+
         await send_email_code(req.email,code)
 
     except HTTPException:
@@ -444,6 +448,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         await create_default_user_model_name(
             user_id = user_id_main
         )
+
 
 
         user_data = {
@@ -1167,8 +1172,10 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
         models = [
             "google/gemini-3-flash-preview",
             "google/gemini-2.5-flash",
-            "openai/gpt-4",
-            "openai/gpt-4-turbo",
+            "openai/gpt-5.4-mini",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "google/gemma-4-26b-a4b-it",
             "anthropic/claude-opus-4.6",
             "anthropic/claude-sonnet-4.6",
             "mistralai/mistral-large",
