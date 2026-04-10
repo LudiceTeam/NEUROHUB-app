@@ -1484,7 +1484,7 @@ class TranslateText(BaseModel):
 
 @app.post("/translate")
 @limiter.limit("20/minute")
-async def translate_handler(req:TranslateText,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def translate_handler(request:Request,req:TranslateText,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
