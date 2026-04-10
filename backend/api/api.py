@@ -32,6 +32,7 @@ from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
 from openai import AsyncOpenAI
+import openai
 from typing import List
 import base64
 from jose.exceptions import ExpiredSignatureError, JWTError
@@ -677,6 +678,9 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     
     except TimeoutError:
         return "Generation took to long. Try again."
+    
+    except openai.NotFoundError:
+        return "This model doesnt support image input"
         
     except Exception as e:
         #print(f"OpenAI SDK error: {e}")
@@ -794,8 +798,8 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
             response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
             
-            if response in ["No image in response","Generation took to long. Try again."]:
-                return "No text result. Try again"
+            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+                return response
             
             await create_message(
                 user_id = user_id,
@@ -816,6 +820,9 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
 
             response = await ask_chat_gpt(promt,user_model)
+
+            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+                return response
 
 
             await minus_one_req(user_id)
@@ -838,6 +845,9 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
             response = await ask_chat_gpt(promt,user_model)
             encrypted_message = encrypt(req.request)
             encrypted_response = encrypt(response)
+
+            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+                return response
 
             await create_message(
                 user_id = user_id,
@@ -993,8 +1003,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
 
-            if response in ["No image in response","Generation took to long. Try again."]:
-                return "No text result. Try again"
+            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+                return response
             
 
             encrypted_message = encrypt(request_text)
@@ -1008,7 +1018,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 image_response = response
             )
 
-            await minus_one_req_nano(user_id)    
+            await minus_one_req_nano(user_id)   
+
+
             return {
                 "image":response
             } #  либо текст, либо base64 код картинки
@@ -1021,6 +1033,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
             response = await ask_chat_gpt([promt,list_base64_images],user_model)
+
+            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+                return response
+            
 
             await minus_one_req(user_id)
 
@@ -1044,6 +1060,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             response = await ask_chat_gpt([promt,list_base64_images],user_model)
             encrypted_message = encrypt(request_text)
             encrypted_response = encrypt(response)
+
+
+            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+                return response
 
             await create_message(
                 user_id = user_id,
