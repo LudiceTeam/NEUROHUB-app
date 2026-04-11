@@ -458,7 +458,7 @@ async def profile(user_id:str) -> dict:
     
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(main_table.c.name,main_table.c.sub,main_table.c.basic_sub,main_table.c.date,main_table.c.requests, main_table.c.nano_req,main_table.c.email).where(main_table.c.user_id == user_id)
+            stmt = select(main_table.c.profile_pict,main_table.c.name,main_table.c.sub,main_table.c.basic_sub,main_table.c.date,main_table.c.requests, main_table.c.nano_req,main_table.c.email).where(main_table.c.user_id == user_id)
 
             res = await conn.execute(stmt)
 
@@ -467,17 +467,18 @@ async def profile(user_id:str) -> dict:
             if data is None:
                 return {}
 
-            name,sub,basic_sub,date,requests,nano_req,email = data
+            avatar,name,sub,basic_sub,date,requests,nano_req,email = data
 
 
             return {
                 "Name":name,
+                "Profile Picture":avatar,
                 "Email":email,
                 "Premium":sub,
                 "Basic":basic_sub,
                 "Date End": date,
                 "Requests":requests,
-                "Nano requests":nano_req
+                "Nano Requests":nano_req
 
             }
 

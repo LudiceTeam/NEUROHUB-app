@@ -582,6 +582,7 @@ async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user
         profile_dict = await profile(user_id)
         
         return profile_dict
+    
     except HTTPException:
         raise
     except Exception:
