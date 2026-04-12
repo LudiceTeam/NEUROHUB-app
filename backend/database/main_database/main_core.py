@@ -514,3 +514,20 @@ async def get_user_email_by_user_id(user_id:str) -> str:
         except Exception:
             logger.exception("MAIN SQL ERROR")
             return ""
+
+
+async def update_user_avatar(user_id:str,avatar_base64:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(
+                    main_table.c.user_id == user_id
+                ).values(
+                    profile_pict = avatar_base64
+                )
+                
+                await conn.execute(stmt)
+
+            except Exception:
+                logger.exception("MAIN SQL ERROR")
+                return

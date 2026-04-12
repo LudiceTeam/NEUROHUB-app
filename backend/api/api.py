@@ -20,7 +20,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
@@ -694,19 +694,6 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         logger.exception("OpenAI SDK error")
         return "Some error happened."
 
-async def generate_video_from_replicate(image_text:str) -> str:
-    input = {
-        "seed": 99,
-        "prompt": image_text,
-        "duration": 7
-    }
-
-    output = replicate.async_run(
-        "bytedance/seedance-2.0",
-        input=input
-    )
-
-    return str(output.url)
 
 class AskText(BaseModel):
     chat_id:Optional[str] = None
@@ -1505,8 +1492,6 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
     try:
         result_text:str = await translate_google(req.text,req.target_language)
 
-        #print(result_text)
-
         return result_text
     except HTTPException:
         raise
@@ -1514,6 +1499,27 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
         logger.exception("TRANSLATION ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         
+
+class ChangeAvatar(BaseModel):
+    avatar_base64:str
+
+@app.post("/change_avatar")
+@limiter.limit("20/minute")
+async def change_avatar_handler(request:Request,req:ChangeAvatar,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        await update_user_avatar(user_id,req.avatar_base64)
+        return {
+            "message":"Avatar changed"
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
     
 
