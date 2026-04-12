@@ -42,6 +42,7 @@ from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
 from appstoreserverlibrary.models.Environment import Environment
 from backend.api.apple_client import get_apple_api_client
 
+
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -693,7 +694,19 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         logger.exception("OpenAI SDK error")
         return "Some error happened."
 
+async def generate_video_from_replicate(image_text:str) -> str:
+    input = {
+        "seed": 99,
+        "prompt": image_text,
+        "duration": 7
+    }
 
+    output = replicate.async_run(
+        "bytedance/seedance-2.0",
+        input=input
+    )
+
+    return str(output.url)
 
 class AskText(BaseModel):
     chat_id:Optional[str] = None
@@ -1491,6 +1504,9 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
     
     try:
         result_text:str = await translate_google(req.text,req.target_language)
+
+        #print(result_text)
+
         return result_text
     except HTTPException:
         raise
