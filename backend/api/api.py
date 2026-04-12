@@ -895,6 +895,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         
 
         list_base64_images = []
+        image_bytes_sum = 0
         for image in image_list:
             if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
                 raise HTTPException(
@@ -903,6 +904,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 )
             
             image_bytes = await image.read()
+            image_bytes_sum += len(image_bytes)
 
             if len(image_bytes) > MAX_IMAGE_SIZE:
                 raise HTTPException(
@@ -910,8 +912,16 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                     detail="Image too large"
                 )
             
+            
             image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
             list_base64_images.append(image_base_64)
+        
+        if image_bytes_sum > 20 * 1024 * 1024:
+            raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail="Images too large"
+                )
+            
 
         await refil_all_requests(user_id)
 
