@@ -873,7 +873,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
 
-MAX_IMAGE_SIZE = 8 * 1024 * 1024
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
@@ -1473,7 +1473,7 @@ async def translate_google(text: str, target: str) -> str:
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params) as response:
             data = await response.json()
-            return data[0][0][0]
+            return "".join(chunk[0] for chunk in data[0] if chunk and chunk[0])
     
     return "Error while translating"
 
