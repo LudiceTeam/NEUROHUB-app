@@ -91,3 +91,6 @@ async def count_model_rate(model_name:str) -> Optional[int]:
         except Exception as e:
             logger.exception("RATE SQL ERROR")
             return 
+
+async def get_user_all_models_rate(user_id:str) -> dict:
+    pass
