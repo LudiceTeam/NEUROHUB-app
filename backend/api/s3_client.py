@@ -27,6 +27,7 @@ class S3Client():
         object_name = file_path.split("/")[-1]
 
         async with self.get_client() as client:
+                
                 await client.put_object(Bucket=self.bucket_name, Key=object_name, Body=file_data)
 
                 presigned_url = await client.generate_presigned_url(
@@ -36,5 +37,5 @@ class S3Client():
                         "Key": object_name,
                     }
                 )
-                
+
         return presigned_url
