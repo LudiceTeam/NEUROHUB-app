@@ -92,5 +92,13 @@ async def count_model_rate(model_name:str) -> Optional[int]:
             logger.exception("RATE SQL ERROR")
             return 
 
-async def get_user_all_models_rate(user_id:str) -> dict:
-    pass
+async def get_user_all_models_rate(user_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(rate_table.c.model_name,rate_table.c.rate).where(rate_table.c.user_id == user_id)
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            return data
+        except Exception:
+            logger.exception("RATE SQL ERROR")
+            return []

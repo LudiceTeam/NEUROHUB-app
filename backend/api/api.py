@@ -28,6 +28,7 @@ from backend.database.ai_choose_db.ai_core import create_default_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
+from backend.database.rate_ai_database.rate_core import create_rate,count_model_rate,get_user_all_models_rate
 from backend.api.psw_hash import encrypt,decrypt
 import aiohttp
 import random
@@ -1521,6 +1522,11 @@ async def change_avatar_handler(request:Request,req:ChangeAvatar,user_id:str = D
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+
+class CreateRate(BaseModel):
+    model_name:str
+    rate:int
 
 
     
