@@ -1528,6 +1528,47 @@ class CreateRate(BaseModel):
     model_name:str
     rate:int
 
+# also can be user for updating rate if it already exists, because of unique constraint on model_name and user_id in rates table
+@app.post("/create_rate")
+@limiter.limit("20/minute")
+async def create_rate_handler(request:Request,req:CreateRate,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        if req.rate < 1 or req.rate > 5:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid rate value")
+        
+        models = [
+            "google/gemini-3-flash-preview",
+            "google/gemini-2.5-flash",
+            "openai/gpt-5.4-mini",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "google/gemma-4-26b-a4b-it",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "mistralai/mistral-large",
+            "deepseek/deepseek-chat",
+            "google/gemini-3-pro-image-preview",
+        ]   
+
+
+        if req.model_name not in models:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
+        
+        await create_rate(user_id,req.model_name,req.rate)
+
+        return {
+            "message":"Rate created/updated"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
     
 
