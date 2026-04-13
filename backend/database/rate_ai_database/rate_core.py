@@ -42,6 +42,9 @@ async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
 
+
+
+# create or update rate
 async def create_rate(user_id:str,model_name:str,rating:int) -> Optional[str]:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -63,6 +66,28 @@ async def create_rate(user_id:str,model_name:str,rating:int) -> Optional[str]:
                 result = await conn.execute(stmt)
                 rate_id = result.scalar_one_or_none()
                 return rate_id
-            except Exception as e:
-                logger.error(f"Error creating rate: {e}")
+            except Exception:
+                logger.exception("RATE SQL ERROR")
                 return
+            
+async def count_model_rate(model_name:str) -> Optional[int]:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(rate_table.c.rate).where(rate_table.c.model_name == model_name)
+            res = await conn.execute(stmt)
+            data = res.fetchall()
+            rates:List[int] = []
+            for dt in data:
+                rates.append(dt[0])
+            
+            rate_sum = 0
+            for rate in rates:
+                rate_sum += rate
+            
+            model_rate = rate_sum / len(rates)
+
+            return round(model_rate)
+
+        except Exception as e:
+            logger.exception("RATE SQL ERROR")
+            return 
