@@ -42,11 +42,21 @@ from appstoreserverlibrary.api_client import APIException
 from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
 from appstoreserverlibrary.models.Environment import Environment
 from backend.api.apple_client import get_apple_api_client
+from backend.api.s3_client import S3Client
 
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+
+AWS_CLIENT = S3Client(
+    access_key=os.getenv("AWS_ACCESS_KEY"),
+    secret_key=os.getenv("AWS_SECRET_KEY"),
+    endpoint_url=f"https://s3.{os.getenv('AWS_REGION')}.amazonaws.com",
+    bucket_name=os.getenv("BUCKET_NAME"),
+    cloud_front_domain=os.getenv("CLOUD_FRONT_DOMAIN")
+)
 
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -1504,17 +1514,38 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         
 #holowknight540@gmail.com
-class ChangeAvatar(BaseModel):
-    avatar_base64:str
 
 @app.post("/change_avatar")
 @limiter.limit("20/minute")
-async def change_avatar_handler(request:Request,req:ChangeAvatar,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    data_to_verify = {
+        "filename":avatar.filename,
+        "content_type":avatar.content_type,
+        "user_id":user_id
+    }
+    if not await verify_signature(data_to_verify,x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
-        await update_user_avatar(user_id,req.avatar_base64)
+        file_bytes = await avatar.read()
+
+        if len(file_bytes) > MAX_IMAGE_SIZE:
+            raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail="Image too large"
+                )
+
+        if avatar.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Unsupported file type"
+                )
+        
+
+        url = await AWS_CLIENT.upload_file(avatar.filename, file_bytes)
+
+        await update_user_avatar(user_id, url)
+
         return {
             "message":"Avatar changed"
         }
