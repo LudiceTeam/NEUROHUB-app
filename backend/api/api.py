@@ -676,7 +676,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                     
                     
                     image_bytes = base64.b64decode(base64_str)
-                    return base64_str
+                    return image_bytes
             return "No image in response"
             
             
@@ -811,21 +811,27 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
             response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
             
-            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+            if type(response) != bytes:
                 return response
+            
+
+            url = await AWS_CLIENT.upload_file(
+                file_path = str(uuid.uuid4()) + ".jpg",
+                file_data = response
+            )
             
             await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = None,
-                image_response = response
+                image_response = url
             )
 
             await minus_one_req_nano(user_id)    
             return {
-                "image":response
-            } #  либо текст, либо base64 код картинки
+                "image": url
+            } #  либо текст, либо url картинки
 
         if not user_data["sub"]:
             if user_data["requests"] <= 0:
@@ -901,8 +907,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
         
 
-        list_base64_images = []
+        list_bytes_images = []
+        image_base64_list = []
         image_bytes_sum = 0
+
         for image in image_list:
             if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
                 raise HTTPException(
@@ -919,9 +927,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                     detail="Image too large"
                 )
             
+            base64_str = base64.b64encode(image_bytes).decode('utf-8')
+            image_base64_list.append(base64_str)
             
-            image_base_64 = base64.b64encode(image_bytes).decode("utf-8")
-            list_base64_images.append(image_base_64)
+            list_bytes_images.append(image_bytes)
         
         if image_bytes_sum > 20 * 1024 * 1024:
             raise HTTPException(
@@ -1018,31 +1027,47 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([request_text,list_base64_images],"google/gemini-3-pro-image-preview")
+            response = await ask_chat_gpt([request_text,image_base64_list],"google/gemini-3-pro-image-preview")
 
 
 
-            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+            if type(response) != bytes:
                 return response
             
 
             encrypted_message = encrypt(request_text)
+
+
+
+            url_list = []
+
+            for image_bytes in list_bytes_images:
+                url = await AWS_CLIENT.upload_file(
+                    file_path = str(uuid.uuid4()) + ".jpg",
+                    file_data = image_bytes
+                )
+                url_list.append(url)
+            
+            response_image_url = await AWS_CLIENT.upload_file(
+                    file_path = str(uuid.uuid4()) + ".jpg",
+                    file_data = response
+                )
 
             await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = None,
-                image = list_base64_images,
-                image_response = response
+                image = url_list,
+                image_response = response_image_url
             )
 
             await minus_one_req_nano(user_id)   
 
 
             return {
-                "image":response
-            } #  либо текст, либо base64 код картинки
+                "image":response_image_url
+            } #  либо текст, либо url картинки
         
 
 
@@ -1051,7 +1076,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([promt,list_base64_images],user_model)
+            response = await ask_chat_gpt([promt,image_base64_list],user_model)
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
                 return response
@@ -1064,32 +1089,50 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             encrypted_response = encrypt(response)
 
+            url_list = []
+
+            for image_bytes in list_bytes_images:
+                url = await AWS_CLIENT.upload_file(
+                    file_path = str(uuid.uuid4()) + ".jpg",
+                    file_data = image_bytes
+                )
+                url_list.append(url)
+
             await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response,
-                image =  list_base64_images
+                image =  url_list
             )
 
             return {
                 "message":response
             }
         else:
-            response = await ask_chat_gpt([promt,list_base64_images],user_model)
+            response = await ask_chat_gpt([promt,image_base64_list],user_model)
             encrypted_message = encrypt(request_text)
             encrypted_response = encrypt(response)
 
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
                 return response
+            
+            url_list = []
+
+            for image_bytes in list_bytes_images:
+                url = await AWS_CLIENT.upload_file(
+                    file_path = str(uuid.uuid4()) + ".jpg",
+                    file_data = image_bytes
+                )
+                url_list.append(url)
 
             await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response,
-                image = list_base64_images
+                image = url_list
             )
 
             return {
