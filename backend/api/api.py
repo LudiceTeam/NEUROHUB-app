@@ -1496,6 +1496,7 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
         result_text:str = await translate_google(req.text,req.target_language)
 
         return result_text
+    
     except HTTPException:
         raise
     except Exception:
