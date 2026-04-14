@@ -1503,7 +1503,7 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
         logger.exception("TRANSLATION ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         
-
+#holowknight540@gmail.com
 class ChangeAvatar(BaseModel):
     avatar_base64:str
 
