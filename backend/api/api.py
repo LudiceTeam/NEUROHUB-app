@@ -1189,6 +1189,16 @@ async def delete_chat_handler(request:Request,req:ChatId,user_id:str = Depends(g
     try:
         await delete_chat(req.chat_id)
         await delete_chat_messages(req.chat_id)
+
+        # deleting from aws
+        chat_photos_url = await get_chat_messages_for_front_end(req.chat_id)
+
+        for message_context in chat_photos_url:
+            if message_context["image_message"] is not None:
+                for url in message_context["image_message"]:
+                    await AWS_CLIENT.delete_file(url)
+            if message_context["image_response"] is not None:
+                await AWS_CLIENT.delete_file(message_context["image_response"])
         
     except HTTPException:
         raise 
@@ -1286,15 +1296,6 @@ async def get_user_avatar_name_handler(request:Request,user_id:str = Depends(get
          raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         
 
-@app.post("/leave")
-@limiter.limit("20/minute")
-async def leave_accaunt(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
-        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    try:
-        await delete_jwt_tokens(user_id)
-    except Exception:
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 # --- SUBSCRIBTION ---
 
