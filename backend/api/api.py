@@ -1585,7 +1585,7 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
                 )
         
 
-        url = await AWS_CLIENT.upload_file(avatar.filename, file_bytes)
+        url = await AWS_CLIENT.upload_file(str(uuid.uuid4()) + ".jpg", file_bytes)
 
         await update_user_avatar(user_id, url)
 
