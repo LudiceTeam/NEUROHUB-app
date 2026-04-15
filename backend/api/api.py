@@ -20,7 +20,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar
+from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
@@ -1584,7 +1584,11 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Unsupported file type"
                 )
-        
+    
+        user_old_url = await get_user_profile_pict_url(user_id)
+
+        if user_old_url != "":
+            await AWS_CLIENT.delete_file(user_old_url)
 
         url = await AWS_CLIENT.upload_file(str(uuid.uuid4()) + ".jpg", file_bytes)
 
