@@ -7,7 +7,7 @@ import asyncio
 import logging
 import uuid
 from typing import List,Optional
-from sqlalchemy import select
+from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt,encrypt
 
@@ -64,7 +64,7 @@ def decode_images_list_base64(images:List[str]) -> List[str]:
 
 
 
-async def create_message(user_id:str,chat_id:str,message:str | None,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None):
+async def create_message(user_id:str,chat_id:str,message:str | None,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None,model_name:Optional[str] = None):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -76,7 +76,8 @@ async def create_message(user_id:str,chat_id:str,message:str | None,response:str
                     response = response,
                     image_message = encode_images_base64(image) if image is not None else None,
                     image_response = encrypt(image_response) if image_response is not None else None,
-                    created_at = datetime.now(timezone.utc)
+                    created_at = datetime.now(timezone.utc),
+                    model_name = model_name
                 )
                 await conn.execute(stmt)
 
@@ -152,3 +153,13 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return []
+
+async def count_model_messages(model_name:str) -> int:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(func.count()).where(messages_table.c.model_name == model_name)
+            res = await conn.execute(stmt)
+            return res.scalar_one()
+        except Exception:
+            logger.exception("MESSAGES SQL ERROR")
+            return 0   

@@ -13,5 +13,6 @@ messages_table = Table(
     Column("response",String),
     Column("image_message",ARRAY(String)),
     Column("image_response",String),
-    Column("created_at",DateTime(timezone=True))
+    Column("created_at",DateTime(timezone=True)),
+    Column("model_name",String)
 )

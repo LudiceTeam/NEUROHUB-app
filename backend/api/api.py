@@ -1246,7 +1246,6 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
             "anthropic/claude-opus-4.6",
             "anthropic/claude-sonnet-4.6",
             "mistralai/mistral-large",
-            "deepseek/deepseek-chat",
             "google/gemini-3-pro-image-preview",
         ]   
 
