@@ -826,7 +826,8 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = None,
-                image_response = url
+                image_response = url,
+                model_name = user_model
             )
 
             await minus_one_req_nano(user_id)    
@@ -854,7 +855,8 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = encrypted_response
+                response = encrypted_response,
+                model_name = user_model
             )
 
             return {
@@ -873,7 +875,8 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
-                response = encrypted_response
+                response = encrypted_response,
+                model_name = user_model
             )
 
             return {
@@ -1060,7 +1063,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 message = encrypted_message,
                 response = None,
                 image = url_list,
-                image_response = response_image_url
+                image_response = response_image_url,
+                model_name = user_model
             )
 
             await minus_one_req_nano(user_id)   
@@ -1104,7 +1108,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response,
-                image =  url_list
+                image =  url_list,
+                model_name = user_model
             )
 
             return {
@@ -1133,7 +1138,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = encrypted_response,
-                image = url_list
+                image = url_list,
+                model_name = user_model
             )
 
             return {
