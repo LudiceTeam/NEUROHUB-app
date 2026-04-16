@@ -25,11 +25,12 @@ from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_u
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.rate_ai_database.rate_core import create_rate,count_model_rate,get_user_all_models_rate
 from backend.api.psw_hash import encrypt,decrypt
+from backend.database.model_stats_redis.redis_cli import RedisClient
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -1602,6 +1603,55 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
+REDIS_CLIENT = RedisClient(
+    "localhost",
+    6379
+)
+
+
+@app.get("/get_or_write_model_stats",dependencies=[Depends(safe_get)])
+@limiter.limit("20/minute")
+async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    models = [
+            "google/gemini-3-flash-preview",
+            "google/gemini-2.5-flash",
+            "openai/gpt-5.4-mini",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "google/gemma-4-26b-a4b-it",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "mistralai/mistral-large",
+            "google/gemini-3-pro-image-preview",
+        ] 
+    
+    models_count_dict = {}
+    
+    try:
+
+        for model in models:
+            model_amount = await count_model_messages(model)
+            models_count_dict[model] = model_amount
+
+        await REDIS_CLIENT.set_models_count(models_count_dict)
+
+        result_stats = await REDIS_CLIENT.get_stats()
+
+        return {
+            "stats" : result_stats
+        }
+    
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+
 
 # --- RUN -- 
 

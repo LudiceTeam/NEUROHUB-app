@@ -15,5 +15,6 @@ stats_table = Table(
     Column("anthropic/claude-sonnet-4.6",Integer),
     Column("mistralai/mistral-large",Integer),
     Column("google/gemini-3-pro-image-preview",Integer),
+    Column("main_id",String,primary_key=True),
     Column("updated_at",String)
 )
