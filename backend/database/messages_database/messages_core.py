@@ -10,6 +10,7 @@ from typing import List,Optional
 from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt,encrypt
+from backend.api.config import database_url 
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 async_engine = create_async_engine(
-    f"postgresql+asyncpg://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@localhost:5432/main_database",
+    database_url,
     pool_size=20,          
     max_overflow=50,       
     pool_recycle=3600,    

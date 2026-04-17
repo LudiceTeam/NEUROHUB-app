@@ -10,6 +10,7 @@ from backend.database.ai_choose_db.ai_models import metadata_obj,ai_table
 import asyncio
 import atexit
 from sqlalchemy.dialects.postgresql import insert
+from backend.api.config import database_url 
 
 #backend.database.ai_choose_database.
 
@@ -18,7 +19,7 @@ load_dotenv()
 
 
 async_engine = create_async_engine(
-    f"postgresql+asyncpg://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@localhost:5432/main_database",
+    database_url,
     pool_size=20,           # Размер пула соединений
     max_overflow=50,        # Максимальное количество соединений
     pool_recycle=3600,      # Пересоздавать соединения каждый час

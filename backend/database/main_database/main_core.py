@@ -13,6 +13,7 @@ import atexit
 from sqlalchemy import func
 import logging
 import uuid
+from backend.api.config import database_url 
 #backend.database.
 
 
@@ -22,7 +23,7 @@ load_dotenv()
 
 
 async_engine = create_async_engine(
-    f"postgresql+asyncpg://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@localhost:5432/main_database",
+    database_url,
     pool_size=20,          
     max_overflow=50,       
     pool_recycle=3600,    

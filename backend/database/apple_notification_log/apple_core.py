@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 import uuid
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime,timezone
+from backend.api.config import database_url 
 
 
 
@@ -24,7 +25,7 @@ load_dotenv()
 
 
 async_engine = create_async_engine(
-    f"postgresql+asyncpg://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@localhost:5432/main_database",
+    database_url,
     pool_size=20,          
     max_overflow=50,       
     pool_recycle=3600,    
