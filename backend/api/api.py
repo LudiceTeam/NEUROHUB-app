@@ -44,6 +44,7 @@ from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
 from appstoreserverlibrary.models.Environment import Environment
 from backend.api.apple_client import get_apple_api_client
 from backend.api.s3_client import S3Client
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -1635,6 +1636,17 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
         ] 
     
     models_count_dict = {}
+
+
+    last_update_day = await REDIS_CLIENT.get_last_date_update()
+
+    today = datetime.now().date().isoformat()
+
+    if last_update_day is not None and last_update_day >= today:
+        result_stats = await REDIS_CLIENT.get_stats()
+        return {
+            "stats":result_stats
+        }
     
     try:
 

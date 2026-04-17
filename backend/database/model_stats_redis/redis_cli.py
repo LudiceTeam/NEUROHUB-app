@@ -40,6 +40,11 @@ class RedisClient:
             "last_update": last_update,
             "models": {k: int(v) for k, v in data.items()}
         }
+
+    async def get_last_date_update(self) -> str | None:
+        last_update = await self.redis.get(LAST_UPDATE_KEY)
+        return last_update
+
         
 
     
