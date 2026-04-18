@@ -28,7 +28,7 @@ from backend.database.ai_choose_db.ai_core import create_default_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
-from backend.database.rate_ai_database.rate_core import create_rate,count_model_rate,get_user_all_models_rate
+from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 import aiohttp
@@ -44,7 +44,7 @@ from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
 from appstoreserverlibrary.models.Environment import Environment
 from backend.api.apple_client import get_apple_api_client
 from backend.api.s3_client import S3Client
-from datetime import datetime
+from datetime import datetime,timezone
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ async def safe_get(req: Request):
 # --- ROUTES ---
 @app.get("/")
 async def main():
-    return "NEUROHUB-API"
+    return "LUMEN-API"
 
 
 class AuthGoogle(BaseModel):
@@ -290,12 +290,12 @@ async def send_email_code(email: str, code: str):
     payload = {
     "from": os.getenv("EMAIL_FROM"),
     "to": [email],
-    "subject": "NEUROHUB Login Verification",
+    "subject": "LUMEN Login Verification",
     "html": f"""
     <div style="font-family: Arial, sans-serif; background-color:#0f172a; padding:40px; color:#ffffff;">
         <div style="max-width:600px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; text-align:center;">
             
-            <h1 style="color:#38bdf8;">NEUROHUB</h1>
+            <h1 style="color:#38bdf8;">LUMEN</h1>
             
             <h2 style="margin-top:20px;">Login Verification</h2>
             
@@ -349,17 +349,17 @@ async def send_email_sub_over(email: str):
     payload = {
     "from": os.getenv("EMAIL_FROM"),
     "to": [email],
-    "subject": "Your NEUROHUB Subscription Has Ended",
+    "subject": "Your LUMEN Subscription Has Ended",
     "html": f"""
     <div style="font-family: Arial, sans-serif; background-color:#020617; padding:40px; color:#ffffff;">
         <div style="max-width:650px; margin:0 auto; background:#0f172a; border-radius:16px; padding:35px;">
             
-            <h1 style="text-align:center; color:#38bdf8;">NEUROHUB</h1>
+            <h1 style="text-align:center; color:#38bdf8;">LUMEN</h1>
             
             <h2 style="margin-top:25px; text-align:center;">Subscription Expired</h2>
             
             <p style="margin-top:20px; color:#cbd5f5; font-size:16px; line-height:1.6;">
-                We wanted to let you know that your NEUROHUB subscription has officially come to an end.
+                We wanted to let you know that your LUMEN subscription has officially come to an end.
             </p>
             
             <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
@@ -368,7 +368,7 @@ async def send_email_sub_over(email: str):
             </p>
 
             <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
-                We hope NEUROHUB helped you achieve your goals, whether it was building projects, exploring new ideas,
+                We hope LUMEN helped you achieve your goals, whether it was building projects, exploring new ideas,
                 or simply making your workflow faster and smarter.
             </p>
 
@@ -379,7 +379,7 @@ async def send_email_sub_over(email: str):
             </p>
 
             <p style="margin-top:25px; color:#64748b; font-size:14px;">
-                Thank you for choosing NEUROHUB 💙
+                Thank you for choosing LUMEN 💙
             </p>
 
         </div>
@@ -1245,17 +1245,62 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
     try:
 
         models = [
-            "google/gemini-3-flash-preview",
-            "google/gemini-2.5-flash",
-            "openai/gpt-5.4-mini",
-            "openai/gpt-4o",
-            "openai/gpt-4o-mini",
-            "google/gemma-4-26b-a4b-it",
-            "anthropic/claude-opus-4.6",
-            "anthropic/claude-sonnet-4.6",
-            "mistralai/mistral-large",
-            "google/gemini-3-pro-image-preview",
-        ]   
+    "google/gemini-3-flash-preview",
+    "google/gemini-2.5-flash",
+    "openai/gpt-5.4-mini",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "google/gemma-4-26b-a4b-it",
+    "anthropic/claude-opus-4.6",
+    "anthropic/claude-sonnet-4.6",
+    "mistralai/mistral-large",
+    "google/gemini-3-pro-image-preview",
+
+    # ===== GOOGLE (дешевые + норм) =====
+    "google/gemini-2.0-flash-001",
+    "google/gemini-2.0-flash-lite-001",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-2.5-flash-lite-preview-09-2025",
+    "google/gemini-2.5-flash-image-preview",
+    "google/gemini-3.1-flash-lite-preview",
+    "google/gemini-3.1-flash-image-preview",
+
+    # ===== GEMMA (очень дешевые) =====
+    "google/gemma-3-4b-it",
+    "google/gemma-3-4b-it:free",
+    "google/gemma-3-12b-it",
+    "google/gemma-3-12b-it:free",
+    "google/gemma-3-27b-it",
+    "google/gemma-3-27b-it:free",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-31b-it:free",
+
+    # ===== QWEN (топ за дешево) =====
+    "qwen/qwen2.5-vl-7b-instruct",
+    "qwen/qwen2.5-vl-72b-instruct",
+    "qwen/qwen3-vl-8b-instruct",
+    "qwen/qwen3-vl-8b-thinking",
+    "qwen/qwen3-vl-30b-a3b-instruct",
+    "qwen/qwen3-vl-30b-a3b-thinking",
+
+    # ===== META =====
+    "meta-llama/llama-3.2-11b-vision-instruct",
+    "meta-llama/llama-3.2-90b-vision-instruct",
+    "meta-llama/llama-4-maverick",
+    "meta-llama/llama-4-scout",
+
+    # ===== MISTRAL =====
+    "mistralai/pixtral-12b",
+    "mistralai/mistral-small-2603",
+
+    # ===== ДРУГИЕ ДЕШЕВЫЕ =====
+    "rekaai/reka-edge",
+    "bytedance-seed/seed-2.0-mini",
+    "bytedance/ui-tars-1.5-7b",
+    "z-ai/glm-4.6v",
+    "moonshotai/kimi-k2.5",
+    "nvidia/nemotron-nano-12b-vl",
+]
 
         if req.model_name not in models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
@@ -1370,7 +1415,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
 
-        if req.product_id != "neurohub_premium" and req.product_id != "neurohub_basic":
+        if req.product_id != "lumen_premium" and req.product_id != "lumen_basic":
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
         if req.product_id != product_id:
@@ -1394,7 +1439,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         if not try_new_tr:
             raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Transaction already exists")
 
-        sub_type = "premium" if req.product_id == "neurohub_premium" else "basic"
+        sub_type = "premium" if req.product_id == "lumen_premium" else "basic"
 
         if sub_type == "premium":
             result = await subscribe_premium(user_id)
@@ -1490,11 +1535,11 @@ async def apple_notification(req:AppleNotificationRequest):
 
                 elif notification_type in ["EXPIRED", "REFUND", "REVOKE"]:
                         email = await get_user_email_by_user_id(user_id)
-                        if product_id == "neurohub_premium":
+                        if product_id == "lumen_premium":
                             await unsub_func_premium(user_id)
 
                             
-                        elif product_id == "neurohub_basic":
+                        elif product_id == "lumen_basic":
                             await unsub_basic(user_id)
 
 
@@ -1623,27 +1668,76 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     models = [
-            "google/gemini-3-flash-preview",
-            "google/gemini-2.5-flash",
-            "openai/gpt-5.4-mini",
-            "openai/gpt-4o",
-            "openai/gpt-4o-mini",
-            "google/gemma-4-26b-a4b-it",
-            "anthropic/claude-opus-4.6",
-            "anthropic/claude-sonnet-4.6",
-            "mistralai/mistral-large",
-            "google/gemini-3-pro-image-preview",
-        ] 
+    # ===== ТВОИ =====
+    "google/gemini-3-flash-preview",
+    "google/gemini-2.5-flash",
+    "openai/gpt-5.4-mini",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "google/gemma-4-26b-a4b-it",
+    "anthropic/claude-opus-4.6",
+    "anthropic/claude-sonnet-4.6",
+    "mistralai/mistral-large",
+    "google/gemini-3-pro-image-preview",
+
+    # ===== GOOGLE (дешевые + норм) =====
+    "google/gemini-2.0-flash-001",
+    "google/gemini-2.0-flash-lite-001",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-2.5-flash-lite-preview-09-2025",
+    "google/gemini-2.5-flash-image-preview",
+    "google/gemini-3.1-flash-lite-preview",
+    "google/gemini-3.1-flash-image-preview",
+
+    # ===== GEMMA (очень дешевые) =====
+    "google/gemma-3-4b-it",
+    "google/gemma-3-4b-it:free",
+    "google/gemma-3-12b-it",
+    "google/gemma-3-12b-it:free",
+    "google/gemma-3-27b-it",
+    "google/gemma-3-27b-it:free",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-31b-it:free",
+
+    # ===== QWEN (топ за дешево) =====
+    "qwen/qwen2.5-vl-7b-instruct",
+    "qwen/qwen2.5-vl-72b-instruct",
+    "qwen/qwen3-vl-8b-instruct",
+    "qwen/qwen3-vl-8b-thinking",
+    "qwen/qwen3-vl-30b-a3b-instruct",
+    "qwen/qwen3-vl-30b-a3b-thinking",
+
+    # ===== META =====
+    "meta-llama/llama-3.2-11b-vision-instruct",
+    "meta-llama/llama-3.2-90b-vision-instruct",
+    "meta-llama/llama-4-maverick",
+    "meta-llama/llama-4-scout",
+
+    # ===== MISTRAL =====
+    "mistralai/pixtral-12b",
+    "mistralai/mistral-small-2603",
+
+    # ===== ДРУГИЕ ДЕШЕВЫЕ =====
+    "rekaai/reka-edge",
+    "bytedance-seed/seed-2.0-mini",
+    "bytedance/ui-tars-1.5-7b",
+    "z-ai/glm-4.6v",
+    "moonshotai/kimi-k2.5",
+    "nvidia/nemotron-nano-12b-vl",
+]
+    
     
     models_count_dict = {}
 
 
-    last_update_day = await REDIS_CLIENT.get_last_date_update()
+    last_update_day = await get_date_last_update()
 
-    today = datetime.now().date().isoformat()
+    
+
+    today = datetime.now(timezone.utc)
 
     if last_update_day is not None and last_update_day >= today:
-        result_stats = await REDIS_CLIENT.get_stats()
+        result_stats = await get_models_stats()
         return {
             "stats":result_stats
         }
@@ -1654,12 +1748,12 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
             model_amount = await count_model_messages(model)
             models_count_dict[model] = model_amount
 
-        await REDIS_CLIENT.set_models_count(models_count_dict)
+        await write_models_stats(models_count_dict)
 
-        result_stats = await REDIS_CLIENT.get_stats()
+        
 
         return {
-            "stats" : result_stats
+            "stats" : models_count_dict
         }
     
     except HTTPException:
