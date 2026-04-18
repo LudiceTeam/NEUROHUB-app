@@ -710,7 +710,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
 
 class AskText(BaseModel):
     chat_id:Optional[str] = None
-    request:str
+    request:Optional[str] = None
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
