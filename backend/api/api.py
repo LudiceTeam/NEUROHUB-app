@@ -651,7 +651,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
 
 
 
-        if user_model == "google/gemini-3-pro-image-preview":
+        if user_model in image_generation_models:
             response = await client.chat.completions.create(
             model=user_model,
             messages=[
@@ -803,7 +803,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 """
 
         user_model = await get_user_model_name(user_id)
-        if user_model == "google/gemini-3-pro-image-preview":
+        if user_model in image_generation_models:
 
             user_nano_req = user_data["nano_req"]
             if user_nano_req <= 0:
@@ -812,7 +812,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
             encrypted_message = encrypt(req.request)
 
-            response = await ask_chat_gpt(req.request,"google/gemini-3-pro-image-preview")
+            response = await ask_chat_gpt(req.request,user_model)
             
             if type(response) != bytes:
                 return response
@@ -838,7 +838,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
             } #  либо текст, либо url картинки
 
         if not user_data["sub"]:
-            if user_data["requests"] <= 0:
+            if user_data["requests"] <= 0 and user_model not in expensive_models:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
@@ -846,9 +846,16 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
                 return response
+            
+            if user_model in expensive_models:
+                user_nano_req = user_data["nano_req"]
+                if user_nano_req <= 0:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
+                await minus_one_req_nano(user_id)    
 
-            await minus_one_req(user_id)
+            else:
+                await minus_one_req(user_id)
 
             encrypted_message = encrypt(req.request)
             encrypted_response = encrypt(response)
@@ -872,6 +879,14 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
                 return response
+            
+
+            if user_model in expensive_models: 
+                user_nano_req = user_data["nano_req"]
+                if user_nano_req <= 0:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+                await minus_one_req_nano(user_id)
 
             await create_message(
                 user_id = user_id,
@@ -909,7 +924,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
     try:
-        if len(image_list) > 7:
+        if len(image_list) > 5:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
         
 
@@ -1026,14 +1041,14 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 ОТВЕТ:
 """
         user_model = await get_user_model_name(user_id)
-        if user_model == "google/gemini-3-pro-image-preview":
+        if user_model in image_generation_models:
 
             user_nano_req = user_data["nano_req"]
             if user_nano_req <= 0:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([request_text,image_base64_list],"google/gemini-3-pro-image-preview")
+            response = await ask_chat_gpt([request_text,image_base64_list],user_model)
 
 
 
@@ -1079,7 +1094,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
         if not user_data["sub"]:
-            if user_data["requests"] <= 0:
+            if user_data["requests"] <= 0 and user_model not in expensive_models:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
@@ -1088,8 +1103,14 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
                 return response
             
+            if user_model in expensive_models:
+                user_nano_req = user_data["nano_req"]
+                if user_nano_req <= 0:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
-            await minus_one_req(user_id)
+                await minus_one_req_nano(user_id)  
+            else:
+                await minus_one_req(user_id)
 
 
             encrypted_message = encrypt(request_text)
@@ -1127,6 +1148,13 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 return response
             
             url_list = []
+
+            if user_model in expensive_models:
+                user_nano_req = user_data["nano_req"]
+                if user_nano_req <= 0:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+                await minus_one_req_nano(user_id)  
 
             for image_bytes in list_bytes_images:
                 url = await AWS_CLIENT.upload_file(
