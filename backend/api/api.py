@@ -1678,5 +1678,5 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
 # --- RUN -- 
 
 if __name__ == "__main__":
-    uvicorn.run(app,host = "0.0.0.0",port = 8080)
+    uvicorn.run(app,host = "127.0.0.1",port = 8080)
 
