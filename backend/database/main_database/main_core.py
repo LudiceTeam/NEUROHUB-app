@@ -399,7 +399,7 @@ async def subscribe_basic(user_id:str) -> bool:
                 stmt = main_table.update().where(main_table.c.user_id == user_id).values(
                     date = str(date),
                     last_refil_date = str(datetime.now().date()),
-                    nano_req = 3,
+                    nano_req = 5,
                     requests = 25,
                     basic_sub = True
                 )

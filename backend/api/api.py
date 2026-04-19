@@ -110,7 +110,7 @@ async def safe_get(req: Request):
 # --- ROUTES ---
 @app.get("/")
 async def main():
-    return "LUMEN-API"
+    return "NEXI-API"
 
 
 class AuthGoogle(BaseModel):
@@ -291,12 +291,12 @@ async def send_email_code(email: str, code: str):
     payload = {
     "from": os.getenv("EMAIL_FROM"),
     "to": [email],
-    "subject": "LUMEN Login Verification",
+    "subject": "NEXI Login Verification",
     "html": f"""
     <div style="font-family: Arial, sans-serif; background-color:#0f172a; padding:40px; color:#ffffff;">
         <div style="max-width:600px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; text-align:center;">
             
-            <h1 style="color:#38bdf8;">LUMEN</h1>
+            <h1 style="color:#38bdf8;">NEXI</h1>
             
             <h2 style="margin-top:20px;">Login Verification</h2>
             
@@ -350,17 +350,17 @@ async def send_email_sub_over(email: str):
     payload = {
     "from": os.getenv("EMAIL_FROM"),
     "to": [email],
-    "subject": "Your LUMEN Subscription Has Ended",
+    "subject": "Your NEXI Subscription Has Ended",
     "html": f"""
     <div style="font-family: Arial, sans-serif; background-color:#020617; padding:40px; color:#ffffff;">
         <div style="max-width:650px; margin:0 auto; background:#0f172a; border-radius:16px; padding:35px;">
             
-            <h1 style="text-align:center; color:#38bdf8;">LUMEN</h1>
+            <h1 style="text-align:center; color:#38bdf8;">NEXI</h1>
             
             <h2 style="margin-top:25px; text-align:center;">Subscription Expired</h2>
             
             <p style="margin-top:20px; color:#cbd5f5; font-size:16px; line-height:1.6;">
-                We wanted to let you know that your LUMEN subscription has officially come to an end.
+                We wanted to let you know that your NEXI subscription has officially come to an end.
             </p>
             
             <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
@@ -369,7 +369,7 @@ async def send_email_sub_over(email: str):
             </p>
 
             <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
-                We hope LUMEN helped you achieve your goals, whether it was building projects, exploring new ideas,
+                We hope NEXI helped you achieve your goals, whether it was building projects, exploring new ideas,
                 or simply making your workflow faster and smarter.
             </p>
 
@@ -380,7 +380,7 @@ async def send_email_sub_over(email: str):
             </p>
 
             <p style="margin-top:25px; color:#64748b; font-size:14px;">
-                Thank you for choosing LUMEN 💙
+                Thank you for choosing NEXI 💙
             </p>
 
         </div>
@@ -1348,7 +1348,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     try:
-        client = get_apple_api_client()
+        client = await get_apple_api_client()
         verifier = build_verifier()
 
         try:
@@ -1387,7 +1387,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
 
-        if req.product_id != "lumen_premium" and req.product_id != "lumen_basic":
+        if req.product_id != "nexi_premium" and req.product_id != "nexi_basic":
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
         if req.product_id != product_id:
@@ -1411,7 +1411,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         if not try_new_tr:
             raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Transaction already exists")
 
-        sub_type = "premium" if req.product_id == "lumen_premium" else "basic"
+        sub_type = "premium" if req.product_id == "nexi_premium" else "basic"
 
         if sub_type == "premium":
             result = await subscribe_premium(user_id)
@@ -1441,6 +1441,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
     except HTTPException:
         raise
     except Exception:
+        logger.exception("VALIDATE ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
 
@@ -1507,11 +1508,11 @@ async def apple_notification(req:AppleNotificationRequest):
 
                 elif notification_type in ["EXPIRED", "REFUND", "REVOKE"]:
                         email = await get_user_email_by_user_id(user_id)
-                        if product_id == "lumen_premium":
+                        if product_id == "nexi_premium":
                             await unsub_func_premium(user_id)
 
                             
-                        elif product_id == "lumen_basic":
+                        elif product_id == "nexi_basic":
                             await unsub_basic(user_id)
 
 

@@ -38,6 +38,7 @@ async def create_all():
         await func()
 
 if __name__ == "__main__":
-    asyncio.run(write_default())
+    pass
+    #asyncio.run(write_default())
     #asyncio.run(drop_all())
     #asyncio.run(create_all())
