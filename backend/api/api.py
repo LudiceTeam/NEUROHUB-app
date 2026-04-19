@@ -1626,12 +1626,14 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
-REDIS_CLIENT = RedisClient(
-    "localhost",
-    6379
-)
 
+try:  
+    REDIS_CLIENT = RedisClient(
+        "localhost",
+        6379
+    )
+except Exception as e:
+    print("REDIS IS NOT CONNECTED")
 
 @app.get("/get_or_write_model_stats",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")
@@ -1639,15 +1641,9 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
     if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
-    
-    
-    
     models_count_dict = {}
 
-
     last_update_day = await get_date_last_update()
-
-    
 
     today = datetime.now(timezone.utc)
 
@@ -1664,8 +1660,6 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
             models_count_dict[model] = model_amount
 
         await write_models_stats(models_count_dict)
-
-        
 
         return {
             "stats" : models_count_dict
