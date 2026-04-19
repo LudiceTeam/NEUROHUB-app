@@ -27,7 +27,8 @@ async_engine = create_async_engine(
     max_overflow=50,        # Максимальное количество соединений
     pool_recycle=3600,      # Пересоздавать соединения каждый час
     pool_pre_ping=True,     # Проверять соединение перед использованием
-    echo=False
+    echo=False,
+    connect_args={"ssl": "require"},
 )
 
 

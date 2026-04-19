@@ -23,7 +23,8 @@ async_engine = create_async_engine(
     max_overflow=50,       
     pool_recycle=3600,    
     pool_pre_ping=True,     
-    echo=False
+    echo=False,
+    connect_args={"ssl": "require"},
 )
 
 
