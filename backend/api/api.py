@@ -605,9 +605,13 @@ async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user
 
 
 
-async def decide_whick_model_is_the_best_for_request(request:str) -> str:
+async def decide_whick_model_is_the_best_for_request(request:str,photo:bool) -> str:
 
     promt = f"Which model is the best for this request: {request} ? Choose from this list: {models}. Answer only with model name without any other words."
+
+    if photo:
+        promt += " Also user request has a photo in it."
+
     response = await client.chat.completions.create(
         model="google/gemini-2.5-flash",
         messages=[
@@ -825,7 +829,7 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
-            user_model = await decide_whick_model_is_the_best_for_request(req.request or "")
+            user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
         
         if user_model == "auto" and req.request is None:
             user_model = "google/gemini-3-flash-preview"
@@ -1069,7 +1073,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 """
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
-            user_model = await decide_whick_model_is_the_best_for_request(true_request or "")
+            user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
         
         if user_model == "auto" and true_request == "":
             user_model = "google/gemini-3-flash-preview"
