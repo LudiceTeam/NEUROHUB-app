@@ -7,8 +7,10 @@ load_dotenv()
 
 database_url = f"postgresql+asyncpg://postgres.{os.getenv('PROJECT_REF')}:{os.getenv('DB_PASSWORD')}@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
 
+database_url_test = f"postgresql+asyncpg://postgres:{os.getenv('DB_PASSWORD')}@localhost:5432/postgres"
 
 models = [
+    "auto",
     "google/gemini-3-flash-preview",
     "google/gemini-2.5-flash",
     "openai/gpt-5.4-mini",

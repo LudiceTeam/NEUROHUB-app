@@ -605,6 +605,27 @@ async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user
 
 
 
+async def decide_whick_model_is_the_best_for_request(request:str) -> str:
+
+    promt = f"Which model is the best for this request: {request} ? Choose from this list: {models}. Answer only with model name without any other words."
+    response = await client.chat.completions.create(
+        model="google/gemini-2.5-flash",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": promt
+                    }
+                ]
+            }
+        ]
+    )
+
+    text = response.choices[0].message.content
+    return (text or "").strip()
+
 
 
 OPEN_AI_KEY = os.getenv("OPEN_AI")
@@ -803,6 +824,12 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
 """
 
         user_model = await get_user_model_name(user_id)
+        if user_model == "auto":
+            user_model = await decide_whick_model_is_the_best_for_request(req.request or "")
+        
+        if user_model == "auto" and req.request is None:
+            user_model = "google/gemini-3-flash-preview"
+
         if user_model in image_generation_models:
 
             user_nano_req = user_data["nano_req"]
@@ -1041,6 +1068,11 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 ОТВЕТ:
 """
         user_model = await get_user_model_name(user_id)
+        if user_model == "auto":
+            user_model = await decide_whick_model_is_the_best_for_request(true_request or "")
+        
+        if user_model == "auto" and true_request == "":
+            user_model = "google/gemini-3-flash-preview"
         if user_model in image_generation_models:
 
             user_nano_req = user_data["nano_req"]

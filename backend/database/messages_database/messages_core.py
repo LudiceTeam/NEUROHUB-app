@@ -138,17 +138,18 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
 
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(messages_table.c.message_text,messages_table.c.response,messages_table.c.image_message,messages_table.c.image_response).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.asc())
+            stmt = select(messages_table.c.message_text,messages_table.c.response,messages_table.c.image_message,messages_table.c.image_response,messages_table.c.model_name).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.asc())
             res = await conn.execute(stmt)
             data = res.fetchall()
             result:List = []
-            for msg,resp,image_mes,image_resp in data:
+            for msg,resp,image_mes,image_resp,model in data:
                 result.append(
                     {
                         "message" : decrypt(msg) if msg is not None else None,
                         "response": decrypt(resp) if resp is not None else None,
                         "image_message" : decode_images_list_base64(image_mes) if image_mes is not None else None,
-                        "image_response" : decrypt(image_resp) if image_resp is not None else None
+                        "image_response" : decrypt(image_resp) if image_resp is not None else None,
+                        "model" : model
                     }
                 )
             return result
