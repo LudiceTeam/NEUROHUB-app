@@ -607,7 +607,7 @@ async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user
 
 async def decide_whick_model_is_the_best_for_request(request:str,photo:bool) -> str:
 
-    promt = f"Which model is the best for this request: {request} ? Choose from this list: {models}. Answer only with model name without any other words."
+    promt = f"Which model is the best for this request: {request} ? Choose from this list: {models[1:]}. Answer only with model name without any other words."
 
     if photo:
         promt += " Also user request has a photo in it."
