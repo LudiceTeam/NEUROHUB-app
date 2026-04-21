@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logo 3.png" width="120" alt="Nexi Logo" />
+<img src="logo.png" width="120" alt="Nexi Logo" />
 
 # Nexi
 

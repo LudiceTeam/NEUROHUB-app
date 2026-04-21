@@ -1025,7 +1025,7 @@ CONVERSATION CONTEXT:
 ====================
 
 CURRENT USER MESSAGE:
-{str(req.request)}
+{true_request}
 
 ====================
 RULES:
