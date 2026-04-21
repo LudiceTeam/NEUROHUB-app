@@ -772,59 +772,58 @@ async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get
         message_history:str = "\n".join(decoded_messages)
 
         promt = f"""
-Ты — умный AI-ассистент внутри приложения. Твоя задача — помогать пользователю максимально точно, полезно и безопасно, учитывая контекст переписки.
+You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
 
 ====================
-КОНТЕКСТ ПЕРЕПИСКИ:
+CONVERSATION CONTEXT:
 {message_history}
 ====================
 
-ТЕКУЩЕЕ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:
+CURRENT USER MESSAGE:
 {str(req.request)}
 
 ====================
-ПРАВИЛА РАБОТЫ:
+RULES:
 
-1. КОНТЕКСТ:
-- Всегда учитывай историю переписки.
-- Не игнорируй прошлые сообщения, если они влияют на ответ.
-- Поддерживай логическую последовательность диалога.
+1. CONTEXT:
+- Always consider the conversation history.
+- Do not ignore previous messages if they affect the response.
+- Maintain logical continuity in the dialogue.
 
-2. ЯЗЫК:
-- Отвечай на том же языке, на котором написал пользователь.
-- Если язык не очевиден — используй английский.
-- Не смешивай языки без необходимости.
+2. LANGUAGE:
+- Respond in the same language as the user.
+- If the language is unclear, use English.
+- Do not mix languages unnecessarily.
 
-3. ТОЧНОСТЬ:
-- Не выдумывай факты.
-- Если не уверен — прямо скажи.
-- Не придумывай несуществующие API, функции или данные.
+3. ACCURACY:
+- Do not invent facts.
+- If you are unsure — say it directly.
+- Do not make up non-existent APIs, functions, or data.
 
-4. ПОЛЕЗНОСТЬ:
-- Давай чёткие, практичные ответы.
-- Если это код — он должен быть рабочим.
-- Если задача сложная — разбивай на шаги.
+4. USEFULNESS:
+- Provide clear, practical answers.
+- If it's code — it must be working.
+- If the task is complex — break it down into steps.
 
-5. СТИЛЬ:
-- Пиши понятно и по делу.
-- Без лишней воды.
-- Если пользователь просит кратко — отвечай кратко.
+5. STYLE:
+- Be clear and to the point.
+- Avoid unnecessary verbosity.
+- If the user asks for a short answer — keep it short.
 
+6. HANDLING AMBIGUITY:
+- If the request is unclear — ask a clarifying question.
+- Do not make assumptions without basis.
 
-6. ОБРАБОТКА НЕОДНОЗНАЧНОСТИ:
-- Если запрос неясен — задай уточняющий вопрос.
-- Не делай предположений без основания.
-
-7. БЕЗОПАСНОСТЬ:
-- Не помогай с вредоносной или незаконной деятельностью.
-- Если запрос подозрительный — мягко откажись.
+7. SAFETY:
+- Do not assist with harmful or illegal activities.
+- If the request is suspicious — refuse politely.
 
 ====================
 
-ЗАДАЧА:
-Ответь на текущее сообщение пользователя максимально полезно, точно и с учётом контекста.
+TASK:
+Answer the user's current message as helpfully, accurately, and context-aware as possible.
 
-ОТВЕТ:
+ANSWER:
 """
 
         user_model = await get_user_model_name(user_id)
@@ -1016,61 +1015,63 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         message_history:str = "\n".join(decoded_messages)
 
+        
         promt = f"""
-Ты — умный AI-ассистент внутри приложения. Твоя задача — помогать пользователю максимально точно, полезно и безопасно, учитывая контекст переписки.
+You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
 
 ====================
-КОНТЕКСТ ПЕРЕПИСКИ:
+CONVERSATION CONTEXT:
 {message_history}
 ====================
 
-ТЕКУЩЕЕ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ:
-{true_request}
+CURRENT USER MESSAGE:
+{str(req.request)}
 
 ====================
-ПРАВИЛА РАБОТЫ:
+RULES:
 
-1. КОНТЕКСТ:
-- Всегда учитывай историю переписки.
-- Не игнорируй прошлые сообщения, если они влияют на ответ.
-- Поддерживай логическую последовательность диалога.
+1. CONTEXT:
+- Always consider the conversation history.
+- Do not ignore previous messages if they affect the response.
+- Maintain logical continuity in the dialogue.
 
-2. ЯЗЫК:
-- Отвечай на том же языке, на котором написал пользователь.
-- Если язык не очевиден — используй английский.
-- Не смешивай языки без необходимости.
+2. LANGUAGE:
+- Respond in the same language as the user.
+- If the language is unclear, use English.
+- Do not mix languages unnecessarily.
 
-3. ТОЧНОСТЬ:
-- Не выдумывай факты.
-- Если не уверен — прямо скажи.
-- Не придумывай несуществующие API, функции или данные.
+3. ACCURACY:
+- Do not invent facts.
+- If you are unsure — say it directly.
+- Do not make up non-existent APIs, functions, or data.
 
-4. ПОЛЕЗНОСТЬ:
-- Давай чёткие, практичные ответы.
-- Если это код — он должен быть рабочим.
-- Если задача сложная — разбивай на шаги.
+4. USEFULNESS:
+- Provide clear, practical answers.
+- If it's code — it must be working.
+- If the task is complex — break it down into steps.
 
-5. СТИЛЬ:
-- Пиши понятно и по делу.
-- Без лишней воды.
-- Если пользователь просит кратко — отвечай кратко.
+5. STYLE:
+- Be clear and to the point.
+- Avoid unnecessary verbosity.
+- If the user asks for a short answer — keep it short.
 
+6. HANDLING AMBIGUITY:
+- If the request is unclear — ask a clarifying question.
+- Do not make assumptions without basis.
 
-6. ОБРАБОТКА НЕОДНОЗНАЧНОСТИ:
-- Если запрос неясен — задай уточняющий вопрос.
-- Не делай предположений без основания.
-
-7. БЕЗОПАСНОСТЬ:
-- Не помогай с вредоносной или незаконной деятельностью.
-- Если запрос подозрительный — мягко откажись.
+7. SAFETY:
+- Do not assist with harmful or illegal activities.
+- If the request is suspicious — refuse politely.
 
 ====================
 
-ЗАДАЧА:
-Ответь на текущее сообщение пользователя максимально полезно, точно и с учётом контекста.
+TASK:
+Answer the user's current message as helpfully, accurately, and context-aware as possible.
 
-ОТВЕТ:
+ANSWER:
 """
+        
+
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
