@@ -6,7 +6,7 @@ import os
 import asyncio
 import logging
 from typing import List
-from sqlalchemy import select
+from sqlalchemy import select,func
 import uuid
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime,timezone
@@ -44,15 +44,15 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_chat(email:str) -> str:
+async def create_chat(user_id:str) -> str:
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
                 chat_id = str(uuid.uuid4())
                 stmt = insert(chats_table).values(
-                    email = email,
                     chat_id = chat_id,
+                    user_id = user_id,
                     created_at = datetime.now(timezone.utc),
                     last_message_at = datetime.now(timezone.utc)
                 ).on_conflict_do_nothing(
@@ -117,3 +117,16 @@ async def update_chat_last_message_date(chat_id:str):
             except Exception:
                 logger.exception("CHATS SQL ERROR")
                 return 
+
+async def get_chats_order(user_id) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(chats_table.c.chat_id).where(chats_table.c.user_id == user_id).order_by(chats_table.c.last_message_at.desc())
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            result:List = []
+            for dt in data:
+                result.append(dt["chat_id"])
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return []
