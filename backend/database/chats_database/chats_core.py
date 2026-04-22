@@ -77,11 +77,11 @@ async def delete_chat(chat_id:str):
                 return
 
 
-async def get_user_chats(email:str) -> List[str]:
+async def get_user_chats(user_id:str) -> List[str]:
 
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(chats_table.c.chat_id).where(chats_table.c.email == email).order_by(chats_table.c.created_at.desc())
+            stmt = select(chats_table.c.chat_id).where(chats_table.c.user_id == user_id).order_by(chats_table.c.created_at.desc())
             res = await conn.execute(stmt)
             data = res.fetchall()
 
@@ -127,6 +127,7 @@ async def get_chats_order(user_id) -> List:
             result:List = []
             for dt in data:
                 result.append(dt["chat_id"])
+            return result
         except Exception:
             logger.exception("CHATS SQL ERROR")
             return []

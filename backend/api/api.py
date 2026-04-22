@@ -23,7 +23,7 @@ from backend.api.auth import create_access_token,create_refresh_token
 from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
-from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date
+from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
@@ -862,7 +862,8 @@ ANSWER:
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)    
+            await minus_one_req_nano(user_id)   
+            await update_chat_last_message_date(req.chat_id) 
             return {
                 "image": url
             } #  либо текст, либо url картинки
@@ -898,6 +899,8 @@ ANSWER:
                 model_name = user_model
             )
 
+            await update_chat_last_message_date(req.chat_id)
+
             return {
                 "message":response
             }
@@ -925,6 +928,8 @@ ANSWER:
                 response = encrypted_response,
                 model_name = user_model
             )
+
+            await update_chat_last_message_date(req.chat_id)
 
             return {
                 "message":response
@@ -1122,7 +1127,7 @@ ANSWER:
             )
 
             await minus_one_req_nano(user_id)   
-
+            await update_chat_last_message_date(chat_id)
 
             return {
                 "image":response_image_url
@@ -1171,6 +1176,7 @@ ANSWER:
                 image =  url_list,
                 model_name = user_model
             )
+            await update_chat_last_message_date(chat_id)
 
             return {
                 "message":response
@@ -1209,6 +1215,9 @@ ANSWER:
                 model_name = user_model
             )
 
+
+            await update_chat_last_message_date(chat_id)
+
             return {
                 "message":response
             }
@@ -1232,21 +1241,20 @@ async def get_user_chats_handler(request:Request,user_id:str = Depends(get_curre
 
 
     try:
-        user_chats = await get_user_chats(user_id)
+        user_chats = await get_chats_order(user_id)
 
 
         if user_chats == []:
             return {}
 
-        chats_last_message = {}
+        result = {}
         
         # chat_id and its first message as in ChatGPT app
         for chat_id in user_chats:
-            chats_last_message[chat_id] = await get_chat_first_message(chat_id)
+            result[chat_id] = await get_chat_first_message(chat_id)
         
-        chats_order_by_last_messgae_date = {}
         
-        pass
+        return result
 
     except HTTPException:
         raise
