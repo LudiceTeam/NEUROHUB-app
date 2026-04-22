@@ -10,5 +10,6 @@ chats_table = Table(
     Column("user_id",String),
     Column("email",String),
     Column("chat_id",String,primary_key = True),
-    Column("created_at",DateTime(timezone=True))
+    Column("created_at",DateTime(timezone=True)),
+    Column("last_message_at",DateTime(timezone=True))
 )

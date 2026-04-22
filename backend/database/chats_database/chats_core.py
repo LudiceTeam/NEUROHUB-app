@@ -53,7 +53,8 @@ async def create_chat(email:str) -> str:
                 stmt = insert(chats_table).values(
                     email = email,
                     chat_id = chat_id,
-                    created_at = datetime.now(timezone.utc)
+                    created_at = datetime.now(timezone.utc),
+                    last_message_at = datetime.now(timezone.utc)
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -94,3 +95,25 @@ async def get_user_chats(email:str) -> List[str]:
             logger.exception("CHATS SQL ERROR")
             return [] 
 
+async def get_chat_last_message_date(chat_id:str) -> str | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(chats_table.c.last_message_at).where(chats_table.c.chat_id == chat_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return str(data) if data is not None else ""
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return None
+
+async def update_chat_last_message_date(chat_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = chats_table.update().where(chats_table.c.chat_id == chat_id).values(
+                    last_message_at = datetime.now(timezone.utc)
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return 
