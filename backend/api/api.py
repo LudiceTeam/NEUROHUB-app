@@ -950,8 +950,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
     request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     data_to_verify = {
-        "chat_id":chat_id_form,
-        "request":request_text
+        "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
+        "request":request_text if request_text is not None else "new request text"
     }
 
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
@@ -1227,6 +1227,30 @@ ANSWER:
 
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+async def ask_with_file(request:Request,chat_id_form:Optional[str] = Form(None),
+                        request_text:Optional[str] = Form(None),
+                        file_list:List[UploadFile] = File(...),
+                        user_id:str = Depends(get_current_user),
+                        x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    data_to_verify = {
+        "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
+        "request":request_text if request_text is not None else "new request text"
+    }
+
+    if not await verify_signature(data_to_verify,x_signature,x_timestamp):
+         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+
+    try:
+        pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("API ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
 
 @app.post("/get_user_chats")
 @limiter.limit("20/minute")
