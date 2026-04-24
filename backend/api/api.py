@@ -46,6 +46,7 @@ from appstoreserverlibrary.models.Environment import Environment
 from backend.api.apple_client import get_apple_api_client
 from backend.api.s3_client import S3Client
 from datetime import datetime,timezone
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,10 @@ app = FastAPI()
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
-#app.add_middleware(HTTPSRedirectMiddleware)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["api.nexi.center"]
+)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -1811,5 +1815,5 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
 # --- RUN -- 
 
 if __name__ == "__main__":
-    uvicorn.run(app,host = "127.0.0.1",port = 8080)
+    uvicorn.run(app,host = "127.0.0.1",port = 8080,proxy_headers=True)
 
