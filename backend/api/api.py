@@ -295,16 +295,16 @@ async def send_email_code(email: str, code: str):
     payload = {
     "from": os.getenv("EMAIL_FROM"),
     "to": [email],
-    "subject": "NEXI Login Verification",
+    "subject": "VEORA Login Verification",
     "html": f"""
-    <div style="font-family: Arial, sans-serif; background-color:#0f172a; padding:40px; color:#ffffff;">
-        <div style="max-width:600px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; text-align:center;">
+    <div style="font-family: Arial, sans-serif; background-color:#f5f5f5; padding:40px; color:#111111;">
+        <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:12px; padding:30px; text-align:center; border:1px solid #e5e7eb;">
             
-            <h1 style="color:#38bdf8;">NEXI</h1>
+            <h1 style="color:#111111; letter-spacing:2px;">VEORA</h1>
             
-            <h2 style="margin-top:20px;">Login Verification</h2>
+            <h2 style="margin-top:20px; color:#1f2937;">Login Verification</h2>
             
-            <p style="color:#cbd5f5; font-size:16px;">
+            <p style="color:#4b5563; font-size:16px;">
                 We received a request to log in to your account.
                 Please use the verification code below to proceed.
             </p>
@@ -315,7 +315,7 @@ async def send_email_code(email: str, code: str):
                     font-size:32px;
                     letter-spacing:8px;
                     padding:15px 25px;
-                    background:#0ea5e9;
+                    background:#111111;
                     border-radius:10px;
                     color:#ffffff;
                     font-weight:bold;
@@ -324,11 +324,11 @@ async def send_email_code(email: str, code: str):
                 </span>
             </div>
             
-            <p style="color:#94a3b8;">
+            <p style="color:#6b7280;">
                 This code is valid for <b>2 minutes</b>.
             </p>
 
-            <p style="margin-top:20px; color:#64748b; font-size:14px;">
+            <p style="margin-top:20px; color:#9ca3af; font-size:14px;">
                 If you didn’t request this, you can safely ignore this email.
             </p>
 
@@ -354,37 +354,36 @@ async def send_email_sub_over(email: str):
     payload = {
     "from": os.getenv("EMAIL_FROM"),
     "to": [email],
-    "subject": "Your NEXI Subscription Has Ended",
+    "subject": "Your VEORA Subscription Has Ended",
     "html": f"""
-    <div style="font-family: Arial, sans-serif; background-color:#020617; padding:40px; color:#ffffff;">
-        <div style="max-width:650px; margin:0 auto; background:#0f172a; border-radius:16px; padding:35px;">
+    <div style="font-family: Arial, sans-serif; background-color:#f5f5f5; padding:40px; color:#111111;">
+        <div style="max-width:650px; margin:0 auto; background:#ffffff; border-radius:16px; padding:35px; border:1px solid #e5e7eb;">
             
-            <h1 style="text-align:center; color:#38bdf8;">NEXI</h1>
+            <h1 style="text-align:center; color:#111111; letter-spacing:2px;">VEORA</h1>
             
-            <h2 style="margin-top:25px; text-align:center;">Subscription Expired</h2>
+            <h2 style="margin-top:25px; text-align:center; color:#1f2937;">Subscription Expired</h2>
             
-            <p style="margin-top:20px; color:#cbd5f5; font-size:16px; line-height:1.6;">
-                We wanted to let you know that your NEXI subscription has officially come to an end.
+            <p style="margin-top:20px; color:#4b5563; font-size:16px; line-height:1.6;">
+                We wanted to let you know that your VEORA subscription has officially come to an end.
             </p>
             
-            <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
+            <p style="color:#4b5563; font-size:16px; line-height:1.6;">
                 We truly appreciate the time you spent with us. During your subscription, you had access to advanced AI tools,
                 powerful features, and an enhanced experience designed to boost your productivity and creativity.
             </p>
 
-            <p style="color:#cbd5f5; font-size:16px; line-height:1.6;">
-                We hope NEXI helped you achieve your goals, whether it was building projects, exploring new ideas,
+            <p style="color:#4b5563; font-size:16px; line-height:1.6;">
+                We hope VEORA helped you achieve your goals, whether it was building projects, exploring new ideas,
                 or simply making your workflow faster and smarter.
             </p>
 
-
-            <p style="color:#94a3b8; font-size:15px; line-height:1.6;">
+            <p style="color:#6b7280; font-size:15px; line-height:1.6;">
                 If you wish to continue using premium features, you can renew your subscription at any time.
                 We’ll be happy to have you back.
             </p>
 
-            <p style="margin-top:25px; color:#64748b; font-size:14px;">
-                Thank you for choosing NEXI 💙
+            <p style="margin-top:25px; color:#9ca3af; font-size:14px;">
+                Thank you for choosing VEORA
             </p>
 
         </div>
@@ -1524,7 +1523,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
 
-        if req.product_id != "nexi_premium" and req.product_id != "nexi_basic":
+        if req.product_id != "veora_premium" and req.product_id != "veora_basic":
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
         if req.product_id != product_id:
@@ -1548,7 +1547,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         if not try_new_tr:
             raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Transaction already exists")
 
-        sub_type = "premium" if req.product_id == "nexi_premium" else "basic"
+        sub_type = "premium" if req.product_id == "veora_premium" else "basic"
 
         if sub_type == "premium":
             result = await subscribe_premium(user_id)
@@ -1645,11 +1644,11 @@ async def apple_notification(req:AppleNotificationRequest):
 
                 elif notification_type in ["EXPIRED", "REFUND", "REVOKE"]:
                         email = await get_user_email_by_user_id(user_id)
-                        if product_id == "nexi_premium":
+                        if product_id == "veora_premium":
                             await unsub_func_premium(user_id)
 
                             
-                        elif product_id == "nexi_basic":
+                        elif product_id == "veora_basic":
                             await unsub_basic(user_id)
 
 
