@@ -47,6 +47,8 @@ from backend.api.apple_client import get_apple_api_client
 from backend.api.s3_client import S3Client
 from datetime import datetime,timezone
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+import fitz
+import tempfile
 
 
 logger = logging.getLogger(__name__)
@@ -1232,88 +1234,7 @@ ANSWER:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-async def ask_with_file(request:Request,chat_id_form:Optional[str] = Form(None),
-                        request_text:Optional[str] = Form(None),
-                        file_list:List[UploadFile] = File(...),
-                        user_id:str = Depends(get_current_user),
-                        x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    data_to_verify = {
-        "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
-        "request":request_text if request_text is not None else "new request text"
-    }
 
-    if not await verify_signature(data_to_verify,x_signature,x_timestamp):
-         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-
-
-    try:
-        
-        user_data = await get_user_state(user_id)
-        if user_data == {}:
-            return {
-                "message":"None"
-            }
-        
-        await refil_all_requests(user_id)
-        
-        
-        if len(file_list) > 5:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "File list is too large")
-        
-        
-        chat_id = chat_id_form
-        if  chat_id_form is None:
-            chat_id = await create_chat(user_id)
-        
-        file_bytes_sum = 0
-        files_bytes:List[bytes] = [] 
-            
-        for file in file_list:
-            if file.content_type not in ["file/pdf", "file/doc", "file/docs","file/txt"]:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Unsupported file type"
-                )
-            
-            file_bytes = await file.read()
-            file_bytes_sum += len(file_bytes)
-
-            if len(file_bytes) > MAX_IMAGE_SIZE:
-                raise HTTPException(
-                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    detail="Image too large"
-                )
-            
-            files_bytes.append(file_bytes)
-            
-        if file_bytes_sum > 20 * 1024 * 1024:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail="Images too large"
-            )
-            
-                
-
-        
-            
-        true_request = request_text if request_text is not None else ""
-
-        current_chat_messages = await get_chat_messages(chat_id)
-        decoded_messages = []
-        for message in current_chat_messages:
-            decoded_messages.append(decrypt(message))
-
-        message_history:str = "\n".join(decoded_messages)
-        
-        
-            
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("API ERROR")
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-        
 
 @app.post("/get_user_chats")
 @limiter.limit("20/minute")
