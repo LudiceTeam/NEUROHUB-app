@@ -211,7 +211,7 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
     
     async with aiohttp.ClientSession() as session:
         async with session.get(APPLE_AUDIENCE) as resp:
-            json_data = resp.json()
+            json_data = await resp.json()
             try:
             
                 header = jwt.get_unverified_header(req.identity_token)
@@ -247,7 +247,7 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
     user_id_try = await create_user(
         user_id = user_id_main,
         name = email_parts[0],
-        email = req.email,
+        email = email,
         provider_id = apple_sub,
         provider = "apple",
         avatar_url=None
@@ -415,11 +415,6 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
         
-
-        # delete this
-        print(code)
-
-
         await send_email_code(req.email,code)
 
     except HTTPException:
@@ -868,7 +863,7 @@ ANSWER:
             )
 
             await minus_one_req_nano(user_id)   
-            await update_chat_last_message_date(req.chat_id) 
+            await update_chat_last_message_date(chat_id) 
             return {
                 "image": url
             } #  либо текст, либо url картинки
@@ -904,7 +899,7 @@ ANSWER:
                 model_name = user_model
             )
 
-            await update_chat_last_message_date(req.chat_id)
+            await update_chat_last_message_date(chat_id)
 
             return {
                 "message":response
@@ -934,7 +929,7 @@ ANSWER:
                 model_name = user_model
             )
 
-            await update_chat_last_message_date(req.chat_id)
+            await update_chat_last_message_date(chat_id)
 
             return {
                 "message":response

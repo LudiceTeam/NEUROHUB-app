@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="logo.png" width="120" alt="Nexi Logo" />
+<img src="logo.png" width="120" alt="Veora Logo" />
 
-# Nexi
+# Veora
 
 ### All AI in One Place
 
@@ -18,9 +18,9 @@
 
 ---
 
-## What is Nexi?
+## What is Veora?
 
-**Nexi** is an iOS app that puts every major AI model right in your pocket. Chat with Google Gemini, OpenAI GPT, Anthropic Claude, Meta Llama, Mistral, and 35+ more — all from a single, unified interface. No switching apps, no juggling subscriptions, no friction.
+**Veora** is an iOS app that puts every major AI model right in your pocket. Chat with Google Gemini, OpenAI GPT, Anthropic Claude, Meta Llama, Mistral, and 35+ more — all from a single, unified interface. No switching apps, no juggling subscriptions, no friction.
 
 One app. All AI.
 
@@ -81,7 +81,7 @@ One app. All AI.
 ```
 nexi-ios/
 ├── App/
-│   ├── NexiApp.swift
+│   ├── VeoraApp.swift
 │   └── ContentView.swift
 ├── Features/
 │   ├── Auth/               # Sign in with Apple / Google / Email
@@ -105,6 +105,6 @@ nexi-ios/
 
 Built with love for **iOS** · Powered by **OpenRouter** · Secured by **Apple**
 
-*Nexi — All AI in One Place*
+*Veora — All AI in One Place*
 
 </div>
