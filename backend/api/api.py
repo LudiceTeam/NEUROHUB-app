@@ -47,7 +47,6 @@ from backend.api.apple_client import get_apple_api_client
 from backend.api.s3_client import S3Client
 from datetime import datetime,timezone
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import fitz
 import tempfile
 
 
