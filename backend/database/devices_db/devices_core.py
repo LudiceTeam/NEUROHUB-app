@@ -94,3 +94,5 @@ async def get_user_devices(user_id:str) -> List:
         except Exception:
             logger.exception("DEVICES SQL ERROR")
             return []
+
+
