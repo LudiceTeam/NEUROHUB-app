@@ -71,3 +71,11 @@ async def delete_device(device_id:str):
             except Exception:
                 logger.exception("DEVICES SQL ERROR")
                 return
+
+async def get_user_devices(user_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            pass
+        except Exception:
+            logger.exception("DEVICES SQL ERROR")
+            return []
