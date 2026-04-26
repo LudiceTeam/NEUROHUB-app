@@ -76,7 +76,21 @@ async def delete_device(device_id:str):
 async def get_user_devices(user_id:str) -> List:
     async with AsyncSession(async_engine) as conn:
         try:
-            pass
+            stmt = select(devices_table.c.device_id,devices_table.c.device_name).where(
+                devices_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            data = res.fetchall()
+            
+            result = []
+            for device in data:
+                result.append(
+                    {
+                        "device_id" : device[0],
+                        "device_name" : device[1]
+                    }
+                )
+            return result
         except Exception:
             logger.exception("DEVICES SQL ERROR")
             return []
