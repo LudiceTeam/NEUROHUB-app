@@ -42,3 +42,32 @@ async def drop_table():
 async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
+
+async def create_new_device(user_id:str,device_name:str) -> str:
+    device_id = str(uuid.uuid4())
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = devices_table.insert().values(
+                    user_id = user_id,
+                    device_id = device_id,
+                    device_name = device_name,
+                    last_online = datetime.now(timezone.utc)
+                )
+                await conn.execute(stmt)
+                return device_id
+            except Exception:
+                logger.exception("DEVICES SQL ERROR")
+                return ""
+
+async def delete_device(device_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = devices_table.delete().where(
+                    devices_table.c.device_id == device_id
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("DEVICES SQL ERROR")
+                return
