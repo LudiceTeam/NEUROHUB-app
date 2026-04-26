@@ -11,6 +11,7 @@ from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt,encrypt
 from backend.api.config import database_url 
+from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
 
@@ -43,22 +44,26 @@ async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
 
-async def create_new_device(user_id:str,device_name:str) -> str:
-    device_id = str(uuid.uuid4())
+async def create_new_device(user_id:str,device_name:str,token:str,device_id:str) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = devices_table.insert().values(
+                stmt = insert(devices_table).values(
                     user_id = user_id,
                     device_id = device_id,
                     device_name = device_name,
+                    token = token,
                     last_online = datetime.now(timezone.utc)
+                ).on_conflict_do_nothing(
+                    index_elements=[devices_table.c.device_id]
                 )
-                await conn.execute(stmt)
-                return device_id
+                result = await conn.execute(stmt)
+                if result.rowcount == 0:
+                    return False
+                return True
             except Exception:
                 logger.exception("DEVICES SQL ERROR")
-                return ""
+                return False
 
 async def delete_device(device_id:str):
     async with AsyncSession(async_engine) as conn:
@@ -94,3 +99,6 @@ async def get_user_devices(user_id:str) -> List:
         except Exception:
             logger.exception("DEVICES SQL ERROR")
             return []
+
+async def get_device_token(device_id:str) -> str:
+    pass
