@@ -72,6 +72,7 @@ async def delete_device(device_id:str):
                 logger.exception("DEVICES SQL ERROR")
                 return
 
+
 async def get_user_devices(user_id:str) -> List:
     async with AsyncSession(async_engine) as conn:
         try:
