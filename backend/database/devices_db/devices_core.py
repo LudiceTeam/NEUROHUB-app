@@ -100,5 +100,7 @@ async def get_user_devices(user_id:str) -> List:
             logger.exception("DEVICES SQL ERROR")
             return []
 
+
+
 async def get_device_token(device_id:str) -> str:
     pass
