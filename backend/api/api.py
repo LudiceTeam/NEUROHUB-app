@@ -29,7 +29,7 @@ from backend.database.messages_database.messages_core import create_message,get_
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
-from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices
+from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.config import models,expensive_models,image_generation_models

@@ -12,7 +12,7 @@ import atexit
 from sqlalchemy import func
 import logging
 from sqlalchemy.dialects.postgresql import insert
-from backend.api.config import database_url 
+from backend.api.config import database_url,async_engine
 
 
 
@@ -21,23 +21,6 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-async_engine = create_async_engine(
-    database_url,
-    pool_size=20,          
-    max_overflow=50,       
-    pool_recycle=3600,    
-    pool_pre_ping=True,     
-    echo=False,
-    connect_args={"ssl": "require"},
-)
-
-
-
-AsyncSessionLocal = sessionmaker(
-    async_engine, 
-    class_=AsyncSession,
-    expire_on_commit=False
-)
 
 
 # ---- INIT ---- 

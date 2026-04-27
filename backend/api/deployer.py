@@ -1,43 +1,41 @@
-from backend.database.main_database.main_core import create_table as cr1
-from  backend.database.chats_database.chats_core import create_table as cr2
-from backend.database.jwt_database.jwt_core import create_table as cr3
-from backend.database.messages_database.messages_core import create_table as cr4
-from backend.database.ai_choose_db.ai_core import create_table as cr5
-from backend.database.apple_notification_log.apple_core import create_table as cr6
-from backend.database.transaction_db.transaction_core import create_table as cr7
-from backend.database.stats_db.stats_core import create_table as cr9,write_default
-from backend.database.email_code_db.email_core import create_table as cr8
+from backend.api.config import async_engine
 
-from backend.database.main_database.main_core import drop_table as dr1
-from  backend.database.chats_database.chats_core import drop_table as dr2
-from backend.database.jwt_database.jwt_core import drop_table  as dr3
-from backend.database.messages_database.messages_core import drop_table as dr4
-from backend.database.ai_choose_db.ai_core import drop_table as dr5
-from backend.database.apple_notification_log.apple_core import drop_table  as dr6
-from backend.database.transaction_db.transaction_core import drop_table as dr7
+from backend.database.main_database.main_core import metadata_obj as m1
+from backend.database.chats_database.chats_core import metadata_obj as m2
+from backend.database.jwt_database.jwt_core import metadata_obj as m3
+from backend.database.messages_database.messages_core import metadata_obj as m4
+from backend.database.ai_choose_db.ai_core import metadata_obj as m5
+from backend.database.apple_notification_log.apple_core import metadata_obj as m6
+from backend.database.transaction_db.transaction_core import metadata_obj as m7
+from backend.database.email_code_db.email_core import metadata_obj as m8
+from backend.database.stats_db.stats_core import metadata_obj as m9
+from backend.database.devices_db.devices_core import metadata_obj as m10
 
-from backend.database.stats_db.stats_core import drop_table as dr9
+from backend.database.stats_db.stats_core import write_default
 
 import asyncio
 
 
-
-
-function_arr = [cr1,cr2,cr3,cr4,cr5,cr6,cr7,cr8,cr9]
-
-function_arr_drop = [dr1,dr2,dr3,dr4,dr5,dr6,dr7,dr9]
-
-async def drop_all():
-    for func in function_arr_drop:
-        await func()
-
+all_metadata = [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10]
 
 async def create_all():
-    for func in function_arr:
-        await func()
+    async with async_engine.begin() as conn:
+        for meta in all_metadata:
+            await conn.run_sync(meta.create_all)
+
+    await async_engine.dispose()
+
+
+async def drop_all():
+    async with async_engine.begin() as conn:
+        for meta in all_metadata:
+            await conn.run_sync(meta.drop_all)
+
+    await async_engine.dispose()
 
 if __name__ == "__main__":
     pass
     #asyncio.run(write_default())
-    #asyncio.run(drop_all())
     #asyncio.run(create_all())
+    #syncio.run(drop_all())
+
