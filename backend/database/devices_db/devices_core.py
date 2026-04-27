@@ -103,4 +103,14 @@ async def get_user_devices(user_id:str) -> List:
 
 
 async def get_device_token(device_id:str) -> str:
-    pass
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(devices_table.c.token).where(
+                devices_table.c.device_id == device_id
+            )
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("DEVICES SQL ERROR")
+            return ""
