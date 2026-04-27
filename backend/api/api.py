@@ -126,7 +126,7 @@ class AuthGoogle(BaseModel):
 @app.post("/auth/google")
 @limiter.limit("20/minute")
 async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(exclude_none=True),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
@@ -207,7 +207,7 @@ class AuthApple(BaseModel):
 @app.post("/auth/apple")
 @limiter.limit("20/minute")
 async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(exclude_none = True),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     async with aiohttp.ClientSession() as session:
@@ -406,7 +406,7 @@ class AuthWithEmail(BaseModel):
 @app.post("/send/code")
 @limiter.limit("20/minute")
 async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(exclude_none = True),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
@@ -431,7 +431,7 @@ class Verify_Code(BaseModel):
 @app.post("/check/code")
 @limiter.limit("20/minute")
 async def check_code_router(request:Request,req:Verify_Code,x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(exclude_none = True),x_signature,x_timestamp):
          raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
