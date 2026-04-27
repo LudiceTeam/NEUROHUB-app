@@ -114,3 +114,18 @@ async def get_device_token(device_id:str) -> str:
         except Exception:
             logger.exception("DEVICES SQL ERROR")
             return ""
+
+
+# token is refresh token (for jwt)å
+async def update_device_token(device_id:str,new_token:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = devices_table.update().where(devices_table.c.device_id == device_id).values(
+                    token = new_token
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("DEVICES SQL ERROR")
+                return
+                
