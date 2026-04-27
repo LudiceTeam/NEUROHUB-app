@@ -10,32 +10,8 @@ from backend.database.ai_choose_db.ai_models import metadata_obj,ai_table
 import asyncio
 import atexit
 from sqlalchemy.dialects.postgresql import insert
-from backend.api.config import database_url 
+from backend.api.config import database_url,async_engine
 
-#backend.database.ai_choose_database.
-
-
-load_dotenv()
-
-
-async_engine = create_async_engine(
-    database_url,
-    pool_size=20,           # Размер пула соединений
-    max_overflow=50,        # Максимальное количество соединений
-    pool_recycle=3600,      # Пересоздавать соединения каждый час
-    pool_pre_ping=True,     # Проверять соединение перед использованием
-    echo=False,
-    connect_args={"ssl": "require"},
-)
-
-
-
-
-AsyncSessionLocal = sessionmaker(
-    async_engine, 
-    class_=AsyncSession,
-    expire_on_commit=False
-)
 
 async def drop_table():
     async with async_engine.begin() as conn:

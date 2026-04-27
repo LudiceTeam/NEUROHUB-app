@@ -1,5 +1,8 @@
 import os
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+import os
 
 
 load_dotenv()
@@ -8,6 +11,25 @@ load_dotenv()
 database_url = f"postgresql+asyncpg://postgres.{os.getenv('PROJECT_REF')}:{os.getenv('DB_PASSWORD')}@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
 
 database_url_test = f"postgresql+asyncpg://postgres:{os.getenv('DB_PASSWORD')}@localhost:5432/postgres"
+
+async_engine = create_async_engine(
+    database_url,
+    pool_size=20,          
+    max_overflow=50,       
+    pool_recycle=3600,    
+    pool_pre_ping=True,     
+    echo=False,
+    connect_args={"ssl": "require"},
+)
+
+
+
+AsyncSessionLocal = sessionmaker(
+    async_engine, 
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
 
 models = [
     "auto",
@@ -84,3 +106,4 @@ image_generation_models = [
     "google/gemini-2.5-flash-image-preview",
     "google/gemini-3.1-flash-image-preview",
 ]
+

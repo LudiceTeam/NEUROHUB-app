@@ -10,23 +10,12 @@ from typing import List,Optional
 from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt,encrypt
-from backend.api.config import database_url 
+from backend.api.config import database_url,async_engine
 from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
 
 
-load_dotenv()
-
-async_engine = create_async_engine(
-    database_url,
-    pool_size=20,          
-    max_overflow=50,       
-    pool_recycle=3600,    
-    pool_pre_ping=True,     
-    echo=False,
-    connect_args={"ssl": "require"},
-)
 
 
 
@@ -81,7 +70,7 @@ async def delete_device(device_id:str):
 async def get_user_devices(user_id:str) -> List:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(devices_table.c.device_id,devices_table.c.device_name).where(
+            stmt = select(devices_table.c.device_id,devices_table.c.device_name,devices_table.c.last_online).where(
                 devices_table.c.user_id == user_id
             )
             res = await conn.execute(stmt)
@@ -92,7 +81,8 @@ async def get_user_devices(user_id:str) -> List:
                 result.append(
                     {
                         "device_id" : device[0],
-                        "device_name" : device[1]
+                        "device_name" : device[1],
+                        "last_online" : str(device[2])
                     }
                 )
             return result
@@ -128,4 +118,18 @@ async def update_device_token(device_id:str,new_token:str):
             except Exception:
                 logger.exception("DEVICES SQL ERROR")
                 return
+
+async def update_last_online(device_id:str):
+    time_now = datetime.now(timezone.utc)
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = devices_table.update().where(devices_table.c.device_id == device_id).values(
+                    last_online = time_now
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("DEVICES SQL ERROR")
+                return
+
                 
