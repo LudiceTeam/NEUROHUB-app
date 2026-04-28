@@ -1747,6 +1747,28 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+class DeleteDevice(BaseModel):
+    device_id:str
+
+@app.post("/delete/device")
+@limiter.limit("20/minute")
+async def delete_device(request:Request,req:DeleteDevice,
+                        user_data:dict = Depends(get_current_user),
+                        x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+
+    try:
+        await delete_device(req.device_id)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+
 
 
 # --- RUN -- 
