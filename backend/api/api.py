@@ -121,6 +121,7 @@ async def main():
 
 class AuthGoogle(BaseModel):
     device_id:Optional[str] = None
+    device_name:Optional[str] = None
     id_token:str
 
 @app.post("/auth/google")
@@ -178,16 +179,20 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
     user_data = {
         "user_id":user_id_main,
         "name":name,
+        "device_id":req.device_id,
         "provider":"google"
     }
 
     acces_token:str = create_access_token(user_data)
     refresh_token:str = create_refresh_token(user_data)
 
-    try_create_refresh = await create_refresh_token_db(user_id_main,refresh_token)
+    try_create_refresh = await create_new_device(user_id_main,req.device_name,refresh_token,req.device_id)
 
     if not try_create_refresh:
-        await update_refresh_token(user_id_main,refresh_token)
+        await update_device_token(
+            req.device_id,
+            refresh_token
+        )
 
     return {
         "user_id":user_id_main,
@@ -202,6 +207,8 @@ APPLE_AUDIENCE = os.getenv("APPLE_AUDIENCE")
 
 
 class AuthApple(BaseModel):
+    device_name:Optional[str] = None
+    device_id:Optional[str] = None
     identity_token:str
     
 @app.post("/auth/apple")
@@ -266,16 +273,20 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
     user_data = {
         "user_id":user_id_main,
         "name":email_parts[0],
+        "device_id":req.device_id,
         "provider":"apple"
     }
 
     acces_token:str = create_access_token(user_data)
     refresh_token:str = create_refresh_token(user_data)
 
-    try_create_refresh = await create_refresh_token_db(user_id_main,refresh_token)
+    try_create_refresh = await create_new_device(user_id_main,req.device_name,refresh_token,req.device_id)
 
     if not try_create_refresh:
-        await update_refresh_token(user_id_main,refresh_token)
+        await update_device_token(
+            req.device_id,
+            refresh_token
+        )
 
     return {
         "user_id":user_id_main,
@@ -425,6 +436,8 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 class Verify_Code(BaseModel):
+    device_name:Optional[str] = None
+    device_id:Optional[str] = None
     email:EmailStr
     code:int
 
@@ -470,16 +483,20 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
         user_data = {
             "user_id":user_id_main,
             "name":email_parts[0],
+            "device_id":req.device_id,
             "provider":"email"
         }
 
         acces_token:str = create_access_token(user_data)
         refresh_token:str = create_refresh_token(user_data)
 
-        try_create_refresh = await create_refresh_token_db(user_id_main,refresh_token)
+        try_create_refresh = await create_new_device(user_id_main,req.device_name,refresh_token,req.device_id)
 
         if not try_create_refresh:
-            await update_refresh_token(user_id_main,refresh_token)
+            await update_device_token(
+                req.device_id,
+                refresh_token
+            )
 
         return {
             "user_id":user_id_main,
@@ -509,18 +526,22 @@ async def refresh_token_api(request:Request,req:RefreshToken):
     try:
         payload = jwt.decode(req.refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
         user_id: str = payload.get("user_id")
+        device_id:str = payload.get("device_id")
         
         
-        if user_id is None:
+        if user_id is None or device_id is None:
             raise credentials_exception
         
-        stored_token = await get_user_refresh_token(user_id)
+        stored_token = await get_device_token(device_id)
         if stored_token != req.refresh_token:
             raise credentials_exception
         
         user_data = await get_user_data_for_jwt(user_id)
+
         if user_data == {} or not user_data.get("provider"):
             raise credentials_exception
+
+        user_data["device_id"] = device_id
                 
     except JWTError:
         raise credentials_exception
@@ -530,7 +551,7 @@ async def refresh_token_api(request:Request,req:RefreshToken):
     
     new_refresh_token = create_refresh_token(user_data)
     
-    await update_refresh_token(user_id,new_refresh_token)
+    await update_device_token(device_id,new_refresh_token)
     
     
     return {
