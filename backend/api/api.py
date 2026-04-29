@@ -1767,6 +1767,27 @@ async def delete_device(request:Request,req:DeleteDevice,
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+@app.get("/get/user/devices",dependencies=[Depends(safe_get)])
+@limiter.limit("20/minute")
+async def get_user_devices(request:Request,
+                           user_data:dict = Depends(get_current_user),
+                           x_signature:str = Header(...),
+                           x_timestamp:str = Header(...)):
+    data_to_verify = {
+        "user_id":user_data["user_id"],
+        "device_id":user_data["device_id"]
+    }
+    if not verify_signature(data_to_verify,x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        user_devices = await get_user_devices(user_data["user_id"])
+        return user_devices
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
 
 
