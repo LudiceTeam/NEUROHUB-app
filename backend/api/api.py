@@ -1272,9 +1272,9 @@ ANSWER:
 
 @app.post("/get_user_chats")
 @limiter.limit("20/minute")
-async def get_user_chats_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def get_user_chats_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     data_to_verify = {
-        "user_id":user_id
+        "user_id":user_data["user_id"]
     }
 
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
@@ -1283,6 +1283,10 @@ async def get_user_chats_handler(request:Request,user_id:str = Depends(get_curre
 
 
     try:
+
+        user_id = user_data["user_id"]
+        device_id = user_data["device_id"]
+
         user_chats = await get_chats_order(user_id)
 
 
@@ -1290,6 +1294,8 @@ async def get_user_chats_handler(request:Request,user_id:str = Depends(get_curre
             return {}
 
         result = {}
+
+        await update_last_online(device_id)
         
         # chat_id and its first message as in ChatGPT app
         for chat_id in user_chats:
@@ -1309,7 +1315,7 @@ class ChatId(BaseModel):
 
 @app.post("/delete/chat")
 @limiter.limit("20/minute")
-async def delete_chat_handler(request:Request,req:ChatId,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
@@ -1336,7 +1342,7 @@ async def delete_chat_handler(request:Request,req:ChatId,user_id:str = Depends(g
     
 @app.post("/get_chat_messages")
 @limiter.limit("20/minute")
-async def get_chat_messages_handler(request:Request,req:ChatId,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
@@ -1358,7 +1364,7 @@ class ChooseModel(BaseModel):
 
 @app.post("/change_model")
 @limiter.limit("20/minute")
-async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
@@ -1368,7 +1374,9 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
         if req.model_name not in models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
         
-
+        user_id = user_data["user_id"]
+        device_id = user_data["device_id"]
+        await update_last_online(device_id)
         await change_user_model_name(user_id,req.model_name)
         return {
             "message":"Model changed"
@@ -1380,11 +1388,12 @@ async def change_model_handler(request:Request,req:ChooseModel,user_id:str = Dep
 
 @app.get("/get_model_name",dependencies = [Depends(safe_get)])
 @limiter.limit("20/minute")
-async def get_model_name_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+async def get_model_name_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
+        user_id = user_data["user_id"]
         model_name = await get_user_model_name(user_id)
         return {
             "model_name":model_name
@@ -1398,11 +1407,12 @@ async def get_model_name_handler(request:Request,user_id:str = Depends(get_curre
 
 @app.post("/get_user_avatar_name")
 @limiter.limit("20/minute")
-async def get_user_avatar_name_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
+        user_id = user_data["user_id"]
         result = await get_user_avatar_and_name(user_id)
         return result
     except HTTPException:
