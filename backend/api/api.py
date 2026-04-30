@@ -768,13 +768,19 @@ class AskText(BaseModel):
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
-async def ask_text_handler(request:Request,req:AskText,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def ask_text_handler(request:Request,req:AskText,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
 
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
         
 
     try:
+        
+        user_id = user_data["user_id"]
+        
+        device_id = user_data["device_id"]
+        
+        await update_last_online(device_id)
 
         await refil_all_requests(user_id)
 
@@ -975,7 +981,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     data_to_verify = {
         "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
@@ -1023,6 +1029,11 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 )
             
 
+
+        user_id = user_data["user_id"]
+        device_id = user_data["device_id"]
+        
+        await update_last_online(device_id)
         await refil_all_requests(user_id)
 
 
