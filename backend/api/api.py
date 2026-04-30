@@ -29,7 +29,7 @@ from backend.database.messages_database.messages_core import create_message,get_
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
-from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token
+from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token,update_last_online
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.config import models,expensive_models,image_generation_models
@@ -561,7 +561,7 @@ async def refresh_token_api(request:Request,req:RefreshToken):
         "token_type": "bearer"
     }
 
-async def get_current_user(token: str = Header(..., alias="Authorization")) -> str:
+async def get_current_user(token: str = Header(..., alias="Authorization")) -> dict:
     """
     Проверяет access token и возвращает данные пользователя.
     Токен должен передаваться в формате: "Bearer <token>"
@@ -588,10 +588,14 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
         )
         
         user_id: str = payload.get("user_id")
-        if user_id is None:
+        device_id: str = payload.get("device_id")
+        if user_id is None or device_id is None:
             raise credentials_exception
             
-        return user_id
+        return {
+            "user_id":user_id,
+            "device_id":device_id
+        }
         
         
     except ExpiredSignatureError:
@@ -611,12 +615,14 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> s
 
 @app.post("/profile")
 @limiter.limit("20/minute")
-async def profile_hadnler(request:Request,user_id:str = Depends(get_current_user)):
-
+async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_user)):
+    user_id = user_data["user_id"]
     try:
         await refil_all_requests(user_id)
 
         profile_dict = await profile(user_id)
+        
+        await update_last_online(user_data["device_id"])
         
         return profile_dict
     
