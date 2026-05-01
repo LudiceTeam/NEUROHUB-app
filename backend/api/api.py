@@ -1776,12 +1776,12 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
 class DeleteDevice(BaseModel):
     device_id:str
 
-@app.delete("/delete/device")
+@app.post("/delete/device")
 @limiter.limit("20/minute")
 async def delete_device(request:Request,req:DeleteDevice,
                         user_data:dict = Depends(get_current_user),
                         x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not verify_signature(req.model_dump(),x_signature,x_timestamp):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
 
@@ -1803,7 +1803,7 @@ async def get_user_devices(request:Request,
         "user_id":user_data["user_id"],
         "device_id":user_data["device_id"]
     }
-    if not verify_signature(data_to_verify,x_signature,x_timestamp):
+    if not await verify_signature(data_to_verify,x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
