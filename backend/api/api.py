@@ -1773,11 +1773,10 @@ async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-
 class DeleteDevice(BaseModel):
     device_id:str
 
-@app.post("/delete/device")
+@app.delete("/delete/device")
 @limiter.limit("20/minute")
 async def delete_device(request:Request,req:DeleteDevice,
                         user_data:dict = Depends(get_current_user),
