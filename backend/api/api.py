@@ -1778,7 +1778,7 @@ class DeleteDevice(BaseModel):
 
 @app.post("/delete/device")
 @limiter.limit("20/minute")
-async def delete_device(request:Request,req:DeleteDevice,
+async def delete_device_api(request:Request,req:DeleteDevice,
                         user_data:dict = Depends(get_current_user),
                         x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
@@ -1795,7 +1795,7 @@ async def delete_device(request:Request,req:DeleteDevice,
 
 @app.get("/get/user/devices",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")
-async def get_user_devices(request:Request,
+async def get_user_devices_api(request:Request,
                            user_data:dict = Depends(get_current_user),
                            x_signature:str = Header(...),
                            x_timestamp:str = Header(...)):
