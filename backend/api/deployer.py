@@ -37,5 +37,5 @@ if __name__ == "__main__":
     pass
     #asyncio.run(write_default())
     #asyncio.run(create_all())
-    #syncio.run(drop_all())
+    #asyncio.run(drop_all())
 
