@@ -1739,8 +1739,8 @@ except Exception as e:
 
 @app.get("/get_or_write_model_stats",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")
-async def get_or_write_model_stats_handler(request:Request,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature({"user_id":user_id},x_signature,x_timestamp):
+async def get_or_write_model_stats_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     models_count_dict = {}
