@@ -15,15 +15,21 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import timedelta
 from typing import Optional
+import uuid
 import logging
-
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from backend.database.devices_db.devices_core import create_new_device,update_device_token
+from backend.database.main_database.main_core import create_user
+from backend.database.ai_choose_db.ai_core import create_default_user_model_name
+from backend.api.auth import create_access_token,create_refresh_token
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 
-OOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -80,10 +86,75 @@ async def auth_google(
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
+    
     try:
-        pass
-    except HTTPException:
-        raise
+        idinfo = id_token.verify_oauth2_token(
+            req.id_token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
     except Exception:
-        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid google token")
+    
+    issuer = idinfo.get("iss")
+    if issuer not in ["accounts.google.com", "https://accounts.google.com"]:
+        raise HTTPException(status_code=401, detail="Invalid token issuer")
+
+    google_sub = idinfo.get("sub")
+    email = idinfo.get("email")
+    email_verified = idinfo.get("email_verified", False)
+    name = idinfo.get("name", "")
+    picture = idinfo.get("picture", "")
+
+    if not google_sub:
+        raise HTTPException(status_code=401, detail="Google sub not found")
+    
+    if email and not email_verified:
+        raise HTTPException(status_code=401, detail="Email is not verified")
+
+
+    user_id_main = str(uuid.uuid4())
+    # default sql data
+    user_id_try = await create_user(
+        user_id = user_id_main,
+        name = name,
+        email = email,
+        provider_id = google_sub,
+        provider = "google",
+        avatar_url=picture
+    )
+    
+    if type(user_id_try) == str:
+        user_id_main = user_id_try
+
+
+    await create_default_user_model_name(
+        user_id = user_id_main
+    )
+
+
+    user_data = {
+        "user_id":user_id_main,
+        "name":name,
+        "device_id":req.device_id,
+        "provider":"google"
+    }
+
+    acces_token:str = create_access_token(user_data)
+    refresh_token:str = create_refresh_token(user_data)
+
+    try_create_refresh = await create_new_device(user_id_main,req.device_name,refresh_token,req.device_id)
+
+    if not try_create_refresh:
+        await update_device_token(
+            req.device_id,
+            refresh_token
+        )
+
+    return {
+        "user_id":user_id_main,
+        "access_token":acces_token,
+        "refresh_token":refresh_token,
+        "token_type":"bearer"
+    }
         
