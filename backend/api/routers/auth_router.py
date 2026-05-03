@@ -73,7 +73,7 @@ async def safe_get(req: Request):
 class AuthGoogle(BaseModel):
     device_id:Optional[str] = None
     device_name:Optional[str] = None
-    it_token:str
+    id_token:str
 
 @router.post("/google")
 @limiter.limit("20/minute")
