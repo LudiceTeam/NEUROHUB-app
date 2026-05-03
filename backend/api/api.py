@@ -32,6 +32,7 @@ from backend.database.stats_db.stats_core import write_models_stats,get_date_las
 from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token,update_last_online
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
+from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
 from backend.api.config import models,expensive_models,image_generation_models
 import aiohttp
 import random
@@ -422,11 +423,15 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
 
     try:
         
+
+        await check_login_limit(req.email)
+
         code = random.randint(100000,999999)
         try_create_code = await create_code(req.email,code)
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
         
+
         await send_email_code(req.email,code)
 
     except HTTPException:
@@ -448,14 +453,18 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
          raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+
+        await check_login_limit(req.email)
         email_parts = req.email.split("@")
         
         check_result = await check_code(req.email,req.code)
 
         if not check_result:
+            await register_failed_login(req.email)
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid code")
         
 
+        await reset_login_limit(req.email)
         # default sql data
         user_id_main = str(uuid.uuid4())
         
