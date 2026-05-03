@@ -13,7 +13,9 @@ from backend.database.devices_db.devices_core import metadata_obj as m10
 
 from backend.database.stats_db.stats_core import write_default
 
+import subprocess
 import asyncio
+import os
 
 
 all_metadata = [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10]
@@ -25,6 +27,21 @@ async def create_all():
 
     await async_engine.dispose()
 
+def redis_check():
+    result = subprocess.run(
+        ["redis-cli", "ping"],
+        capture_output=True,
+        text=True
+    )
+
+    if result.stdout.strip() != "PONG":
+        print("[+] REDIS IS NOT STARTED")
+
+    else:
+        print("[+] REDIS STARTED")
+
+
+
 
 async def drop_all():
     async with async_engine.begin() as conn:
@@ -34,7 +51,7 @@ async def drop_all():
     await async_engine.dispose()
 
 if __name__ == "__main__":
-    pass
+    redis_check()
     #asyncio.run(write_default())
     #asyncio.run(create_all())
     #asyncio.run(drop_all())
