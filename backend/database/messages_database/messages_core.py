@@ -109,8 +109,9 @@ async def get_chat_first_message(chat_id:str) -> str:
             if data is not None:
                 decoded_message = decrypt(data)
                 if len(decoded_message) > 14:
-                    return decoded_message[:14] + "..."
-                return decoded_message
+                    result = decoded_message[:14] + "..."
+                    return result.capitalize() 
+                return decoded_message.capitalize()
             return ""
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
