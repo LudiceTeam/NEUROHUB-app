@@ -54,7 +54,8 @@ async def create_chat(user_id:str) -> str:
                     chat_id = chat_id,
                     user_id = user_id,
                     created_at = datetime.now(timezone.utc),
-                    last_message_at = datetime.now(timezone.utc)
+                    last_message_at = datetime.now(timezone.utc),
+                    folder_id = "",
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -131,3 +132,39 @@ async def get_chats_order(user_id) -> List:
         except Exception:
             logger.exception("CHATS SQL ERROR")
             return []
+
+async def add_chat_to_folder(chat_id:str,folder_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = chats_table.update().where(chats_table.c.chat_id == chat_id).values(
+                    folder_id = folder_id
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return
+
+async def get_folder_chats(folder_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(chats_table.c.chat_id).where(chats_table.c.folder_id == folder_id).order_by(chats_table.c.last_message_at.desc())
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            result:List = []
+            for dt in data:
+                result.append(dt["chat_id"])
+            return result
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return []
+
+#we are not deleting the chats we are only deleting the folder
+async def delete_chats_folder(folder_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                pass
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return 

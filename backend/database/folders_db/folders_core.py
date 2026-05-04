@@ -26,5 +26,30 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_folder(user_id:str,name:str,tags:Optional[List[str]] = None):
-    pass
+async def create_folder(user_id:str,name:str,tags:Optional[List[str]] = None) -> str:
+    try:
+        async with AsyncSession(async_engine) as conn:
+            async with conn.begin():
+                folder_id = str(uuid.uuid4())
+                stmt = folders_table.insert().values(
+                    folder_id = folder_id,
+                    user_id = user_id,
+                    folder_name = name,
+                    tags = tags if tags is not None else []
+                )
+                await conn.execute(stmt)
+                return folder_id        
+    except Exception:
+        logger.exception("FOLDERS SQL ERROR")
+        return ""
+
+async def add_chat_to_folder(folder_id:str,chat_id:str):
+    try:
+        async with AsyncSession(async_engine) as conn:
+            async with conn.begin():
+                stmt = folders_table.update().where(folders_table.c.folder_id == folder_id).values(
+                    
+                )
+    except Exception:
+        logger.exception("FOLDERS SQL ERROR")
+        return
