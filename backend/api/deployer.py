@@ -10,7 +10,7 @@ from backend.database.transaction_db.transaction_core import metadata_obj as m7
 from backend.database.email_code_db.email_core import metadata_obj as m8
 from backend.database.stats_db.stats_core import metadata_obj as m9
 from backend.database.devices_db.devices_core import metadata_obj as m10
-
+from backend.database.folders_db.folders_models import metadata_obj as m11
 from backend.database.stats_db.stats_core import write_default
 
 import subprocess
@@ -18,7 +18,7 @@ import asyncio
 import os
 
 
-all_metadata = [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10]
+all_metadata = [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11]
 
 async def create_all():
     async with async_engine.begin() as conn:
