@@ -1705,6 +1705,8 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
 
         await update_user_avatar(user_id, url)
 
+        del file_bytes
+
         return {
             "message":"Avatar changed"
         }
