@@ -528,3 +528,17 @@ async def get_user_profile_pict_url(user_id:str) -> str:
         except Exception:
             logger.exception("MAIN SQL ERROR")
             return ""
+
+async def change_name(user_id:str,new_name:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(
+                    main_table.c.user_id == user_id
+                ).values(
+                    name = new_name
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MAIN SQL ERROR")
+                return
