@@ -873,7 +873,7 @@ ANSWER:
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
         
-        if user_model == "auto" and req.request is None:
+        if user_model == "auto" and req.request == None:
             user_model = "google/gemini-3-flash-preview"
 
         if user_model in image_generation_models:
@@ -914,6 +914,12 @@ ANSWER:
         if not user_data["sub"]:
             if user_data["requests"] <= 0 and user_model not in expensive_models:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+            
+
+            if user_model in expensive_models:
+                user_nano_req = user_data["nano_req"]
+                if user_nano_req <= 0:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
             response = await ask_chat_gpt(promt,user_model)
@@ -923,9 +929,6 @@ ANSWER:
             
             if user_model in expensive_models:
                 user_nano_req = user_data["nano_req"]
-                if user_nano_req <= 0:
-                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-
                 await minus_one_req_nano(user_id)    
 
             else:
@@ -949,6 +952,12 @@ ANSWER:
             }
         
         else:
+
+            if user_model in expensive_models: 
+                user_nano_req = user_data["nano_req"]
+                if user_nano_req <= 0:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
             response = await ask_chat_gpt(promt,user_model)
             encrypted_message = encrypt(req.request)
             encrypted_response = encrypt(response)
@@ -959,9 +968,6 @@ ANSWER:
 
             if user_model in expensive_models: 
                 user_nano_req = user_data["nano_req"]
-                if user_nano_req <= 0:
-                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-
                 await minus_one_req_nano(user_id)
 
             await create_message(
@@ -1789,6 +1795,17 @@ async def delete_device_api(request:Request,req:DeleteDevice,
     
 
     try:
+        user_devices = await get_user_devices(user_data["user_id"])
+        seen:bool = False
+        for device_data in user_devices:
+            if device_data["device_id"] == req.device_id:
+                seen = True
+        
+        if not seen:
+            return {
+                "message" : "error"
+            }
+
         await delete_device(req.device_id)
     except HTTPException:
         raise
