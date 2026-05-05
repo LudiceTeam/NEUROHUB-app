@@ -55,7 +55,7 @@ async def create_chat(user_id:str) -> str:
                     user_id = user_id,
                     created_at = datetime.now(timezone.utc),
                     last_message_at = datetime.now(timezone.utc),
-                    folder_id = "",
+                    #folder_id = "",
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
