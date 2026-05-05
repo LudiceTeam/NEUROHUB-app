@@ -119,6 +119,8 @@ async def update_chat_last_message_date(chat_id:str):
                 logger.exception("CHATS SQL ERROR")
                 return 
 
+
+
 async def get_chats_order(user_id) -> List:
     async with AsyncSession(async_engine) as conn:
         try:
@@ -160,7 +162,7 @@ async def get_folder_chats(folder_id:str) -> List:
             return []
 
 #we are not deleting the chats we are only deleting the folder
-async def delete_chats_folder(folder_id:str):
+async def delete_folder(folder_id:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
@@ -168,3 +170,6 @@ async def delete_chats_folder(folder_id:str):
             except Exception:
                 logger.exception("CHATS SQL ERROR")
                 return 
+
+async def delete_chat_from_folder():
+    pass
