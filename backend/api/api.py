@@ -777,7 +777,7 @@ class AskText(BaseModel):
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
-async def ask_text_handler(request:Request,req:AskText,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
 
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
@@ -785,9 +785,9 @@ async def ask_text_handler(request:Request,req:AskText,user_data:dict = Depends(
 
     try:
         
-        user_id = user_data["user_id"]
+        user_id = user_data_jwt["user_id"]
         
-        device_id = user_data["device_id"]
+        device_id = user_data_jwt["device_id"]
         
         await update_last_online(device_id)
 
@@ -888,7 +888,7 @@ ANSWER:
             response = await ask_chat_gpt(req.request,user_model)
             
             if type(response) != bytes:
-                return response
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
             
 
             url = await AWS_CLIENT.upload_file(
@@ -919,7 +919,7 @@ ANSWER:
             response = await ask_chat_gpt(promt,user_model)
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                return response
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
             
             if user_model in expensive_models:
                 user_nano_req = user_data["nano_req"]
@@ -954,7 +954,7 @@ ANSWER:
             encrypted_response = encrypt(response)
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                return response
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
             
 
             if user_model in expensive_models: 
@@ -990,7 +990,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     data_to_verify = {
         "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
@@ -1005,8 +1005,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if len(image_list) > 5:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
         
-        user_id = user_data["user_id"]
-        device_id = user_data["device_id"]
+        user_id = user_data_jwt["user_id"]
+        device_id = user_data_jwt["device_id"]
         
         await update_last_online(device_id)
         await refil_all_requests(user_id)
@@ -1151,7 +1151,7 @@ ANSWER:
 
 
             if type(response) != bytes:
-                return response
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
             
 
             encrypted_message = encrypt(true_request)
@@ -1185,7 +1185,7 @@ ANSWER:
             response = await ask_chat_gpt([promt,image_base64_list],user_model)
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                return response
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
             
             if user_model in expensive_models:
                 await minus_one_req_nano(user_id)  
@@ -1217,7 +1217,7 @@ ANSWER:
 
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                return response
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
         
 
             if user_model in expensive_models:
@@ -1300,6 +1300,14 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
+        user_id = user_data["user_id"]
+        user_chats = await get_user_chats(user_id)
+
+        if req.chat_id not in user_chats:
+            return {
+                "message":"error"
+            }
+        
         await delete_chat(req.chat_id)
         await delete_chat_messages(req.chat_id)
 
@@ -1326,6 +1334,14 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = 
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
+        user_id = user_data["user_id"]
+        user_chats = await get_user_chats(user_id)
+
+        if req.chat_id not in user_chats:
+            return {
+                "message":"error"
+            }
+        
         result = await get_chat_messages_for_front_end(req.chat_id)
         return {
             "result":result
@@ -1423,7 +1439,7 @@ class Validate(BaseModel):
 
 @app.post("/billing/apple/validate")
 @limiter.limit("20/minute")
-async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
 
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
@@ -1481,7 +1497,7 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         try_new_tr:bool = await create_new_trasacrion(
             transaction_id = transaction_id,
             original_transaction_id = original_transaction_id,
-            user_id = user_id,
+            user_id = user_data["user_id"],
             product_id = product_id,
             expires_date = expires_date,
             raw_payload = signed_transaction_info
@@ -1494,21 +1510,21 @@ async def apple_validate(request:Request,req:Validate,user_id:str = Depends(get_
         sub_type = "premium" if req.product_id == "veora_premium" else "basic"
 
         if sub_type == "premium":
-            result = await subscribe_premium(user_id)
+            result = await subscribe_premium(user_data["user_id"])
 
             if not result:
                 raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
             
         
         elif sub_type == "basic":
-            result = await subscribe_basic(user_id)
+            result = await subscribe_basic(user_data["user_id"])
             if not result:
                 raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
         
         
         return {
             "ok": True,
-            "user_id": user_id,
+            "user_id": user_data["user_id"],
             "product_id": product_id,
             "transaction_id": transaction_id,
             "original_transaction_id": original_transaction_id,
@@ -1647,7 +1663,7 @@ class TranslateText(BaseModel):
 
 @app.post("/translate")
 @limiter.limit("20/minute")
-async def translate_handler(request:Request,req:TranslateText,user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def translate_handler(request:Request,req:TranslateText,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
@@ -1666,11 +1682,11 @@ async def translate_handler(request:Request,req:TranslateText,user_id:str = Depe
 
 @app.post("/change_avatar")
 @limiter.limit("20/minute")
-async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),user_id:str = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     data_to_verify = {
         "filename":avatar.filename,
         "content_type":avatar.content_type,
-        "user_id":user_id
+        "user_id":user_data["user_id"]
     }
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
@@ -1691,7 +1707,7 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
                     detail="Unsupported file type"
                 )
     
-        user_old_url = await get_user_profile_pict_url(user_id)
+        user_old_url = await get_user_profile_pict_url(user_data["user_id"])
 
         if user_old_url != "":
             await AWS_CLIENT.delete_file(user_old_url)
@@ -1703,7 +1719,7 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
 
         url = await AWS_CLIENT.upload_file(filename, file_bytes)
 
-        await update_user_avatar(user_id, url)
+        await update_user_avatar(user_data["user_id"], url)
 
         del file_bytes
 

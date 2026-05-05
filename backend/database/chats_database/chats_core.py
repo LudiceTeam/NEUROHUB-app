@@ -119,6 +119,8 @@ async def update_chat_last_message_date(chat_id:str):
                 logger.exception("CHATS SQL ERROR")
                 return 
 
+
+
 async def get_chats_order(user_id) -> List:
     async with AsyncSession(async_engine) as conn:
         try:
