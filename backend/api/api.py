@@ -1005,40 +1005,6 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if len(image_list) > 5:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
         
-
-        list_bytes_images = []
-        image_base64_list = []
-        image_bytes_sum = 0
-
-        for image in image_list:
-            if image.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Unsupported file type"
-                )
-            
-            image_bytes = await image.read()
-            image_bytes_sum += len(image_bytes)
-
-            if len(image_bytes) > MAX_IMAGE_SIZE:
-                raise HTTPException(
-                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    detail="Image too large"
-                )
-            
-            base64_str = base64.b64encode(image_bytes).decode('utf-8')
-            image_base64_list.append(base64_str)
-            
-            list_bytes_images.append(image_bytes)
-        
-        if image_bytes_sum > 20 * 1024 * 1024:
-            raise HTTPException(
-                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    detail="Images too large"
-                )
-            
-
-
         user_id = user_data["user_id"]
         device_id = user_data["device_id"]
         
@@ -1048,18 +1014,66 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         user_data = await get_user_state(user_id)
 
-        chat_id = chat_id_form
-
-        if chat_id_form is None:
-            chat_id:str = await create_chat(user_id)
-        
         if user_data == {}:
             return {
                 "message":"None"
             }
         
-
+        chat_id = chat_id_form
         true_request = request_text if request_text is not None else ""
+
+
+        if chat_id_form is None:
+            chat_id:str = await create_chat(user_id)
+
+        user_model = await get_user_model_name(user_id)
+        if user_model == "auto":
+            user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
+        
+        if user_model == "auto" and true_request == "":
+            user_model = "google/gemini-3-flash-preview"
+
+        if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+        if not user_data["sub"] and user_data["requests"] <= 0 and user_model not in expensive_models:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+        
+
+
+        url_list = []
+        image_base64_list = []
+        image_bytes_sum = 0
+
+        for image in image_list:
+            if image.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
+                raise HTTPException(status_code=400, detail="Unsupported file type")
+
+            image_bytes = await image.read(MAX_IMAGE_SIZE + 1)
+
+            if len(image_bytes) > MAX_IMAGE_SIZE:
+                raise HTTPException(status_code=413, detail="Image too large")
+
+            image_bytes_sum += len(image_bytes)
+
+            if image_bytes_sum > 20 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Images too large")
+
+            image_base64_list.append(
+                base64.b64encode(image_bytes).decode("utf-8")
+            )
+
+            url = await AWS_CLIENT.upload_file(
+                file_path=str(uuid.uuid4()) + ".jpg",
+                file_data=image_bytes
+            )
+            url_list.append(url)
+
+            del image_bytes
+                    
+
+        
 
         current_chat_messages = await get_chat_messages(chat_id)
         decoded_messages = []
@@ -1125,12 +1139,6 @@ ANSWER:
 """
         
 
-        user_model = await get_user_model_name(user_id)
-        if user_model == "auto":
-            user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
-        
-        if user_model == "auto" and true_request == "":
-            user_model = "google/gemini-3-flash-preview"
         if user_model in image_generation_models:
 
             user_nano_req = user_data["nano_req"]
@@ -1146,19 +1154,8 @@ ANSWER:
                 return response
             
 
-            encrypted_message = encrypt(request_text)
-
-
-
-            url_list = []
-
-            for image_bytes in list_bytes_images:
-                url = await AWS_CLIENT.upload_file(
-                    file_path = str(uuid.uuid4()) + ".jpg",
-                    file_data = image_bytes
-                )
-                url_list.append(url)
-            
+            encrypted_message = encrypt(true_request)
+    
             response_image_url = await AWS_CLIENT.upload_file(
                     file_path = str(uuid.uuid4()) + ".jpg",
                     file_data = response
@@ -1184,9 +1181,6 @@ ANSWER:
 
 
         if not user_data["sub"]:
-            if user_data["requests"] <= 0 and user_model not in expensive_models:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-
 
             response = await ask_chat_gpt([promt,image_base64_list],user_model)
 
@@ -1194,27 +1188,14 @@ ANSWER:
                 return response
             
             if user_model in expensive_models:
-                user_nano_req = user_data["nano_req"]
-                if user_nano_req <= 0:
-                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-
                 await minus_one_req_nano(user_id)  
             else:
                 await minus_one_req(user_id)
 
 
-            encrypted_message = encrypt(request_text)
+            encrypted_message = encrypt(true_request)
 
             encrypted_response = encrypt(response)
-
-            url_list = []
-
-            for image_bytes in list_bytes_images:
-                url = await AWS_CLIENT.upload_file(
-                    file_path = str(uuid.uuid4()) + ".jpg",
-                    file_data = image_bytes
-                )
-                url_list.append(url)
 
             await create_message(
                 user_id = user_id,
@@ -1231,28 +1212,17 @@ ANSWER:
             }
         else:
             response = await ask_chat_gpt([promt,image_base64_list],user_model)
-            encrypted_message = encrypt(request_text)
+            encrypted_message = encrypt(true_request)
             encrypted_response = encrypt(response)
 
 
             if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
                 return response
-            
-            url_list = []
+        
 
             if user_model in expensive_models:
-                user_nano_req = user_data["nano_req"]
-                if user_nano_req <= 0:
-                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-
                 await minus_one_req_nano(user_id)  
 
-            for image_bytes in list_bytes_images:
-                url = await AWS_CLIENT.upload_file(
-                    file_path = str(uuid.uuid4()) + ".jpg",
-                    file_data = image_bytes
-                )
-                url_list.append(url)
 
             await create_message(
                 user_id = user_id,
@@ -1706,7 +1676,7 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
-        file_bytes = await avatar.read()
+        file_bytes = await avatar.read(MAX_IMAGE_SIZE + 1)
 
         if len(file_bytes) > MAX_IMAGE_SIZE:
             raise HTTPException(
@@ -1725,8 +1695,13 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
 
         if user_old_url != "":
             await AWS_CLIENT.delete_file(user_old_url)
+        
 
-        url = await AWS_CLIENT.upload_file(str(uuid.uuid4()) + ".jpg", file_bytes)
+        ext = avatar.filename.split(".")[-1].lower()
+
+        filename = f"{uuid.uuid4()}.{ext}"
+
+        url = await AWS_CLIENT.upload_file(filename, file_bytes)
 
         await update_user_avatar(user_id, url)
 
