@@ -42,14 +42,3 @@ async def create_folder(user_id:str,name:str,tags:Optional[List[str]] = None) ->
     except Exception:
         logger.exception("FOLDERS SQL ERROR")
         return ""
-
-async def add_chat_to_folder(folder_id:str,chat_id:str):
-    try:
-        async with AsyncSession(async_engine) as conn:
-            async with conn.begin():
-                stmt = folders_table.update().where(folders_table.c.folder_id == folder_id).values(
-                    
-                )
-    except Exception:
-        logger.exception("FOLDERS SQL ERROR")
-        return

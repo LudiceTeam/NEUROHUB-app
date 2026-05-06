@@ -162,11 +162,14 @@ async def get_folder_chats(folder_id:str) -> List:
             return []
 
 #we are not deleting the chats we are only deleting the folder
-async def delete_folder(folder_id:str):
+async def delete_folder(user_id:str,folder_id:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                pass
+                stmt = chats_table.update().where(chats_table.c.user_id == user_id,chats_table.c.folder_id == folder_id).values(
+                    folder_id = ""
+                )
+                await conn.execute(stmt)
             except Exception:
                 logger.exception("CHATS SQL ERROR")
                 return 

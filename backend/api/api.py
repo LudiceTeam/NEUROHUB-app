@@ -1251,6 +1251,10 @@ ANSWER:
 
     except Exception:
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+    finally:
+        for image in image_list:
+            await image.close()
 
 
 
