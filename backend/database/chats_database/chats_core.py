@@ -174,5 +174,14 @@ async def delete_folder(user_id:str,folder_id:str):
                 logger.exception("CHATS SQL ERROR")
                 return 
 
-async def delete_chat_from_folder():
-    pass
+async def delete_chat_from_folder(chat_id:str):    
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = chats_table.update().where(chats_table.c.chat_id == chat_id).values(
+                    folder_id = ""
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return
