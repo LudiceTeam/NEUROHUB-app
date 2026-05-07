@@ -997,7 +997,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text:Optional[str] = Form(...),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    request_text:Optional[str] = Form(None),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     
     data_to_verify = {
         "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
