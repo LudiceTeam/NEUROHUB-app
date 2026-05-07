@@ -56,6 +56,7 @@ async def create_chat(user_id:str) -> str:
                     created_at = datetime.now(timezone.utc),
                     last_message_at = datetime.now(timezone.utc),
                     folder_id = "",
+                    name = ""
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -185,3 +186,5 @@ async def delete_chat_from_folder(chat_id:str):
             except Exception:
                 logger.exception("CHATS SQL ERROR")
                 return
+
+
