@@ -42,3 +42,18 @@ async def create_folder(user_id:str,name:str,tags:Optional[List[str]] = None) ->
     except Exception:
         logger.exception("FOLDERS SQL ERROR")
         return ""
+
+
+async def get_user_folders(user_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = select(folders_table.c.folder_id,folders_table.c.folder_name,folders_table.c.tags).where(
+                    folders_table.c.user_id == user_id
+                )
+                result = await conn.execute(stmt)
+                data = result.mappings().all()
+                return data
+            except Exception:
+                logger.exception("FOLDERS SQL ERROR")
+                return []
