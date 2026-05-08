@@ -2078,6 +2078,50 @@ async def delete_folder_handler(
 
     
     
+class RenameFolder(BaseModel):
+    folder_id:str
+    name:str
+
+@app.post("/folder/rename")
+@limiter.limit("20/minute")
+async def rename_folder_handler(
+    request:Request,
+    req:RenameFolder,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+
+        user_folders = await get_user_folders(
+            user_data["user_id"]
+        )
+
+        seen:bool = False
+
+        for folder_data in user_folders:
+            if folder_data["folder_id"] == req.folder_id:
+                seen = True
+        
+        if not seen:
+            return {
+                "messsage" : "error"
+            }
+        
+
+        await rename_folder(
+            folder_id = req.folder_id,
+            new_name = req.name
+        )
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
 # --- RUN -- 
