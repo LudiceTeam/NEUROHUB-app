@@ -2020,7 +2020,7 @@ async def get_folder_chats_handler(
                 "messsage" : "error"
             }
 
-        folder_chats = await get_folder_chats(user_data["user_id"])
+        folder_chats = await get_folder_chats(req.folder_id)
 
         return {
             "result" : folder_chats
