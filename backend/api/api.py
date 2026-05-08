@@ -30,7 +30,7 @@ from backend.database.apple_notification_log.apple_core import create_new_log,is
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
 from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token,update_last_online
-from backend.database.folders_db.folders_core import create_folder,get_user_folders
+from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -1905,7 +1905,7 @@ async def create_folder_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-@app.get("/get/user/folders",dependencies=[Depends(safe_get)])
+@app.get("/user/folders",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")    
 async def get_user_folders_handler(
     request:Request,
@@ -1921,7 +1921,7 @@ async def get_user_folders_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-        user_folders:List =await get_user_folders(
+        user_folders:List = await get_user_folders(
             user_id = user_data["user_id"]
         )
 
@@ -1935,7 +1935,85 @@ async def get_user_folders_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+class FolderAddDeleteChat(BaseModel):
+    chat_id:str
+    folder_id:str
 
+@app.post("/folder/add_or_delte/chat")
+@limiter.limit("20/minute")
+async def add_chat_to_folder_or_delete(
+    request:Request,
+    req:FolderAddDeleteChat,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+
+        user_chats = await get_user_chats(
+            user_data["user_id"]
+        )
+
+        user_folders = await get_user_folders(
+            user_data["user_id"]
+        )
+
+        seen:bool = False
+
+        for folder_data in user_folders:
+            if folder_data["folder_id"] == req.folder_id:
+                seen = True
+
+        if req.chat_id not in user_chats or not seen:
+            return {
+                "message" : "error"
+            }
+
+        if req.folder_id == "":
+            await delete_chat_from_folder(
+                chat_id = req.chat_id
+            )
+        
+        await add_chat_to_folder(
+            chat_id = req.chat_id,
+            folder_id = req.folder_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+class GetFolderChats(BaseModel):
+    folder_id:str
+
+@app.post("/folder/get/chats")
+@limiter.limit("20/minite")
+async def get_folder_chats_handlr(
+    request:Request,
+    req:GetFolderChats,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+        pass
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+    
 
 
 # --- RUN -- 
