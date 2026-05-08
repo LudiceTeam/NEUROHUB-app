@@ -69,3 +69,13 @@ async def rename_folder(folder_id:str,new_name:str):
             except Exception:
                 logger.exception("FOLDERS SQL ERROR")
                 return
+
+async def delete_folder_folder_core(folder_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = folders_table.delete().where(folders_table.c.folder_id == folder_id)
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("FOLDERS SQL ERROR")
+                return

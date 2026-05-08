@@ -1989,14 +1989,14 @@ async def add_chat_to_folder_or_delete(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-class GetFolderChats(BaseModel):
+class FolderID(BaseModel):
     folder_id:str
 
 @app.post("/folder/get/chats")
 @limiter.limit("20/minite")
 async def get_folder_chats_handlr(
     request:Request,
-    req:GetFolderChats,
+    req:FolderID,
     user_data:dict = Depends(get_current_user),
     x_signature:str = Header(...),
     x_timestamp:str = Header(...)
@@ -2005,7 +2005,27 @@ async def get_folder_chats_handlr(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-        pass
+        user_folders = await get_user_folders(
+            user_data["user_id"]
+        )
+
+        seen:bool = False
+
+        for folder_data in user_folders:
+            if folder_data["folder_id"] == req.folder_id:
+                seen = True
+        
+        if not seen:
+            return {
+                "messsage" : "error"
+            }
+
+        folder_chats = await get_folder_chats(user_data["user_id"])
+
+        return {
+            "result" : folder_chats
+        }
+    
     except HTTPException:
         raise
     except Exception:
