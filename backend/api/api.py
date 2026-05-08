@@ -30,7 +30,7 @@ from backend.database.apple_notification_log.apple_core import create_new_log,is
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
 from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token,update_last_online
-from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder
+from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder,delete_folder_folder_core
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -1994,7 +1994,7 @@ class FolderID(BaseModel):
 
 @app.post("/folder/get/chats")
 @limiter.limit("20/minite")
-async def get_folder_chats_handlr(
+async def get_folder_chats_handler(
     request:Request,
     req:FolderID,
     user_data:dict = Depends(get_current_user),
@@ -2033,6 +2033,50 @@ async def get_folder_chats_handlr(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+@app.post("/folder/delete")
+@limiter.limit("20/minute")
+async def delete_folder_handler(
+    request:Request,
+    req:FolderID,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+        user_folders = await get_user_folders(
+            user_data["user_id"]
+        )
+
+        seen:bool = False
+
+        for folder_data in user_folders:
+            if folder_data["folder_id"] == req.folder_id:
+                seen = True
+        
+        if not seen:
+            return {
+                "messsage" : "error"
+            }
+
+        await delete_folder_folder_core(
+            folder_id = req.folder_id
+        )
+
+        await delete_folder(
+            user_id = user_data["user_id"],
+            folder_id = req.folder_id
+        )
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+    
     
 
 
