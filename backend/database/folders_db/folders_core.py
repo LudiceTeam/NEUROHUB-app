@@ -11,6 +11,7 @@ from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt,encrypt
 from backend.api.config import database_url,async_engine
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,40 @@ async def delete_folder_folder_core(folder_id:str):
             try:
                 stmt = folders_table.delete().where(folders_table.c.folder_id == folder_id)
                 await conn.execute(stmt)
+            except Exception:
+                logger.exception("FOLDERS SQL ERROR")
+                return
+
+async def add_tag(folder_id:str,tag:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = folders_table.update().where(
+                    folders_table.c.folder_id == folder_id
+                ).values(
+                    tags = folders_table.c.tags + [tag]
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("FOLDERS SQL ERROR")
+                return
+
+async def remove_tag(folder_id: str, tag: str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = (
+                    folders_table.update()
+                    .where(
+                        folders_table.c.folder_id == folder_id
+                    )
+                    .values(
+                        tags=func.array_remove(folders_table.c.tags, tag)
+                    )
+                )
+
+                await conn.execute(stmt)
+
             except Exception:
                 logger.exception("FOLDERS SQL ERROR")
                 return
