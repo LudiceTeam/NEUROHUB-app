@@ -1976,6 +1976,7 @@ async def add_chat_to_folder_or_delete(
             await delete_chat_from_folder(
                 chat_id = req.chat_id
             )
+            return
         
         await add_chat_to_folder(
             chat_id = req.chat_id,
