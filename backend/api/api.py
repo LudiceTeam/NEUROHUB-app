@@ -761,15 +761,15 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         return result
     
     except TimeoutError:
-        return "Generation took to long. Try again."
+        return "Generation took too long. Try again."
     
     except openai.NotFoundError:
-        return "This model doesnt support image input"
+        return "This model doesn`t support image input"
         
     except Exception as e:
         #print(f"OpenAI SDK error: {e}")
         logger.exception("OpenAI SDK error")
-        return "Some error happened."
+        return "Some error happened. Try again."
 
 
 class AskText(BaseModel):
