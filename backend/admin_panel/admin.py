@@ -61,7 +61,7 @@ class User(BaseModel):
     sub:str
 
 @admin_app.post("/sub/give")
-async def subscribe_premium(req:User,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+async def subscribe_func(req:User,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
@@ -91,6 +91,38 @@ async def subscribe_premium(req:User,x_signature:str = Header(...),x_timestamp:s
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+
+
+@admin_app.post("/sub/return")
+async def unsub_func(req:User,x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        if req.sub == "premium":
+            result = await subscribe_premium(
+                req.user_id
+            )
+
+            if not result:
+                return {
+                    "message" : "error"
+                }
+        elif req.sub == "basic":
+            result = await subscribe_basic(
+                req.user_id
+            )
+
+            if not result:
+                return {
+                    "message" : "error"
+                }
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
     
