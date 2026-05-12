@@ -25,7 +25,7 @@ from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_u
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
@@ -2219,7 +2219,7 @@ async def get_today_models_count_handler(
         models_count = {}
 
         for model in total_models:
-            result = await get_today_models_count_handler(
+            result = await get_today_models_usage(
                 user_id = user_data["user_id"],
                 model_name = model
             )
@@ -2237,7 +2237,7 @@ async def get_today_models_count_handler(
 
 @app.get("/models/get/stats/total",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")
-async def get_today_models_count_handler(
+async def get_total_models_count_handler(
     request:Request,
     user_data:dict = Depends(get_current_user),
     x_signature:str = Header(...),
