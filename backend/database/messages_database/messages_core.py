@@ -6,7 +6,7 @@ import os
 import asyncio
 import logging
 import uuid
-from typing import List,Optional
+from typing import List,Optional,Dict
 from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.api.psw_hash import decrypt,encrypt
@@ -88,6 +88,36 @@ async def get_chat_messages(chat_id:str) -> List[str]:
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return []
+
+async def get_chat_messages_2(chat_id:str) -> List[dict]:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(
+                messages_table.c.message_text,
+                messages_table.c.response
+            ).where(
+                messages_table.c.chat_id == chat_id
+            )
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+
+            for message_block in data:
+
+                message_block["message_text"] = decrypt(
+                    message_block["message_text"]
+                )
+
+                message_block["response"] = decrypt(
+                    message_block["response"]
+                )
+
+            if len(data) > 20:
+                return data[-20:]                
+            return data
+        except Exception:
+            logger.exception("MESSAGES SQL ERROR")
+            return []
+
 
 async def delete_chat_messages(chat_id:str):
     async with AsyncSession(async_engine) as conn:
