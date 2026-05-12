@@ -149,3 +149,11 @@ async def count_model_messages(model_name:str) -> int:
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return 0   
+
+async def get_today_models_usage(user_id:str) -> dict:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            pass
+        except Exception as e:
+            logger.exception("MESSAGES SQL ERROR")
+            return
