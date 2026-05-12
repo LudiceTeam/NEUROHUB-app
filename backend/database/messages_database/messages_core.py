@@ -8,7 +8,7 @@ import logging
 import uuid
 from typing import List,Optional,Dict
 from sqlalchemy import select,func
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 from backend.api.psw_hash import decrypt,encrypt
 from backend.api.config import database_url,async_engine
 
@@ -179,3 +179,42 @@ async def count_model_messages(model_name:str) -> int:
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return 0   
+
+async def get_total_models_usage(user_id:str,model_name:str) -> int:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(func.count()).where(messages_table.c.model_name == model_name,messages_table.c.user_id == user_id)
+            res = await conn.execute(stmt)
+            return res.scalar_one()
+        except Exception as e:
+            logger.exception("MESSAGES SQL ERROR")
+            return 0
+        
+async def get_today_models_usage(user_id: str, model_name: str) -> int:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            now = datetime.now(timezone.utc)
+
+            start_of_day = datetime(
+                year=now.year,
+                month=now.month,
+                day=now.day,
+                tzinfo=timezone.utc
+            )
+
+            end_of_day = start_of_day + timedelta(days=1)
+
+            stmt = select(func.count()).where(
+                messages_table.c.user_id == user_id,
+                messages_table.c.model_name == model_name,
+                messages_table.c.created_at >= start_of_day,
+                messages_table.c.created_at < end_of_day
+            )
+
+            res = await conn.execute(stmt)
+
+            return res.scalar_one()
+
+        except Exception:
+            logger.exception("MESSAGES SQL ERROR")
+            return 0
