@@ -7,4 +7,5 @@ backend/database/.env
 backend/database/jwt_database/.env
 backend/api/.env
 backend/.env
+backend/admin_panel/.env
 .env
