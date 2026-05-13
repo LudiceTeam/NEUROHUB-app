@@ -11,5 +11,6 @@ chats_table = Table(
     Column("chat_id",String,primary_key = True),
     Column("created_at",DateTime(timezone=True)),
     Column("folder_id",String),
+    Column("name",String),
     Column("last_message_at",DateTime(timezone=True))
 )

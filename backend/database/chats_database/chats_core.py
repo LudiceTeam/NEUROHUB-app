@@ -56,6 +56,7 @@ async def create_chat(user_id:str) -> str:
                     created_at = datetime.now(timezone.utc),
                     last_message_at = datetime.now(timezone.utc),
                     folder_id = "",
+                    name = ""
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -187,3 +188,27 @@ async def delete_chat_from_folder(chat_id:str):
                 return
 
 
+async def update_chat_name(chat_id:str,name:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = chats_table.update().where(
+                    chats_table.c.chat_id == chat_id
+                ).values(
+                    name = name
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return
+
+async def get_chat_name(chat_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(chats_table.c.name).where(chats_table.c.chat_id == chat_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return ""
