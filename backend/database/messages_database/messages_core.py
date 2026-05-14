@@ -97,10 +97,12 @@ async def get_chat_messages_2(chat_id:str) -> List[dict]:
                 messages_table.c.response
             ).where(
                 messages_table.c.chat_id == chat_id
-            )
+            ).order_by(messages_table.c.created_at.asc())
+
             res = await conn.execute(stmt)
             data = res.mappings().all()
 
+            data = data[-20:]
             for message_block in data:
 
                 message_block["message_text"] = decrypt(
@@ -110,9 +112,6 @@ async def get_chat_messages_2(chat_id:str) -> List[dict]:
                 message_block["response"] = decrypt(
                     message_block["response"]
                 )
-
-            if len(data) > 20:
-                return data[-20:]                
             return data
         except Exception:
             logger.exception("MESSAGES SQL ERROR")

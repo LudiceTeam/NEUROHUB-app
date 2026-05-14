@@ -808,20 +808,25 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             }
 
 
+        # OLD VERSION
+        #current_chat_messages = await get_chat_messages(chat_id)
+        #decoded_messages = []
+        #for message in current_chat_messages:
+            #decoded_messages.append(decrypt(message))
 
-        current_chat_messages = await get_chat_messages(chat_id)
-        decoded_messages = []
-        for message in current_chat_messages:
-            decoded_messages.append(decrypt(message))
+        #message_history:str = "\n".join(decoded_messages)
 
-        message_history:str = "\n".join(decoded_messages)
+        current_chat_messages = await get_chat_messages_2(
+            chat_id = chat_id
+        )
+
 
         promt = f"""
 You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
 
 ====================
 CONVERSATION CONTEXT:
-{message_history}
+{current_chat_messages}
 ====================
 
 CURRENT USER MESSAGE:
@@ -1082,13 +1087,16 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                     
 
         
+        # OLD VERSION
+        #current_chat_messages = await get_chat_messages(chat_id)
+        #decoded_messages = []
+        #for message in current_chat_messages:
+            #decoded_messages.append(decrypt(message))
 
-        current_chat_messages = await get_chat_messages(chat_id)
-        decoded_messages = []
-        for message in current_chat_messages:
-            decoded_messages.append(decrypt(message))
-
-        message_history:str = "\n".join(decoded_messages)
+       # message_history:str = "\n".join(decoded_messages)
+        current_chat_messages = await get_chat_messages_2(
+            chat_id = chat_id
+        )
 
         
         promt = f"""
@@ -1096,7 +1104,7 @@ You are a smart AI assistant inside an application. Your task is to help the use
 
 ====================
 CONVERSATION CONTEXT:
-{message_history}
+{current_chat_messages}
 ====================
 
 CURRENT USER MESSAGE:
