@@ -68,6 +68,7 @@ AWS_CLIENT = S3Client(
 
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_ID_SITE = os.getenv("GOOGLE_CLIENT_ID_SITE")
 app = FastAPI()
 
 limiter = Limiter(key_func=get_remote_address)
