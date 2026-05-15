@@ -39,7 +39,13 @@ async def gather_user_main_information(user_id:str) -> str | List:
         return ""
 
 async def summarize_user_message_history(message_history:List,client:AsyncOpenAI) -> str:
-    promt = """Analyze the user’s messages and generate a detailed profile based only on their communication, behavior, interests, technical discussions, questions, and writing style. Output the result as one continuous plain-text paragraph without headings, bullet points, markdown, or formatting. Describe the user’s apparent personality, technical level, programming experience, preferred technologies, current projects, problem-solving style, goals, habits, communication tone, devices they use, and areas of interest. Infer useful traits carefully from context, but do not invent unrealistic details. The profile should sound like an internal AI memory/persona summary created from long-term conversation history.
+    promt = f"""Analyze the user’s messages and generate a 
+    detailed profile based only on their communication, behavior, interests, technical discussions, questions, and writing style.
+    Output the result as one continuous plain-text paragraph without headings, bullet points, markdown, or formatting. 
+    Describe the user’s apparent personality, technical level, programming experience, preferred technologies, current projects, problem-solving style, goals, habits, communication tone, devices they use, and areas of interest. 
+    Infer useful traits carefully from context, but do not invent unrealistic details. The profile should sound like an internal AI memory/persona summary created from long-term conversation history.
+    User Messages : {message_history}
+
 """
     response = await client.chat.completions.create(
         model="google/gemini-2.5-flash",
