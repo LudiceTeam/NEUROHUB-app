@@ -103,16 +103,15 @@ async def get_chat_messages_2(chat_id:str) -> List[dict]:
             data = res.mappings().all()
 
             data = data[-20:]
+
+            result = []
             for message_block in data:
 
-                message_block["message_text"] = decrypt(
-                    message_block["message_text"]
-                )
-
-                message_block["response"] = decrypt(
-                    message_block["response"]
-                )
-            return data
+                result.append({
+                    "message_text" : decrypt(message_block["message_text"]),
+                    "response" : decrypt(message_block["response"])
+                })
+            return result
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return []
