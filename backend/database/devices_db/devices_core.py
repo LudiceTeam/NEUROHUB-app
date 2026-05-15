@@ -19,11 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 
-AsyncSessionLocal = sessionmaker(
-    async_engine, 
-    class_=AsyncSession,
-    expire_on_commit=False
-)
 
 async def drop_table():
     async with async_engine.begin() as conn:
