@@ -10,30 +10,14 @@ from sqlalchemy import select,func
 import uuid
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime,timezone
-from backend.api.config import database_url 
+from backend.api.config import database_url,async_engine
 
 logger = logging.getLogger(__name__)
 
 
 load_dotenv()
 
-async_engine = create_async_engine(
-    database_url,
-    pool_size=20,          
-    max_overflow=50,       
-    pool_recycle=3600,    
-    pool_pre_ping=True,     
-    echo=False,
-    connect_args={"ssl": "require"},
-)
 
-
-
-AsyncSessionLocal = sessionmaker(
-    async_engine, 
-    class_=AsyncSession,
-    expire_on_commit=False
-)
 
 async def drop_table():
     async with async_engine.begin() as conn:
@@ -56,6 +40,7 @@ async def create_chat(user_id:str) -> str:
                     created_at = datetime.now(timezone.utc),
                     last_message_at = datetime.now(timezone.utc),
                     folder_id = "",
+                    name = ""
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -187,3 +172,27 @@ async def delete_chat_from_folder(chat_id:str):
                 return
 
 
+async def update_chat_name(chat_id:str,name:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = chats_table.update().where(
+                    chats_table.c.chat_id == chat_id
+                ).values(
+                    name = name
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return
+
+async def get_chat_name(chat_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(chats_table.c.name).where(chats_table.c.chat_id == chat_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return ""
