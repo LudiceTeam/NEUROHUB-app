@@ -63,7 +63,10 @@ async def update_user_fact(user_id:str,fact:str) -> bool:
 async def get_user_fact(user_id:str) -> str:
     async with AsyncSession(async_engine) as conn:
         try:
-            pass
+            stmt = select(facts_table.c.fact).where(facts_table.c.user_id == user_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
         except Exception:
             logger.exception("FACTS SQL ERROR")
             return ""
