@@ -45,3 +45,25 @@ async def create_fact_data(user_id:str,facts:str) -> bool:
             except Exception:
                 logger.exception("FACTS SQL ERROR")
                 return False
+
+
+async def update_user_fact(user_id:str,fact:str) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = facts_table.update().where(facts_table.c.user_id == user_id).values(
+                    fact = fact
+                )
+                res = await conn.execute(stmt)
+                return True if res.rowcount() > 0 else False
+            except Exception:
+                logger.exception("FACTS SQL ERROR")
+                return False
+
+async def get_user_fact(user_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            pass
+        except Exception:
+            logger.exception("FACTS SQL ERROR")
+            return ""
