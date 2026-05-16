@@ -77,3 +77,20 @@ async def get_user_fact(user_id:str) -> str:
         except Exception:
             logger.exception("FACTS SQL ERROR")
             return ""
+        
+
+async def check_last_gather(user_id:str) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            now = datetime.now(timezone.utc)
+            seven_days_ago = now - timedelta(days = 7)
+            stmt = select(facts_table.c.user_id).where(
+                facts_table.c.last_gather <= seven_days_ago,
+                facts_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return True if data is not None else False
+        except Exception:
+            logger.exception("FACTS SQL ERROR")
+            return False
