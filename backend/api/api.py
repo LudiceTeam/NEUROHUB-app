@@ -31,6 +31,8 @@ from backend.database.transaction_db.transaction_core import create_new_trasacri
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
 from backend.database.devices_db.devices_core import create_new_device,delete_device,get_user_devices,get_device_token,update_device_token,update_last_online
 from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder,delete_folder_folder_core,add_tag,remove_tag
+from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
+from backend.api.memory import gather_user_main_information,summarize_user_message_history
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -2319,6 +2321,100 @@ async def get_total_models_count_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+
+# --- IMPROVED MEMORY ---
+
+@app.get("/facts/write")
+@limiter.limit("20/minute")
+async def write_user_fact_handler(
+    request:Request,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+
+        user_facts = await gather_user_main_information(
+            user_id = user_data["user_id"]
+        )
+        if user_facts == "":
+            return {
+                "message" : "not enough chats"
+            }
+        
+        user_summarized_fact = await summarize_user_message_history(
+            message_history =  user_facts,
+            client = client
+        )
+
+        
+        try_create = await create_fact_data(
+            user_id = user_data["user_id"],
+            facts = user_summarized_fact
+        )
+
+        return {
+            "message" : try_create
+        }
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+@app.get("/fact/update")
+@limiter.limit("20/minute")
+async def update_user_fact_handler(
+    request:Request,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        check_gather = await check_last_gather(
+            user_id = user_data["user_id"]
+        )
+        if not check_gather:
+            return {
+                "message" : "error (gather time)"
+            }
+
+        user_facts = await gather_user_main_information(
+            user_id = user_data["user_id"]
+        )
+        if user_facts == "":
+            return {
+                "message" : "not enough chats"
+            }
+        user_summarized_fact = await summarize_user_message_history(
+            message_history =  user_facts,
+            client = client
+        )
+
+        result = await update_user_fact(
+            user_id = user_data["user_id"],
+            fact = user_summarized_fact
+        )
+
+        return {
+            "message" : result
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+    
 
     
 # --- RUN ---

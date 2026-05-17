@@ -16,7 +16,7 @@ async def gather_user_main_information(user_id:str) -> str | List:
         )
         total_data:List[List] = []
 
-        if len(user_chats) <= 4:
+        if len(user_chats) <= 5:
             return ""
         for chat_id in user_chats:
 

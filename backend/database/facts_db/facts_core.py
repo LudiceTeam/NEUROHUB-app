@@ -37,12 +37,8 @@ async def create_fact_data(user_id:str,facts:str) -> bool:
                     user_id = user_id,
                     fact = facts,
                     last_gather = now
-                ).on_conflict_do_update(
+                ).on_conflict_do_nothing(
                     index_elements=[facts_table.c.user_id],
-                    set_={
-                        "fact":facts,
-                        "last_gather" : now
-                    }
                 )
                 res = await conn.execute(stmt)
                 return True if res.rowcount > 0 else False
