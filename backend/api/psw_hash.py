@@ -31,3 +31,21 @@ def decrypt(encrypted_message:str) -> str:
     decrypted = f.decrypt(encrypted_message.encode())
     return decrypted.decode()
 
+
+
+def encrypt_memory(message: str) -> str:
+    password = os.getenv("MEMORY_CODE")
+    key = make_key(password)
+    f = Fernet(key)
+
+    encrypted = f.encrypt(message.encode())
+    return encrypted.decode()
+
+
+def decrypt_memory(encrypted_message:str) -> str:
+    password = os.getenv("MEMORY_CODE")
+    key = make_key(password)
+    f = Fernet(key)
+
+    decrypted = f.decrypt(encrypted_message.encode())
+    return decrypted.decode()
