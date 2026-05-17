@@ -823,6 +823,11 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         )
 
 
+        user_facts = await get_user_fact(
+            user_id = user_id
+        )
+
+
         promt = f"""
 You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
 
@@ -830,6 +835,13 @@ You are a smart AI assistant inside an application. Your task is to help the use
 CONVERSATION CONTEXT:
 {current_chat_messages}
 ====================
+
+====================
+MAIN USER FACTS:
+{user_facts}
+====================
+
+
 
 CURRENT USER MESSAGE:
 {str(req.request)}
@@ -1100,13 +1112,22 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             chat_id = chat_id
         )
 
-        
+        user_facts = await get_user_fact(
+            user_id = user_id
+        )
+                
         promt = f"""
 You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
 
 ====================
 CONVERSATION CONTEXT:
 {current_chat_messages}
+====================
+
+
+====================
+MAIN USER FACTS:
+{user_facts}
 ====================
 
 CURRENT USER MESSAGE:
