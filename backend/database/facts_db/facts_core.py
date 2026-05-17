@@ -11,6 +11,7 @@ from sqlalchemy import select,func
 from sqlalchemy.dialects.postgresql import insert
 from backend.api.config import database_url,async_engine
 from datetime import datetime,timezone,timedelta
+from backend.api.psw_hash import encrypt_memory,decrypt_memory
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ async def create_fact_data(user_id:str,facts:str) -> bool:
                 now = datetime.now(timezone.utc)
                 stmt = insert(facts_table).values(
                     user_id = user_id,
-                    fact = facts,
+                    fact = encrypt_memory(facts),
                     last_gather = now
                 ).on_conflict_do_nothing(
                     index_elements=[facts_table.c.user_id],
@@ -54,7 +55,7 @@ async def update_user_fact(user_id:str,fact:str) -> bool:
                 now = datetime.now(timezone.utc)
                 seven_days_ago = now - timedelta(days = 7)
                 stmt = facts_table.update().where(facts_table.c.user_id == user_id,facts_table.c.last_gather <= seven_days_ago).values(
-                    fact = fact,
+                    fact = encrypt_memory(fact),
                     last_gather = now
                 )
                 res = await conn.execute(stmt)
@@ -69,7 +70,7 @@ async def get_user_fact(user_id:str) -> str:
             stmt = select(facts_table.c.fact).where(facts_table.c.user_id == user_id)
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
-            return data if data is not None else ""
+            return decrypt_memory(data) if data is not None else ""
         except Exception:
             logger.exception("FACTS SQL ERROR")
             return ""
