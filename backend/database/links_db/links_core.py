@@ -74,4 +74,17 @@ async def get_link_id_by_chat_id(chat_id:str) -> str:
         except Exception:
                 logger.exception("LINKS SQL ERROR")
                 return ""
+
+async def delete_link(link_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = links_table.delete().where(
+                    links_table.c.link_id == link_id 
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("LINKS SQL ERROR")
+                return ""
+                
             
