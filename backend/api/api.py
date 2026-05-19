@@ -33,7 +33,7 @@ from backend.database.devices_db.devices_core import create_new_device,delete_de
 from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder,delete_folder_folder_core,add_tag,remove_tag
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
-from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link
+from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -2490,11 +2490,74 @@ async def create_link_handler(
 @limiter.limit("20/minute")
 async def share_get_chat_by_link_handler(
     request:Request,
+    link_id:str,
     user_data:dict = Depends(get_current_user),
     x_signature:str = Header(...),
     x_timestamp:str = Header(...)
 ):
-    pass
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        chat_id = await get_chat_id_by_link(
+            link_id = link_id
+        )
+        if chat_id == "":
+            return {
+                "message" : "Chat not found."
+            }
+        chat_messages = await get_chat_messages_for_front_end(
+            chat_id = chat_id
+        )
+        if chat_messages == "":
+            return {
+                "message" : "Chat was deleted by the owner."
+            }
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+class DeleteLink(BaseModel):
+    link_id:str
+
+@app.post("/share/delete")
+@limiter.limit("20/minute")
+async def delete_link_handler(
+    request:Request,
+    req:DeleteLink,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        user_links = await get_user_links(
+            user_id = user_data["user_id"]
+        )
+        if req.link_id not in user_links:
+            return {
+                "message" : "error"
+            }
+        await delete_link(
+            link_id = req.link_id
+        )
+        return {
+            "message" : "ok"
+        }        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+    
 
     
 # --- RUN ---
