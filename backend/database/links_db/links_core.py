@@ -109,3 +109,16 @@ async def does_chat_have_link(chat_id:str) -> bool:
         except Exception:
             logger.exception("LINKS SQL ERROR")
             return False
+
+async def get_user_links(user_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(links_table.c.link_id).where(
+                links_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            return data
+        except Exception:
+            logger.exception("LINKS SQL ERROR")
+            return []
