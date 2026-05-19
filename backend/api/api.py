@@ -23,7 +23,7 @@ from backend.api.auth import create_access_token,create_refresh_token
 from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
-from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name
+from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,get_chat_stats,authorize_chat_for_user
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
@@ -33,7 +33,7 @@ from backend.database.devices_db.devices_core import create_new_device,delete_de
 from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder,delete_folder_folder_core,add_tag,remove_tag
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
-from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link
+from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -798,10 +798,19 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         await refil_all_requests(user_id)
 
-        
+
+        user_chats = await get_user_chats(
+            user_id = user_id 
+        )
         chat_id = req.chat_id
+
+        have_link = await does_chat_have_link(
+            chat_id = req.chat_id
+        )
+
         if req.chat_id is None:
             chat_id = await create_chat(user_id)
+        
 
         user_data = await get_user_state(user_id)
 
@@ -1049,10 +1058,16 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         
         chat_id = chat_id_form
         true_request = request_text if request_text is not None else ""
-
+        user_chats = await get_user_chats(
+            user_id = user_id
+        )
+        have_link = await does_chat_have_link(
+            chat_id = chat_id
+        )
 
         if chat_id_form is None:
             chat_id:str = await create_chat(user_id)
+
 
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
@@ -1356,8 +1371,8 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
                 "message":"error"
             }
         
-        await delete_chat(req.chat_id)
-        await delete_chat_messages(req.chat_id)
+        await delete_chat(user_id,req.chat_id)
+        #await delete_chat_messages(req.chat_id)
 
         # deleting from aws
         chat_photos_url = await get_chat_messages_for_front_end(req.chat_id)
@@ -2469,8 +2484,15 @@ async def create_link_handler(
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-
-
+@app.get("/share/{link_id}",dependencies=[Depends(safe_get)])
+@limiter.limit("20/minute")
+async def share_get_chat_by_link_handler(
+    request:Request,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    pass
 
     
 # --- RUN ---

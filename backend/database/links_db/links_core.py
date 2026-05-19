@@ -28,7 +28,8 @@ async def create_table():
 
 async def create_link(
         user_id:str,
-        chat_id:str
+        chat_id:str,
+        read_only:bool
 ) -> str:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -46,7 +47,8 @@ async def create_link(
                 stmt = links_table.insert().values(
                     user_id = user_id,
                     chat_id = chat_id,
-                    link_id = link_id
+                    link_id = link_id,
+                    read_only = read_only
                 )
                 result = await conn.execute(stmt)
                 return link_id
@@ -97,3 +99,13 @@ async def delete_link(link_id:str):
                 return ""
                 
             
+async def does_chat_have_link(chat_id:str) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(links_table.c.chat_id).where(links_table.c.chat_id == chat_id)
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return True if data is not None else False
+        except Exception:
+            logger.exception("LINKS SQL ERROR")
+            return False
