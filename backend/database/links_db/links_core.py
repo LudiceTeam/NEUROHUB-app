@@ -33,6 +33,15 @@ async def create_link(
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
+                stmt = select(links_table.c.link_id).where(
+                    links_table.c.chat_id == chat_id
+                )
+                res = await conn.execute(stmt)
+                link = res.scalar_one_or_none()
+                if link is not None:
+                    return link
+                
+
                 link_id = str(uuid.uuid4())
                 stmt = links_table.insert().values(
                     user_id = user_id,
@@ -40,7 +49,7 @@ async def create_link(
                     link_id = link_id
                 )
                 result = await conn.execute(stmt)
-                return link_id if result.rowcount > 0 else ""
+                return link_id
             except Exception:
                 logger.exception("LINKS SQL ERROR")
                 return ""

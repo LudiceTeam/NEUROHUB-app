@@ -33,6 +33,7 @@ from backend.database.devices_db.devices_core import create_new_device,delete_de
 from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder,delete_folder_folder_core,add_tag,remove_tag
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
+from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -2436,6 +2437,40 @@ async def update_user_fact_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
     
+# --- LINKS ---
+@app.post("/link/create")
+@limiter.limit("20/minute")
+async def create_link_handler(
+    request:Request,
+    req:ChatId,
+    user_data:dict = Depends(get_current_user),
+    x_signature:str = Header(...),
+    x_timestamp:str = Header(...)
+):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        link_id = await create_link(
+            user_id = user_data["user_id"],
+            chat_id = req.chat_id 
+        )
+        if link_id != "":
+            return {
+                "link_id":link_id
+            }
+        
+        return {
+            "message" : "error"
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+
 
     
 # --- RUN ---
