@@ -1372,7 +1372,7 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
             }
         
         await delete_chat(user_id,req.chat_id)
-        #await delete_chat_messages(req.chat_id)
+        await delete_chat_messages(req.chat_id)
 
         # deleting from aws
         chat_photos_url = await get_chat_messages_for_front_end(req.chat_id)
@@ -2453,7 +2453,9 @@ async def update_user_fact_handler(
 
     
 # --- LINKS ---
-@app.post("/link/create")
+
+
+@app.post("/share/create")
 @limiter.limit("20/minute")
 async def create_link_handler(
     request:Request,

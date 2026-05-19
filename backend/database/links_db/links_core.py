@@ -29,7 +29,7 @@ async def create_table():
 async def create_link(
         user_id:str,
         chat_id:str,
-        read_only:bool
+        #read_only:bool
 ) -> str:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -48,7 +48,7 @@ async def create_link(
                     user_id = user_id,
                     chat_id = chat_id,
                     link_id = link_id,
-                    read_only = read_only
+                    #read_only = read_only
                 )
                 result = await conn.execute(stmt)
                 return link_id

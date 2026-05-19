@@ -8,5 +8,5 @@ links_table = Table(
     Column("chat_id",String,primary_key=True,unique=True),
     Column("link_id",String),
     Column("user_id",String),
-    Column("read_only",Boolean)
+    #Column("read_only",Boolean)
 )
