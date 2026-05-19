@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import logging
-from typing import List
+from typing import List,Optional,Dict
 from sqlalchemy import select,func
 import uuid
 from sqlalchemy.dialects.postgresql import insert
@@ -28,12 +28,12 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
-async def create_chat(user_id:str) -> str:
+async def create_chat(user_id:str,chat_id:Optional[str] = None) -> str:
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                chat_id = str(uuid.uuid4())
+                chat_id = str(uuid.uuid4()) if chat_id is None else chat_id
                 stmt = insert(chats_table).values(
                     chat_id = chat_id,
                     user_id = user_id,
@@ -50,13 +50,62 @@ async def create_chat(user_id:str) -> str:
             except Exception:
                 logger.exception("CHATS SQL ERROR")
                 return
-            
 
-async def delete_chat(chat_id:str):
+async def authorize_chat_for_user(
+        user_id:str,
+        chat_id:str,
+        created_at,
+        last_message_at,
+        name:str
+):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = chats_table.delete().where(chats_table.c.chat_id == chat_id)
+                stmt = chats_table.insert().values(
+                    chat_id = chat_id,
+                    user_id = user_id,
+                    created_at = created_at,
+                    last_message_at = last_message_at,
+                    name = name,
+                    folder_id = ""
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("CHATS SQL ERROR")
+                return
+
+async def get_chat_stats(
+        chat_id:str
+) -> Dict:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(
+                chats_table.c.created_at,
+                chats_table.c.last_message_at,
+                chats_table.c.name
+                
+                ).where(
+                    chats_table.c.chat_id == chat_id
+                )
+            res = await conn.execute(stmt)
+            data = res.fetchone()
+            created_at,last_message_at,name = data
+            return {
+                "created_at" : created_at,
+                "last_message_at" : last_message_at,
+                "name" : name
+            }
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return {}
+
+
+
+async def delete_chat(user_id:str,chat_id:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = chats_table.delete().where(chats_table.c.chat_id == chat_id,chats_table.c.user_id == user_id)
                 await conn.execute(stmt)
             except Exception:
                 logger.exception("CHATS SQL ERROR")
