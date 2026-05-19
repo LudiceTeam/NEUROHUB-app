@@ -2490,11 +2490,38 @@ async def create_link_handler(
 @limiter.limit("20/minute")
 async def share_get_chat_by_link_handler(
     request:Request,
+    link_id:str,
     user_data:dict = Depends(get_current_user),
     x_signature:str = Header(...),
     x_timestamp:str = Header(...)
 ):
-    pass
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        chat_id = await get_chat_id_by_link(
+            link_id = link_id
+        )
+        if chat_id == "":
+            return {
+                "message" : "Chat not found."
+            }
+        chat_messages = await get_chat_messages_for_front_end(
+            chat_id = chat_id
+        )
+        if chat_messages == "":
+            return {
+                "message" : "Chat was deleted by the owner."
+            }
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+    
 
     
 # --- RUN ---
