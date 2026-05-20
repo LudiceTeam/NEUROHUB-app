@@ -14,8 +14,8 @@ database_url_test = f"postgresql+asyncpg://postgres:{os.getenv('DB_PASSWORD')}@l
 
 async_engine = create_async_engine(
     database_url,
-    pool_size=20,          
-    max_overflow=50,       
+    pool_size=5,          
+    max_overflow=5,       
     pool_recycle=3600,    
     pool_pre_ping=True,     
     echo=False,
