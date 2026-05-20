@@ -33,37 +33,37 @@ AsyncSessionLocal = sessionmaker(
 
 models = [
     "auto",
-    "google/gemini-3-flash-preview",
-    "google/gemini-2.5-flash",
+
+    # ===== OPENAI =====
     "openai/gpt-5.4-mini",
     "openai/gpt-4o",
     "openai/gpt-4o-mini",
-    "google/gemma-4-26b-a4b-it",
+
+    # ===== ANTHROPIC =====
     "anthropic/claude-opus-4.6",
     "anthropic/claude-sonnet-4.6",
-    "mistralai/mistral-large",
-    "google/gemini-3-pro-image-preview",
 
-    # ===== GOOGLE (дешевые + норм) =====
+    # ===== GOOGLE GEMINI =====
+    "google/gemini-3-flash-preview",
+    "google/gemini-2.5-flash",
     "google/gemini-2.0-flash-001",
     "google/gemini-2.0-flash-lite-001",
     "google/gemini-2.5-flash-lite",
     "google/gemini-2.5-flash-lite-preview-09-2025",
-    "google/gemini-2.5-flash-image-preview",
     "google/gemini-3.1-flash-lite-preview",
-    "google/gemini-3.1-flash-image-preview",
 
-    # ===== GEMMA (очень дешевые) =====
+    # ===== GOOGLE GEMMA =====
     "google/gemma-3-4b-it",
     "google/gemma-3-4b-it:free",
     "google/gemma-3-12b-it",
     "google/gemma-3-12b-it:free",
     "google/gemma-3-27b-it",
     "google/gemma-3-27b-it:free",
+    "google/gemma-4-26b-a4b-it",
     "google/gemma-4-31b-it",
     "google/gemma-4-31b-it:free",
 
-    # ===== QWEN (топ за дешево) =====
+    # ===== QWEN =====
     "qwen/qwen2.5-vl-7b-instruct",
     "qwen/qwen2.5-vl-72b-instruct",
     "qwen/qwen3-vl-8b-instruct",
@@ -78,10 +78,11 @@ models = [
     "meta-llama/llama-4-scout",
 
     # ===== MISTRAL =====
+    "mistralai/mistral-large",
     "mistralai/pixtral-12b",
     "mistralai/mistral-small-2603",
 
-    # ===== ДРУГИЕ ДЕШЕВЫЕ =====
+    # ===== OTHER =====
     "rekaai/reka-edge",
     "bytedance-seed/seed-2.0-mini",
     "bytedance/ui-tars-1.5-7b",
@@ -89,7 +90,6 @@ models = [
     "moonshotai/kimi-k2.5",
     "nvidia/nemotron-nano-12b-vl",
 ]
-
 
 
 expensive_models = [
@@ -100,10 +100,7 @@ expensive_models = [
 ]
 
 
-
 image_generation_models = [
     "google/gemini-3-pro-image-preview",
-    "google/gemini-2.5-flash-image-preview",
     "google/gemini-3.1-flash-image-preview",
 ]
-
