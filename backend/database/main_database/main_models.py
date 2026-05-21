@@ -12,8 +12,14 @@ main_table = Table(
     Column("email",String),
     Column("name",String),
     Column("profile_pict",String),
-    Column("sub",Boolean),
+
+    Column("premium_sub",Boolean),
     Column("basic_sub",Boolean),
+    Column("starter_sub",Boolean),
+    Column("plus_sub",Boolean),
+    Column("max_sub",Boolean),
+    Column("elite_sub",Boolean),
+
     Column("date",String),
     Column("last_refil_date",String),
     Column("requests",Integer),

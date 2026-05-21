@@ -70,8 +70,12 @@ async def create_user(user_id:str,name:str,email:str,provider_id:str = None, pro
                     user_id = user_id,
                     name = name,
                     profile_pict = avatar_url,
-                    sub = False,
+                    premium_sub = False,
                     basic_sub = False,
+                    starter_sub = False,
+                    plus_sub = False,
+                    max_sub = False,
+                    elite_sub = False,
                     date = "",
                     last_refil_date = str(datetime.now().date()),
                     requests = 10,
@@ -109,7 +113,11 @@ async def get_user_state(user_id: str) -> dict:
         try:
             stmt = select(
                 main_table.c.email,
-                main_table.c.sub,
+                main_table.c.premium_sub,
+                main_table.c.starter_sub,
+                main_table.c.plus_sub,
+                main_table.c.max_sub,
+                main_table.c.elite,
                 main_table.c.basic_sub,
                 main_table.c.date,
                 main_table.c.last_refil_date,
@@ -184,14 +192,17 @@ def check_date_for_refil(datetime_now_str:str,user_last_refil_data:str) -> bool:
 async def subscribe_premium(user_id:str) -> bool:
     user = await get_user_state(user_id)
 
-    if not user:
+    if (not user or any([
+            user["premium_sub"],
+            user["basic_sub"],
+            user["starter_sub"],
+            user["plus_sub"],
+            user["max_sub"],
+            user["elite_sub"]
+        ])
+    ):
         return False
 
-    if user["sub"]:
-        return False
-
-    if user["basic_sub"]:
-        return False
     
     date = datetime.now().date() + timedelta(days = 30)
     
@@ -199,10 +210,11 @@ async def subscribe_premium(user_id:str) -> bool:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    sub = True,
+                    premium_sub = True,
                     date = str(date),
                     last_refil_date = str(datetime.now().date()),
-                    nano_req = 15
+                    nano_req = 15,
+                    requests = 100,
                 )
 
                 result = await conn.execute(stmt)
@@ -218,10 +230,8 @@ async def subscribe_premium(user_id:str) -> bool:
 async def unsub_func_premium(user_id:str) -> bool:
     user = await get_user_state(user_id)
 
-    if not user:
-        return False
     
-    if not user["sub"]:
+    if not user or not user["premium_sub"]:
         return False
 
     datetime_now = datetime.now().date()
@@ -239,7 +249,7 @@ async def unsub_func_premium(user_id:str) -> bool:
         async with conn.begin():
             try:
                 stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    sub=False,
+                    premium_sub=False,
                     date="",
                     nano_req = 1,
                     requests = 10,
@@ -285,12 +295,21 @@ async def refil_all_requests(user_id:str) -> bool:
 
     amount_requests = 10
 
-    if user["sub"]:
-        amount_nano = 15
-    
-    elif user["basic_sub"]:
-        amount_nano = 3
-        amount_requests = 25
+    plans = {
+        "premium_sub": (15, 100),
+        "basic_sub": (5, 25),
+        "starter_sub": (5, 20),
+        "plus_sub": (20, 70),
+        "max_sub": (60, 200),
+        "elite_sub" : (150, 500),
+    }
+
+    for sub_name,values in plans.items():
+        if user.get(sub_name):
+            amount_nano,amount_requests = values
+            break
+
+
 
     datetime_now = datetime.now().date()
 
@@ -325,10 +344,7 @@ async def minus_one_req(user_id:str):
 
     if not user:
         return
-    
-    
-    if user["sub"]:
-        return
+
     
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -364,13 +380,15 @@ async def minus_one_req_nano(user_id: str):
 async def subscribe_basic(user_id:str) -> bool:
     user = await get_user_state(user_id)
 
-    if not user:
-        return False
-    
-    if user["sub"]:
-        return False 
-    
-    if user["basic_sub"]:
+    if (not user or any([
+            user["premium_sub"],
+            user["basic_sub"],
+            user["starter_sub"],
+            user["plus_sub"],
+            user["max_sub"],
+            user["elite_sub"]
+        ])
+    ):
         return False
     
     date = datetime.now().date() + timedelta(days = 30)
@@ -397,13 +415,15 @@ async def unsub_basic(user_id:str) -> bool:
     
     user = await get_user_state(user_id)
 
-    if not user:
-        return False
-    
-    if not user["basic_sub"]:
-        return False
-    
-    if user["sub"]:
+    if (not user or any([
+            user["premium_sub"],
+            user["basic_sub"],
+            user["starter_sub"],
+            user["plus_sub"],
+            user["max_sub"],
+            user["elite_sub"]
+        ])
+    ):
         return False
     
     datetime_now = datetime.now().date()
@@ -441,7 +461,18 @@ async def profile(user_id:str) -> dict:
     
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(main_table.c.profile_pict,main_table.c.name,main_table.c.sub,main_table.c.basic_sub,main_table.c.date,main_table.c.requests, main_table.c.nano_req,main_table.c.email).where(main_table.c.user_id == user_id)
+            stmt = select(main_table.c.profile_pict,
+                          main_table.c.name,
+                          main_table.c.premium_sub,
+                          main_table.c.basic_sub,
+                          main_table.c.starter_sub,
+                          main_table.c.plus_sub,
+                          main_table.c.max_sub,
+                          main_table.c.elite_sub,
+                          main_table.c.date,
+                          main_table.c.requests,
+                          main_table.c.nano_req,
+                          main_table.c.email).where(main_table.c.user_id == user_id)
 
             res = await conn.execute(stmt)
 
@@ -450,14 +481,18 @@ async def profile(user_id:str) -> dict:
             if data is None:
                 return {}
 
-            avatar,name,sub,basic_sub,date,requests,nano_req,email = data
+            avatar,name,premium_sub,basic_sub,starter_sub,plus_sub,max_sub,elite_sub,date,requests,nano_req,email = data
 
 
             return {
                 "Name":name,
                 "Profile Picture":avatar,
                 "Email":email,
-                "Premium":sub,
+                "Premium":premium_sub,
+                "Starter": starter_sub,
+                "Plus" : plus_sub,
+                "Max" : max_sub,
+                "Elite" : elite_sub,
                 "Basic":basic_sub,
                 "Date End": date,
                 "Requests":requests,
