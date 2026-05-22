@@ -31,6 +31,52 @@ AsyncSessionLocal = sessionmaker(
 )
 
 
+
+SUBSCRIPTIONS = {
+    "basic": {
+        "days": 30,
+        "requests": 25,
+        "nano_req": 5,
+        "column": "basic_sub"
+    },
+
+    "premium" : {
+        "days" : 30,
+        "requests" : 100,
+        "nano_req" : 15,
+        "column" : "premium_sub"
+    },
+
+    "starter": {
+        "days": 30,
+        "requests": 20,
+        "nano_req": 5,
+        "column": "starter_sub"
+    },
+
+    "plus": {
+        "days": 30,
+        "requests": 70,
+        "nano_req": 20,
+        "column": "plus_sub"
+    },
+    
+    "max" : {
+        "days" : 30,
+        "requests" : 200,
+        "nano_req" : 60,
+        "column" : "max_sub"
+    },
+
+    "elite" : {
+        "days" : 30,
+        "requests" : 500,
+        "nano_req" : 150,
+        "column" : "elite_sub"
+    }
+}
+
+
 models = [
     "auto",
 

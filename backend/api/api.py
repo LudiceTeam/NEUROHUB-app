@@ -799,14 +799,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         await refil_all_requests(user_id)
 
 
-        user_chats = await get_user_chats(
-            user_id = user_id 
-        )
-        chat_id = req.chat_id
 
-        have_link = await does_chat_have_link(
-            chat_id = req.chat_id
-        )
+        chat_id = req.chat_id
 
         if req.chat_id is None:
             chat_id = await create_chat(user_id)
@@ -847,7 +841,7 @@ CONVERSATION CONTEXT:
 ====================
 
 ====================
-MAIN USER FACTS:
+MAIN FACTS ABOUT USER:
 {user_facts}
 ====================
 
@@ -942,78 +936,45 @@ ANSWER:
                 "image": url
             } #  либо текст, либо url картинки
 
-        if not user_data["sub"]:
-            if user_data["requests"] <= 0 and user_model not in expensive_models:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-            
-
-            if user_model in expensive_models:
-                user_nano_req = user_data["nano_req"]
-                if user_nano_req <= 0:
-                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-
-
-            response = await ask_chat_gpt(promt,user_model)
-
-            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-            
-            if user_model in expensive_models:
-                user_nano_req = user_data["nano_req"]
-                await minus_one_req_nano(user_id)    
-
-            else:
-                await minus_one_req(user_id)
-
-            encrypted_message = encrypt(req.request)
-            encrypted_response = encrypt(response)
-
-            await create_message(
-                user_id = user_id,
-                chat_id = chat_id,
-                message = encrypted_message,
-                response = encrypted_response,
-                model_name = user_model
-            )
-
-            await update_chat_last_message_date(chat_id)
-
-            return {
-                "message":response
-            }
+        if user_data["requests"] <= 0 and user_model not in expensive_models:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
         
+
+        if user_model in expensive_models:
+            user_nano_req = user_data["nano_req"]
+            if user_nano_req <= 0:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+
+        response = await ask_chat_gpt(promt,user_model)
+
+        if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
+        
+        if user_model in expensive_models:
+            user_nano_req = user_data["nano_req"]
+            await minus_one_req_nano(user_id)    
+
         else:
+            await minus_one_req(user_id)
 
-            if user_model in expensive_models: 
-                user_nano_req = user_data["nano_req"]
-                if user_nano_req <= 0:
-                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+        encrypted_message = encrypt(req.request)
+        encrypted_response = encrypt(response)
 
-            response = await ask_chat_gpt(promt,user_model)
-            encrypted_message = encrypt(req.request)
-            encrypted_response = encrypt(response)
+        await create_message(
+            user_id = user_id,
+            chat_id = chat_id,
+            message = encrypted_message,
+            response = encrypted_response,
+            model_name = user_model
+        )
 
-            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-            
+        await update_chat_last_message_date(chat_id)
 
-            if user_model in expensive_models: 
-                user_nano_req = user_data["nano_req"]
-                await minus_one_req_nano(user_id)
-
-            await create_message(
-                user_id = user_id,
-                chat_id = chat_id,
-                message = encrypted_message,
-                response = encrypted_response,
-                model_name = user_model
-            )
-
-            await update_chat_last_message_date(chat_id)
-
-            return {
-                "message":response
-            }
+        return {
+            "message":response
+        }
+        
         
     except HTTPException:
         raise
@@ -1058,12 +1019,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         
         chat_id = chat_id_form
         true_request = request_text if request_text is not None else ""
-        user_chats = await get_user_chats(
-            user_id = user_id
-        )
-        have_link = await does_chat_have_link(
-            chat_id = chat_id
-        )
+
 
         if chat_id_form is None:
             chat_id:str = await create_chat(user_id)
@@ -1142,7 +1098,7 @@ CONVERSATION CONTEXT:
 
 
 ====================
-MAIN USER FACTS:
+MAIN FACTS ABOUT USER :
 {user_facts}
 ====================
 
@@ -1235,65 +1191,35 @@ ANSWER:
         
 
 
-        if not user_data["sub"]:
 
-            response = await ask_chat_gpt([promt,image_base64_list],user_model)
+        response = await ask_chat_gpt([promt,image_base64_list],user_model)
 
-            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-            
-            if user_model in expensive_models:
-                await minus_one_req_nano(user_id)  
-            else:
-                await minus_one_req(user_id)
-
-
-            encrypted_message = encrypt(true_request)
-
-            encrypted_response = encrypt(response)
-
-            await create_message(
-                user_id = user_id,
-                chat_id = chat_id,
-                message = encrypted_message,
-                response = encrypted_response,
-                image =  url_list,
-                model_name = user_model
-            )
-            await update_chat_last_message_date(chat_id)
-
-            return {
-                "message":response
-            }
-        else:
-            response = await ask_chat_gpt([promt,image_base64_list],user_model)
-            encrypted_message = encrypt(true_request)
-            encrypted_response = encrypt(response)
-
-
-            if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
+        if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
         
-
-            if user_model in expensive_models:
-                await minus_one_req_nano(user_id)  
-
-
-            await create_message(
-                user_id = user_id,
-                chat_id = chat_id,
-                message = encrypted_message,
-                response = encrypted_response,
-                image = url_list,
-                model_name = user_model
-            )
+        if user_model in expensive_models:
+            await minus_one_req_nano(user_id)  
+        else:
+            await minus_one_req(user_id)
 
 
-            await update_chat_last_message_date(chat_id)
+        encrypted_message = encrypt(true_request)
 
-            return {
-                "message":response
-            }
+        encrypted_response = encrypt(response)
+
+        await create_message(
+            user_id = user_id,
+            chat_id = chat_id,
+            message = encrypted_message,
+            response = encrypted_response,
+            image =  url_list,
+            model_name = user_model
+        )
+        await update_chat_last_message_date(chat_id)
+
+        return {
+            "message":response
+        }
         
     except HTTPException:
         raise

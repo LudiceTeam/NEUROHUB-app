@@ -13,7 +13,7 @@ import atexit
 from sqlalchemy import func
 import logging
 import uuid
-from backend.api.config import database_url,async_engine
+from backend.api.config import database_url,async_engine,SUBSCRIPTIONS
 #backend.database.
 
 
@@ -188,9 +188,14 @@ def check_date_for_refil(datetime_now_str:str,user_last_refil_data:str) -> bool:
 
 
 
-# ---- PREMIUM SUB ----
-async def subscribe_premium(user_id:str) -> bool:
+# ---- SUBSCRIBTIONS ----
+async def subscribe(user_id:str,sub_type:str) -> bool:
     user = await get_user_state(user_id)
+
+    sub_data = SUBSCRIPTIONS.get(sub_type)
+
+    if not sub_data:
+        return False
 
     if (not user or any([
             user["premium_sub"],
@@ -209,29 +214,40 @@ async def subscribe_premium(user_id:str) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    premium_sub = True,
-                    date = str(date),
-                    last_refil_date = str(datetime.now().date()),
-                    nano_req = 15,
-                    requests = 100,
-                )
+                values = {
+                    "date": str(date),
+                    "last_refil_date" : str(datetime.now().date()),
+                    "nano_req" : sub_data["nano_req"],
+                    "requests" : sub_data["requests"],
+                    sub_data["column"] : True
+                }
 
+                stmt = (
+                    main_table.update().where(
+                        main_table.c.user_id == user_id
+                    ).values(
+                        **values
+                    )
+                )
                 result = await conn.execute(stmt)
-                if result.rowcount == 0:
-                    return False
-                return True
+                return result.rowcount > 0
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
                 return False
 
 
 
-async def unsub_func_premium(user_id:str) -> bool:
+async def unsubscribe(user_id:str,sub_type:str) -> bool:
     user = await get_user_state(user_id)
 
+    sub_data = SUBSCRIPTIONS.get(sub_type)
+
+    if not sub_data:
+        return False
     
-    if not user or not user["premium_sub"]:
+    sub_column = sub_data["column"]
+
+    if not user or not user[sub_column]:
         return False
 
     datetime_now = datetime.now().date()
@@ -248,20 +264,23 @@ async def unsub_func_premium(user_id:str) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    premium_sub=False,
-                    date="",
-                    nano_req = 1,
-                    requests = 10,
-                    last_refil_date = str(datetime.now().date())
+                values = {
+                    "date": "",
+                    "last_refil_date" : str(datetime.now().date()),
+                    "nano_req" : 1,
+                    "requests" : 10,
+                    sub_data["column"] : False
+                }
+
+                stmt = (
+                    main_table.update().where(
+                        main_table.c.user_id == user_id
+                    ).values(
+                        **values
+                    )
                 )
-
-
                 result = await conn.execute(stmt)
-                if result.rowcount == 0:
-                    return False
-                
-                return True
+                return result.rowcount > 0
             except Exception as e:
                 logger.exception(f"MAIN SQL Error")
                 return False
@@ -372,89 +391,7 @@ async def minus_one_req_nano(user_id: str):
                 return
 
 
-        
-# ---- BASIC SUB ----
-
-
-
-async def subscribe_basic(user_id:str) -> bool:
-    user = await get_user_state(user_id)
-
-    if (not user or any([
-            user["premium_sub"],
-            user["basic_sub"],
-            user["starter_sub"],
-            user["plus_sub"],
-            user["max_sub"],
-            user["elite_sub"]
-        ])
-    ):
-        return False
     
-    date = datetime.now().date() + timedelta(days = 30)
-    
-    async with AsyncSession(async_engine) as conn:
-        async with conn.begin():
-            try:
-                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    date = str(date),
-                    last_refil_date = str(datetime.now().date()),
-                    nano_req = 5,
-                    requests = 25,
-                    basic_sub = True
-                )
-                result = await conn.execute(stmt)
-                if result.rowcount == 0:
-                    return False
-                return True
-            except Exception as e:
-                logger.exception("MAIN SQL ERROR")
-                return False
-
-async def unsub_basic(user_id:str) -> bool:
-    
-    user = await get_user_state(user_id)
-
-    if (not user or any([
-            user["premium_sub"],
-            user["basic_sub"],
-            user["starter_sub"],
-            user["plus_sub"],
-            user["max_sub"],
-            user["elite_sub"]
-        ])
-    ):
-        return False
-    
-    datetime_now = datetime.now().date()
-
-    datetime_now_str = str(datetime_now)
-
-    date_check_result:bool = check_date_for_sub(datetime_now_str,user["date"])
-
-
-    if not date_check_result:
-        return False
-
-    
-    async with AsyncSession(async_engine) as conn:
-        async with conn.begin():
-            try:
-                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    date = "",
-                    last_refil_date = str(datetime.now().date()),
-                    nano_req = 1,
-                    requests = 10,
-                    basic_sub = False
-                )
-                result = await conn.execute(stmt)
-                if result.rowcount == 0:
-                    return False
-                return True
-            except Exception:
-                logger.exception("MAIN SQL ERROR")
-                return False
-            
 
 
 async def profile(user_id:str) -> dict:
