@@ -20,7 +20,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe_basic,subscribe_premium,unsub_func_premium,unsub_basic,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,get_chat_stats,authorize_chat_for_user
@@ -37,7 +37,7 @@ from backend.database.links_db.links_core import create_link,get_chat_id_by_link
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
-from backend.api.config import models,expensive_models,image_generation_models
+from backend.api.config import models,expensive_models,image_generation_models,SUBSCRIPTIONS
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -1510,7 +1510,12 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
         
 
-        if req.product_id != "veora_premium" and req.product_id != "veora_basic":
+        seen:bool = False
+        for sub_type in SUBSCRIPTIONS.keys():
+            if "veora_" + sub_type == req.product_id:
+                seen = True
+                
+        if not seen:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
         if req.product_id != product_id:
@@ -1534,20 +1539,20 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
         if not try_new_tr:
             raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Transaction already exists")
 
-        sub_type = "premium" if req.product_id == "veora_premium" else "basic"
-
-        if sub_type == "premium":
-            result = await subscribe_premium(user_data["user_id"])
-
-            if not result:
-                raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
-            
+        parts = (req.product_id.split("_"))
+        if len(parts) < 2:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
         
-        elif sub_type == "basic":
-            result = await subscribe_basic(user_data["user_id"])
-            if not result:
-                raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
-        
+        sub_type = parts[1]
+
+
+        result:bool  = await subscribe(
+            user_id = user_data["user_id"],
+            sub_type = sub_type
+        )
+
+        if not result:
+             raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
         
         return {
             "ok": True,
@@ -1631,12 +1636,28 @@ async def apple_notification(req:AppleNotificationRequest):
 
                 elif notification_type in ["EXPIRED", "REFUND", "REVOKE"]:
                         email = await get_user_email_by_user_id(user_id)
-                        if product_id == "veora_premium":
-                            await unsub_func_premium(user_id)
+                        seen:bool = False
+                        for sub_type in SUBSCRIPTIONS.keys():
+                            if "veora_" + sub_type == product_id:
+                                seen = True
+                                
+                        if not seen:
+                            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
+                        
 
-                            
-                        elif product_id == "veora_basic":
-                            await unsub_basic(user_id)
+                        parts = product_id.split("_")
+                        if len(parts) < 2:
+                            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
+                        
+                        sub_type = parts[1]
+
+                        result = await unsubscribe(
+                            user_id = user_id,
+                            sub_type = sub_type
+                        )
+
+                        if not result:
+                            raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
 
 
                         await update_transaction(
