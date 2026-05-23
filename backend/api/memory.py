@@ -26,7 +26,7 @@ async def gather_user_main_information(user_id:str) -> str | List:
 
             total_data.append(chat_messages)
         
-        if total_data > 20:
+        if len(total_data) > 20:
             new_data:List[List] = []
             for i in range(len(total_data)):
                 if i % 2 == 0:

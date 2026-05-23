@@ -117,7 +117,7 @@ async def get_user_state(user_id: str) -> dict:
                 main_table.c.starter_sub,
                 main_table.c.plus_sub,
                 main_table.c.max_sub,
-                main_table.c.elite,
+                main_table.c.elite_sub,
                 main_table.c.basic_sub,
                 main_table.c.date,
                 main_table.c.last_refil_date,
