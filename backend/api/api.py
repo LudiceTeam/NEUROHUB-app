@@ -794,10 +794,18 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         
         device_id = user_data_jwt["device_id"]
         
+
+
+        user_data = await get_user_state(user_id)
+
+        if user_data == {}:
+            return {
+                "message":"None"
+            }
+        
         await update_last_online(device_id)
 
         await refil_all_requests(user_id)
-
 
 
         chat_id = req.chat_id
@@ -806,12 +814,6 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             chat_id = await create_chat(user_id)
         
 
-        user_data = await get_user_state(user_id)
-
-        if user_data == {}:
-            return {
-                "message":"None"
-            }
 
 
         # OLD VERSION
@@ -1005,9 +1007,6 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         
         user_id = user_data_jwt["user_id"]
         device_id = user_data_jwt["device_id"]
-        
-        await update_last_online(device_id)
-        await refil_all_requests(user_id)
 
 
         user_data = await get_user_state(user_id)
@@ -1016,6 +1015,11 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             return {
                 "message":"None"
             }
+        
+        await update_last_online(device_id)
+        await refil_all_requests(user_id)
+
+
         
         chat_id = chat_id_form
         true_request = request_text if request_text is not None else ""
@@ -1297,11 +1301,10 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
                 "message":"error"
             }
         
-        await delete_chat(user_id,req.chat_id)
-        await delete_chat_messages(req.chat_id)
+
+        chat_photos_url = await get_chat_messages_for_front_end(req.chat_id)
 
         # deleting from aws
-        chat_photos_url = await get_chat_messages_for_front_end(req.chat_id)
 
         for message_context in chat_photos_url:
             if message_context["image_message"] is not None:
@@ -1310,6 +1313,9 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
             if message_context["image_response"] is not None:
                 await AWS_CLIENT.delete_file(message_context["image_response"])
         
+        await delete_chat(user_id,req.chat_id)
+        await delete_chat_messages(req.chat_id)
+
     except HTTPException:
         raise 
     except Exception:
@@ -1577,7 +1583,7 @@ class AppleNotificationRequest(BaseModel):
     signedPayload:str
 
 @app.post("/webhook/apple/notification")
-async def apple_notification(req:AppleNotificationRequest):
+async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depends(get_current_user)):
 
     verifier = build_verifier()
 
@@ -2031,7 +2037,7 @@ class FolderID(BaseModel):
     folder_id:str
 
 @app.post("/folder/get/chats")
-@limiter.limit("20/minite")
+@limiter.limit("20/minute")
 async def get_folder_chats_handler(
     request:Request,
     req:FolderID,
@@ -2415,6 +2421,15 @@ async def create_link_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
+
+        user_chats = await get_user_chats()
+
+        if req.chat_id not in user_chats:
+            return {
+                "message": "error"
+            }
+
+
         link_id = await create_link(
             user_id = user_data["user_id"],
             chat_id = req.chat_id 
