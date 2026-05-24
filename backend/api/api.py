@@ -1055,7 +1055,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                         "message" : "Something went wrong."
                     }
                 user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
-                count_attemts += 1/
+                count_attemts += 1
 
 
 
