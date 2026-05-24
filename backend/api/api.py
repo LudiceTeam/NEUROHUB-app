@@ -1434,8 +1434,8 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
     
     try:
 
-        
-        if req.model_name not in models:
+        total_models = models + expensive_models + image_generation_models
+        if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
         
         user_id = user_data["user_id"]
