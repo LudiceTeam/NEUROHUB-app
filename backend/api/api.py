@@ -899,6 +899,16 @@ ANSWER:
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
+            all_models = expensive_models + models + image_generation_models
+            count_attemts = 0
+            while user_model not in all_models:
+                if count_attemts >= 5:
+                    return {
+                        "message" : "Something went wrong."
+                    }
+                user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo = False)
+                count_attemts += 1
+
         
         if user_model == "auto" and req.request == None:
             user_model = "google/gemini-3-flash-preview"
@@ -1037,6 +1047,18 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
+            all_models = expensive_models + models + image_generation_models
+            count_attemts = 0
+            while user_model not in all_models:
+                if count_attemts >= 5:
+                    return {
+                        "message" : "Something went wrong."
+                    }
+                user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
+                count_attemts += 1/
+
+
+
         
         if user_model == "auto" and true_request == "":
             user_model = "google/gemini-3-flash-preview"
@@ -1157,7 +1179,11 @@ Answer the user's current message as helpfully, accurately, and context-aware as
 
 ANSWER:
 """
+    
+
         
+    
+
 
         if user_model in image_generation_models:
 
