@@ -37,7 +37,7 @@ from backend.database.links_db.links_core import create_link,get_chat_id_by_link
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
-from backend.api.config import models,expensive_models,image_generation_models,SUBSCRIPTIONS
+from backend.api.config import models,expensive_models,image_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -912,7 +912,12 @@ ANSWER:
 
             encrypted_message = encrypt(req.request)
 
-            response = await ask_chat_gpt(req.request,user_model)
+            promt_for_image_model = generate_promt_for_image_models(
+                request = str(req.request),
+                current_chat_messages = current_chat_messages
+            )
+
+            response = await ask_chat_gpt(promt_for_image_model,user_model)
             
             if type(response) != bytes:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
@@ -1161,7 +1166,12 @@ ANSWER:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            response = await ask_chat_gpt([request_text,image_base64_list],user_model)
+            promt_for_image_model = generate_promt_for_image_models(
+                request = true_request,
+                current_chat_messages = current_chat_messages
+            )
+
+            response = await ask_chat_gpt([promt_for_image_model,image_base64_list],user_model)
 
 
 
