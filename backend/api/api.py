@@ -731,6 +731,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                 "modalities": ["image", "text"],  # КЛЮЧЕВОЙ ПАРАМЕТР!
             }
         )
+            print(response.model_dump())
             message = response.choices[0].message
             if hasattr(message, 'images') and message.images:
                 img_dict = message.images[0]
@@ -757,6 +758,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                 {"role": "user", "content": content}
             ]
         )
+
         
         result = response.choices[0].message.content.strip()
         if not result:
@@ -767,7 +769,8 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     except TimeoutError:
         return "Generation took too long. Try again."
     
-    except openai.NotFoundError:
+    except openai.NotFoundError as e:
+        print(f"ERROR : {e}")
         return "This model doesn`t support image input"
         
     except Exception as e:
