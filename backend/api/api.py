@@ -731,7 +731,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                 "modalities": ["image", "text"],  # КЛЮЧЕВОЙ ПАРАМЕТР!
             }
         )
-            print(response.model_dump())
+            #print(response.model_dump())
             message = response.choices[0].message
             if hasattr(message, 'images') and message.images:
                 img_dict = message.images[0]
