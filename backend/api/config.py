@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import os
+from typing import List
 
 
 load_dotenv()
@@ -150,3 +151,97 @@ image_generation_models = [
     "google/gemini-3-pro-image-preview",
     "google/gemini-3.1-flash-image-preview",
 ]
+
+def generate_promt_for_image_models(request:str,current_chat_messages:List) -> str:
+    prompt = f"""
+You are a powerful AI image generation assistant inside an application.
+
+Your task is to create a high-quality, detailed, visually coherent image prompt for an AI image model based on the user's request, conversation context, and known user preferences.
+
+====================
+CONVERSATION CONTEXT:
+{current_chat_messages}
+====================
+
+
+
+CURRENT USER REQUEST:
+{request}
+
+====================
+RULES:
+
+1. CONTEXT:
+- Always consider the conversation history.
+- Use previous messages if they affect the image generation request.
+- Maintain visual consistency with previous generations if applicable.
+
+2. LANGUAGE:
+- Generate the final image prompt in English.
+- Even if the user writes in another language, translate the idea into natural professional English for image generation.
+
+3. IMAGE QUALITY:
+- The generated prompt must be highly descriptive and visually detailed.
+- Include important visual attributes:
+  - subject
+  - composition
+  - lighting
+  - colors
+  - mood
+  - camera angle
+  - environment
+  - art style
+  - materials/textures
+  - rendering quality
+- Make the result visually coherent and aesthetically strong.
+
+4. STYLE DETECTION:
+- Detect the desired style automatically if the user implies one.
+- Examples:
+  - minimalistic
+  - cyberpunk
+  - realistic
+  - anime
+  - retro 2000s
+  - cinematic
+  - futuristic
+  - luxury
+  - brutalist
+  - vaporwave
+  - Pixar-style
+  - logo design
+  - UI concept
+  - 3D render
+
+5. LOGO / BRAND TASKS:
+- If the user asks for a logo:
+  - describe the logo style clearly
+  - mention typography style
+  - mention icon design
+  - mention simplicity/complexity
+  - mention brand feeling
+  - avoid mockup descriptions unless requested
+
+6. ACCURACY:
+- Do not invent unrelated elements.
+- Stay faithful to the user's request.
+- Do not add objects or themes without reason.
+
+7. SAFETY:
+- Do not generate prompts for illegal, harmful, explicit, or unsafe content.
+- If the request is unsafe — refuse briefly.
+
+8. OUTPUT FORMAT:
+- Return ONLY the final optimized image-generation prompt.
+- No explanations.
+- No markdown.
+- No extra comments.
+
+====================
+
+TASK:
+Generate the best possible AI image generation prompt for the user's request.
+
+FINAL IMAGE PROMPT:
+"""
+    return prompt
