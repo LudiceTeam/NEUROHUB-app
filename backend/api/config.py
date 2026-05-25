@@ -152,6 +152,10 @@ image_generation_models = [
     "google/gemini-3.1-flash-image-preview",
 ]
 
+video_generation_models = [
+    "google/veo-3.1-fast"
+]
+
 def generate_promt_for_image_models(request:str,current_chat_messages:List) -> str:
     prompt = f"""
 You are an advanced AI image generation model.

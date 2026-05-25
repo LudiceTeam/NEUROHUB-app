@@ -684,6 +684,66 @@ client = AsyncOpenAI(
     max_retries=2
 )
 
+
+async def generate_video(request:str | List,user_model:str) -> bytes | str:
+
+    image_list = None
+    request_text = None
+    if isinstance(request, list):
+        image_list = request[1]
+        request_text = request[0]
+    else:
+        request_text = request
+    
+    response = await client.post(
+        "/videos",
+        body={
+            "model": user_model,
+
+            "prompt": request_text,
+
+            "duration": 8,
+            "resolution": "720p",
+            "aspect_ratio": "9:16"
+        }
+    )
+
+    print(response)
+
+    job_id = response["id"]
+
+    # 2. polling
+    while True:
+
+        status = await client.get(
+            f"/videos/{job_id}"
+        )
+
+        print(status)
+
+        if status["status"] == "completed":
+            break
+
+        if status["status"] == "failed":
+            raise Exception("Generation failed")
+
+        await asyncio.sleep(2)
+
+    # 3. video url
+    video_url = status["output"][0]["url"]
+
+    print(video_url)
+
+    # 4. скачать mp4
+    async with aiohttp.ClientSession() as session:
+        async with session.get(video_url) as resp:
+
+            data = await resp.read()
+
+            with open("video.mp4", "wb") as f:
+                f.write(data)
+
+
 async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     try:
         req = ""
