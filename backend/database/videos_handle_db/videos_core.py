@@ -75,4 +75,18 @@ async def get_video_status(video_id:str) -> str:
             logger.exceptio("VIDEOS SQL ERORR")
             return ""
 
+async def get_user_tasks(user_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(videos_table).where(
+                videos_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            return data
+        except Exception:
+            logger.exceptio("VIDEOS SQL ERORR")
+            return []
+
+
 
