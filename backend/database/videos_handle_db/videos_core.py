@@ -26,4 +26,16 @@ async def create_table():
         await conn.run_sync(metadata_obj.create_all)
 
 
+async def create_video_task(
+        id:str,
+        url:str
+        user_id:str
+) -> bool:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                pass
+            except Exception:
+                logger.exception("VIDEOS SQL EXCEPTION")
+
 
