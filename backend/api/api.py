@@ -38,7 +38,7 @@ from backend.database.videos_handle_db.videos_core import create_video_task,upda
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
-from backend.api.config import models,expensive_models,image_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -688,9 +688,19 @@ client = AsyncOpenAI(
 
 
 # --- VIDEOS ---
-async def process_video_task(task_id: str,prompt: str, model:str) -> str:
+async def process_video_task(task_id: str,prompt: str | List, model:str) -> str:
 
     try:
+        images_list = None
+        request  = None
+
+        if isinstance(prompt,list):
+            request = prompt[0]
+            images_list = prompt[1]
+        else:
+            request = prompt
+
+
 
         # status = processing
         await update_video_status(
@@ -698,14 +708,24 @@ async def process_video_task(task_id: str,prompt: str, model:str) -> str:
             status = "processing"
         )
 
+        images = []
+        if images_list:
+            for image in images_list:
+                images.append(
+                    {
+                        "image_url" : f"data:image/jpeg;base64,{image}"
+                    }
+                )
+
         # generate video
         response = await client.post(
             "/videos",
             body={
                 "model": model,
-                "prompt": prompt,
+                "prompt": request,
                 "duration": 8,
-                "aspect_ratio": "9:16"
+                "aspect_ratio": "9:16",
+                "images" : images
             }
         )
 
@@ -724,7 +744,7 @@ async def process_video_task(task_id: str,prompt: str, model:str) -> str:
             if status["status"] == "failed":
                 raise Exception("Generation failed")
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
 
         video_url = status["output"][0]["url"]
 
@@ -974,7 +994,7 @@ ANSWER:
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
-            all_models = expensive_models + models + image_generation_models
+            all_models = expensive_models + models + image_generation_models + video_generation_models 
             count_attemts = 0
             while user_model not in all_models:
                 if count_attemts >= 5:
@@ -1027,12 +1047,12 @@ ANSWER:
             return {
                 "image": url
             } #  либо текст, либо url картинки
-
-        if user_data["requests"] <= 0 and user_model not in expensive_models:
+        expensive_models_full = expensive_models + image_generation_models + video_generation_models
+        if user_data["requests"] <= 0 and user_model not in expensive_models_full:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
         
 
-        if user_model in expensive_models:
+        if user_model in expensive_models_full:
             user_nano_req = user_data["nano_req"]
             if user_nano_req <= 0:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
@@ -1043,7 +1063,7 @@ ANSWER:
         if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
         
-        if user_model in expensive_models:
+        if user_model in expensive_models_full:
             user_nano_req = user_data["nano_req"]
             await minus_one_req_nano(user_id)    
 
