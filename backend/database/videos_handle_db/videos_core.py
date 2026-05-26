@@ -29,13 +29,50 @@ async def create_table():
 async def create_video_task(
         id:str,
         url:str
-        user_id:str
+        user_id:str,
+        prompt:str
 ) -> bool:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                pass
+                stmt = insert(videos_table).values(
+                    id = id,
+                    video_url = url,
+                    user_id = user_id,
+                    status = "pending",
+                    prompt = prompt
+                )
+                res = await conn.execute(stmt)
+                return res.rowcount > 0
             except Exception:
                 logger.exception("VIDEOS SQL EXCEPTION")
+                return False
+
+async def update_status(video_id:str,status:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = videos_table.update().where(
+                    videos_table.c.id == video_id
+                ).values(
+                    status = status
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("VIDEOS SQL ERROR")
+                return
+
+async def get_video_status(video_id:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(videos_table.c.status).where(
+                videos_table.c.id == video_id
+            )
+            res = await conn.execute(stmt)
+            data = res.scalar_one_or_none()
+            return data if data is not None else ""
+        except Exception:
+            logger.exceptio("VIDEOS SQL ERORR")
+            return ""
 
 
