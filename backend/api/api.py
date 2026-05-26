@@ -34,6 +34,7 @@ from backend.database.folders_db.folders_core import create_folder,get_user_fold
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
 from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links
+from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -685,64 +686,75 @@ client = AsyncOpenAI(
 )
 
 
-async def generate_video(request:str | List,user_model:str) -> bytes | str:
 
-    image_list = None
-    request_text = None
-    if isinstance(request, list):
-        image_list = request[1]
-        request_text = request[0]
-    else:
-        request_text = request
-    
-    response = await client.post(
-        "/videos",
-        body={
-            "model": user_model,
+# --- VIDEOS ---
+async def process_video_task(task_id: str,prompt: str, model:str) -> str:
 
-            "prompt": request_text,
+    try:
 
-            "duration": 8,
-            "resolution": "720p",
-            "aspect_ratio": "9:16"
-        }
-    )
-
-    print(response)
-
-    job_id = response["id"]
-
-    # 2. polling
-    while True:
-
-        status = await client.get(
-            f"/videos/{job_id}"
+        # status = processing
+        await update_video_status(
+            video_id = task_id,
+            status = "processing"
         )
 
-        print(status)
+        # generate video
+        response = await client.post(
+            "/videos",
+            body={
+                "model": model,
+                "prompt": prompt,
+                "duration": 8,
+                "aspect_ratio": "9:16"
+            }
+        )
 
-        if status["status"] == "completed":
-            break
+        job_id = response["id"]
 
-        if status["status"] == "failed":
-            raise Exception("Generation failed")
+        # polling
+        while True:
 
-        await asyncio.sleep(2)
+            status = await client.get(
+                f"/videos/{job_id}"
+            )
 
-    # 3. video url
-    video_url = status["output"][0]["url"]
+            if status["status"] == "completed":
+                break
 
-    print(video_url)
+            if status["status"] == "failed":
+                raise Exception("Generation failed")
 
-    # 4. скачать mp4
-    async with aiohttp.ClientSession() as session:
-        async with session.get(video_url) as resp:
+            await asyncio.sleep(5)
 
-            data = await resp.read()
+        video_url = status["output"][0]["url"]
 
-            with open("video.mp4", "wb") as f:
-                f.write(data)
+        # download video
+        async with aiohttp.ClientSession() as session:
+            async with session.get(video_url) as resp:
 
+                video_bytes = await resp.read()
+
+        url = await AWS_CLIENT.upload_file(
+            file_path = f"{task_id}.mp4",
+            file_data = video_bytes,
+        )
+
+        del video_bytes
+
+        await update_video_status(
+            video_id = task_id,
+            status = "completed"
+        )
+        
+        return url
+
+    except Exception as e:
+        await update_video_status(
+            video_id = task_id,
+            status = "failed"
+        )
+        return ""
+        
 
 async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     try:

@@ -11,7 +11,7 @@ from sqlalchemy import select,func
 from datetime import datetime,timezone
 from backend.database.messages_database.messages_core import count_model_messages
 from backend.api.config import database_url,async_engine
-
+from sqlalchemy.dialects.postgresql import insert
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +28,7 @@ async def create_table():
 
 async def create_video_task(
         id:str,
-        url:str
+        url:str,
         user_id:str,
         prompt:str
 ) -> bool:
@@ -48,7 +48,7 @@ async def create_video_task(
                 logger.exception("VIDEOS SQL EXCEPTION")
                 return False
 
-async def update_status(video_id:str,status:str):
+async def update_video_status(video_id:str,status:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
