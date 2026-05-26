@@ -1127,10 +1127,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             user_model = "google/gemini-3-flash-preview"
 
         if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-        if not user_data["sub"] and user_data["requests"] <= 0 and user_model not in expensive_models:
-                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+        if user_data["requests"] <= 0 and user_model not in expensive_models:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
         
 
@@ -1252,7 +1252,7 @@ ANSWER:
 
             user_nano_req = user_data["nano_req"]
             if user_nano_req <= 0:
-               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
 
             promt_for_image_model = generate_promt_for_image_models(
@@ -1328,6 +1328,7 @@ ANSWER:
         raise
 
     except Exception:
+        logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
     finally:
