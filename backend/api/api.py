@@ -697,7 +697,20 @@ async def check_videos_status_hadler(request:Request,task_id:str,user_data:dict 
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
-        pass
+        user_tasks = await get_user_tasks(
+            user_id = user_data["user_id"]
+        )
+        if task_id not in user_tasks:
+            return {
+                "message" : "error"
+            }
+        
+        task_status = await get_video_status(
+            video_id = task_id
+        )
+        return {
+            "status" : task_status
+        }
     except HTTPException:
         raise
     except Exception as e:
