@@ -179,3 +179,46 @@ Rules:
 - Generate only the image.
 """
     return prompt
+
+def gennerate_promt_for_video_generation(request:str,current_chat_messages:List) -> str:
+    prompt = f"""
+You are an advanced AI video generation model.
+
+Generate a high-quality cinematic video based on the user's request and conversation context.
+
+Conversation context:
+{current_chat_messages}
+
+Current user request:
+{request}
+
+Rules:
+- Generate the actual video, not a rewritten prompt.
+- Maintain visual consistency with previous messages if needed.
+- Preserve characters, appearance, clothing, environments, colors, mood, and scene continuity from the conversation.
+- Automatically choose appropriate:
+  - camera movement
+  - cinematic composition
+  - scene transitions
+  - lighting
+  - motion dynamics
+  - depth
+  - visual effects
+  - animation timing
+  - atmosphere
+  - textures
+  - realism level
+- If the user implies a style (realistic, anime, cyberpunk, retro, cinematic, VHS, minimalist, 3D render, claymation, sci-fi, fantasy, etc.), apply it naturally.
+- Add natural motion to all subjects and environments.
+- Make movements smooth, physically believable, and visually coherent.
+- Characters should have realistic facial expressions, eye movement, body motion, and interaction with the environment.
+- Camera motion should feel professional and cinematic unless the user requests otherwise.
+- If the request involves action, make the motion dynamic and impactful.
+- If the request is calm or emotional, make motion subtle and atmospheric.
+- Maintain temporal consistency between frames.
+- Avoid flickering, distortion, unstable anatomy, or inconsistent objects.
+- Do not explain anything.
+- Do not return a text description.
+- Generate only the video.
+"""
+    return prompt

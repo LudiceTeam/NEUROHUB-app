@@ -34,7 +34,7 @@ from backend.database.folders_db.folders_core import create_folder,get_user_fold
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
 from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links
-from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status
+from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status,get_user_tasks
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -688,6 +688,23 @@ client = AsyncOpenAI(
 
 
 # --- VIDEOS ---
+
+
+@app.get("/videos/task/status/{task_id}")
+@limiter.limit("20/minute")
+async def check_videos_status_hadler(request:Request,task_id:str,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+    
 async def process_video_task(task_id: str,prompt: str | List, model:str) -> str:
 
     try:
@@ -1007,6 +1024,15 @@ ANSWER:
         
         if user_model == "auto" and req.request == None:
             user_model = "google/gemini-3-flash-preview"
+
+        if user_model in video_generation_models:
+            user_nano_req = user_data["nano_req"]
+            if user_nano_req <= 0:
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+            encrypted_message = encrypt(req.request)
+
+            
 
         if user_model in image_generation_models:
 

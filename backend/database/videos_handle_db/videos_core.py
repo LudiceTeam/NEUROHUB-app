@@ -28,7 +28,6 @@ async def create_table():
 
 async def create_video_task(
         id:str,
-        url:str,
         user_id:str,
         prompt:str
 ) -> bool:
@@ -37,7 +36,7 @@ async def create_video_task(
             try:
                 stmt = insert(videos_table).values(
                     id = id,
-                    video_url = url,
+                    video_url = "",
                     user_id = user_id,
                     status = "pending",
                     prompt = prompt
