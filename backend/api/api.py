@@ -38,7 +38,7 @@ from backend.database.videos_handle_db.videos_core import create_video_task,upda
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -1032,7 +1032,39 @@ ANSWER:
 
             encrypted_message = encrypt(req.request)
 
+            promt_for_video_model = generate_promt_for_image_models(
+                request = str(req.request),
+                current_chat_messages = current_chat_messages
+            )
+
+            task_id = str(uuid.uuid4())
+
+            asyncio.create_task(
+                process_video_task(
+                    task_id=task_id,
+                    prompt=promt_for_video_model,
+                    model = user_model
+                )
+            )
+
+            url = f"{task_id}.mp4"
+
+            await create_message(
+                user_id = user_id,
+                chat_id = chat_id,
+                message = encrypted_message,
+                response = None,
+                image_response = url,
+                model_name = user_model
+            )
+
+            await minus_one_req_nano(user_id)   
+            await update_chat_last_message_date(chat_id) 
             
+            return {
+                "video_task_id" : task_id
+            }
+    
 
         if user_model in image_generation_models:
 
