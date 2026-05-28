@@ -61,6 +61,8 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+cloud_front_domain = os.getenv("CLOUD_FRONT_DOMAIN")
+
 
 AWS_CLIENT = S3Client(
     access_key=os.getenv("AWS_ACCESS_KEY"),
@@ -1060,7 +1062,8 @@ ANSWER:
                 )
             )
 
-            url = f"{task_id}.mp4"
+            url = f"https://{cloud_front_domain}/{task_id}.mp4"
+    
 
             await create_message(
                 user_id = user_id,
@@ -1389,6 +1392,53 @@ ANSWER:
             return {
                 "image":response_image_url
             } #  либо текст, либо url картинки
+        
+        if user_model in video_generation_models:
+            user_nano_req = user_data["nano_req"]
+            if user_nano_req <= 0:
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
+
+            encrypted_message = encrypt(true_request)
+
+            promt_for_video_model = generate_promt_for_image_models(
+                request = str(true_request),
+                current_chat_messages = current_chat_messages
+            )
+
+            task_id = str(uuid.uuid4())
+
+            asyncio.create_task(
+                process_video_task(
+                    task_id=task_id,
+                    prompt=[promt_for_video_model,image_base64_list],
+                    model = user_model
+                )
+            )
+            
+            
+            url = f"https://{cloud_front_domain}/{task_id}.mp4"
+            
+            
+            await create_message(
+                user_id = user_id,
+                chat_id = chat_id,
+                message = encrypted_message,
+                response = None,
+                image = url_list,
+                image_response = url,
+                model_name = user_model
+            )
+
+            await minus_one_req_nano(user_id)   
+            await update_chat_last_message_date(chat_id)
+
+            return {
+                "image":response_image_url
+            } #  либо текст, либо url картинк
+            
+
+
+            
         
         
 
