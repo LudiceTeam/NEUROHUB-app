@@ -25,7 +25,7 @@ from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_u
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,get_chat_stats,authorize_chat_for_user
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2,update_image_response_url
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
@@ -46,7 +46,7 @@ import openai
 from typing import List
 import base64
 from jose.exceptions import ExpiredSignatureError, JWTError
-import uuid 
+import uuid
 from appstoreserverlibrary.api_client import APIException
 from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
 from appstoreserverlibrary.models.Environment import Environment
@@ -88,15 +88,15 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 async def verify_signature(data: dict, rec_signature, x_timestamp: str) -> bool:
-   
+
     if time.time() - int(x_timestamp) > 300:
         return False
-    
-   
+
+
     return await asyncio.to_thread(_sync_verify_signature, data, rec_signature)
 
 def _sync_verify_signature(data: dict, rec_signature: str) -> bool:
-   
+
     KEY = os.getenv("signature")
     data_to_verify = data.copy()
     data_to_verify.pop("signature", None)
@@ -112,12 +112,12 @@ async def safe_get(req: Request):
         api = req.headers.get("X-API-KEY")
         if not api:
             raise HTTPException(status_code=401, detail="Invalid API key")
-        
+
         if not await asyncio.to_thread(hmac.compare_digest, api, os.getenv("X-API-KEY")):
             raise HTTPException(status_code=401, detail="Invalid API key")
-        
+
     except HTTPException:
-        raise      
+        raise
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid api key")
 
@@ -138,7 +138,7 @@ class AuthGoogle(BaseModel):
 async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(exclude_none=True),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         idinfo = id_token.verify_oauth2_token(
             req.id_token,
@@ -147,7 +147,7 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         )
     except Exception:
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid google token")
-    
+
     issuer = idinfo.get("iss")
     if issuer not in ["accounts.google.com", "https://accounts.google.com"]:
         raise HTTPException(status_code=401, detail="Invalid token issuer")
@@ -160,7 +160,7 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
 
     if not google_sub:
         raise HTTPException(status_code=401, detail="Google sub not found")
-    
+
     if email and not email_verified:
         raise HTTPException(status_code=401, detail="Email is not verified")
 
@@ -175,7 +175,7 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         provider = "google",
         avatar_url=picture
     )
-    
+
     if type(user_id_try) == str:
         user_id_main = user_id_try
 
@@ -219,18 +219,18 @@ class AuthApple(BaseModel):
     device_name:Optional[str] = None
     device_id:Optional[str] = None
     identity_token:str
-    
+
 @app.post("/auth/apple")
 @limiter.limit("20/minute")
 async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(exclude_none = True),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(APPLE_AUDIENCE) as resp:
             json_data = await resp.json()
             try:
-            
+
                 header = jwt.get_unverified_header(req.identity_token)
                 key = next(
                 k for k in json_data["keys"]
@@ -246,21 +246,21 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
 
             except Exception:
                 raise HTTPException(401, "Invalid Apple token")
-        
+
     apple_sub = payload.get("sub")
     email = payload.get("email")
-    
+
     email_parts = email.split("@")
-    
-    
+
+
     if not apple_sub:
         raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail =  "Invalid payload")
-    
-    
-    
+
+
+
     user_id_main = str(uuid.uuid4())
-        
-        
+
+
     user_id_try = await create_user(
         user_id = user_id_main,
         name = email_parts[0],
@@ -269,7 +269,7 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
         provider = "apple",
         avatar_url=None
     )
-    
+
     if type(user_id_try) == str:
         user_id_main = user_id_try
 
@@ -303,9 +303,9 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
         "refresh_token":refresh_token,
         "token_type":"bearer"
     }
-    
-    
-    
+
+
+
 
 async def send_email_code(email: str, code: str):
     url = "https://api.resend.com/emails"
@@ -322,16 +322,16 @@ async def send_email_code(email: str, code: str):
     "html": f"""
     <div style="font-family: Arial, sans-serif; background-color:#f5f5f5; padding:40px; color:#111111;">
         <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:12px; padding:30px; text-align:center; border:1px solid #e5e7eb;">
-            
+
             <h1 style="color:#111111; letter-spacing:2px;">VEORA</h1>
-            
+
             <h2 style="margin-top:20px; color:#1f2937;">Login Verification</h2>
-            
+
             <p style="color:#4b5563; font-size:16px;">
                 We received a request to log in to your account.
                 Please use the verification code below to proceed.
             </p>
-            
+
             <div style="margin:30px 0;">
                 <span style="
                     display:inline-block;
@@ -346,7 +346,7 @@ async def send_email_code(email: str, code: str):
                     {code}
                 </span>
             </div>
-            
+
             <p style="color:#6b7280;">
                 This code is valid for <b>2 minutes</b>.
             </p>
@@ -365,7 +365,7 @@ async def send_email_code(email: str, code: str):
             if resp.status >= 400:
                 text = await resp.text()
                 raise Exception(f"Ошибка отправки: {text}")
-            
+
 async def send_email_sub_over(email: str):
     url = "https://api.resend.com/emails"
 
@@ -381,15 +381,15 @@ async def send_email_sub_over(email: str):
     "html": f"""
     <div style="font-family: Arial, sans-serif; background-color:#f5f5f5; padding:40px; color:#111111;">
         <div style="max-width:650px; margin:0 auto; background:#ffffff; border-radius:16px; padding:35px; border:1px solid #e5e7eb;">
-            
+
             <h1 style="text-align:center; color:#111111; letter-spacing:2px;">VEORA</h1>
-            
+
             <h2 style="margin-top:25px; text-align:center; color:#1f2937;">Subscription Expired</h2>
-            
+
             <p style="margin-top:20px; color:#4b5563; font-size:16px; line-height:1.6;">
                 We wanted to let you know that your VEORA subscription has officially come to an end.
             </p>
-            
+
             <p style="color:#4b5563; font-size:16px; line-height:1.6;">
                 We truly appreciate the time you spent with us. During your subscription, you had access to advanced AI tools,
                 powerful features, and an enhanced experience designed to boost your productivity and creativity.
@@ -421,7 +421,7 @@ async def send_email_sub_over(email: str):
 
 class AuthWithEmail(BaseModel):
     email:EmailStr
-    
+
 
 @app.post("/send/code")
 @limiter.limit("20/minute")
@@ -430,7 +430,7 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-        
+
 
         await check_login_limit(req.email)
 
@@ -438,7 +438,7 @@ async def send_code(request:Request,req:AuthWithEmail,x_signature:str = Header(.
         try_create_code = await create_code(req.email,code)
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
-        
+
 
         await send_email_code(req.email,code)
 
@@ -464,19 +464,19 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
         await check_login_limit(req.email)
         email_parts = req.email.split("@")
-        
+
         check_result = await check_code(req.email,req.code)
 
         if not check_result:
             await register_failed_login(req.email)
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid code")
-        
+
 
         await reset_login_limit(req.email)
         # default sql data
         user_id_main = str(uuid.uuid4())
-        
-        
+
+
         user_id_try = await create_user(
             user_id = user_id_main,
             name = email_parts[0],
@@ -486,7 +486,7 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
             avatar_url=None
         )
 
-        
+
         if type(user_id_try) == str:
             user_id_main = user_id_try
 
@@ -539,38 +539,38 @@ async def refresh_token_api(request:Request,req:RefreshToken):
         status_code=401,
         detail="Invalid refresh token",
     )
-    
+
     try:
         payload = jwt.decode(req.refresh_token, os.getenv("REFRESH_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
         user_id: str = payload.get("user_id")
         device_id:str = payload.get("device_id")
-        
-        
+
+
         if user_id is None or device_id is None:
             raise credentials_exception
-        
+
         stored_token = await get_device_token(device_id)
         if stored_token != req.refresh_token:
             raise credentials_exception
-        
+
         user_data = await get_user_data_for_jwt(user_id)
 
         if user_data == {} or not user_data.get("provider"):
             raise credentials_exception
 
         user_data["device_id"] = device_id
-                
+
     except JWTError:
         raise credentials_exception
-    
-    
+
+
     new_access_token = create_access_token(user_data)
-    
+
     new_refresh_token = create_refresh_token(user_data)
-    
+
     await update_device_token(device_id,new_refresh_token)
-    
-    
+
+
     return {
         "user_id":user_id,
         "access_token": new_access_token,
@@ -588,33 +588,33 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> d
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         # Проверяем формат токена
         if not token.startswith("Bearer "):
             raise credentials_exception
-        
+
         # Извлекаем сам токен
         token = token.replace("Bearer ", "")
-        
+
         # Декодируем токен
         payload = jwt.decode(
-            token, 
-            os.getenv("SECRET_KEY"), 
+            token,
+            os.getenv("SECRET_KEY"),
             algorithms=[os.getenv("ALGORITHM")]
         )
-        
+
         user_id: str = payload.get("user_id")
         device_id: str = payload.get("device_id")
         if user_id is None or device_id is None:
             raise credentials_exception
-            
+
         return {
             "user_id":user_id,
             "device_id":device_id
         }
-        
-        
+
+
     except ExpiredSignatureError:
         # Токен истек - клиент должен использовать refresh
         raise HTTPException(
@@ -624,7 +624,7 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> d
         )
     except JWTError:
         raise credentials_exception
-    
+
 
 
 
@@ -638,11 +638,11 @@ async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_u
         await refil_all_requests(user_id)
 
         profile_dict = await profile(user_id)
-        
+
         await update_last_online(user_data["device_id"])
-        
+
         return profile_dict
-    
+
     except HTTPException:
         raise
     except Exception:
@@ -692,24 +692,38 @@ client = AsyncOpenAI(
 # --- VIDEOS ---
 
 
-@app.get("/videos/task/status/{task_id}")
+class VideoStatus(BaseModel):
+    task_id:str
+    message_id:str
+
+
+@app.get("/videos/task/status")
 @limiter.limit("20/minute")
-async def check_videos_status_hadler(request:Request,task_id:str,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_tasks = await get_user_tasks(
             user_id = user_data["user_id"]
         )
-        if task_id not in user_tasks:
+        if req.dstask_id not in user_tasks:
             return {
                 "message" : "error"
             }
-        
+
         task_status = await get_video_status(
-            video_id = task_id
+            video_id = req.task_id
         )
+        
+        if task_status == "completed":
+            url = f"https://{cloud_front_domain}/{req.task_id}.mp4"
+            await update_image_response_url(
+                message_id = req.message_id,
+                new_url = url
+            )
+            
+            
         return {
             "status" : task_status
         }
@@ -718,8 +732,8 @@ async def check_videos_status_hadler(request:Request,task_id:str,user_data:dict 
     except Exception as e:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
-    
+
+
 async def process_video_task(task_id: str,prompt: str | List, model:str) -> str:
 
     try:
@@ -798,6 +812,7 @@ async def process_video_task(task_id: str,prompt: str | List, model:str) -> str:
             status = "completed"
         )
         
+
         return url
 
     except Exception as e:
@@ -806,7 +821,7 @@ async def process_video_task(task_id: str,prompt: str | List, model:str) -> str:
             status = "failed"
         )
         return ""
-        
+
 
 async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     try:
@@ -817,16 +832,16 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
             images_base64 = request[1]
 
         else:
-            req = request  
-        
-        
+            req = request
+
+
         content = [
                         {
                             "type": "text",
                             "text": req
                         }
                     ]
-            
+
         if images_base64:
             for image in images_base64:
 
@@ -861,20 +876,20 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                 img_dict = message.images[0]
                 if 'image_url' in img_dict:
                     img_data = img_dict['image_url']  # <-- ВОТ ТАК ПРАВИЛЬНО!
-                    
+
                     true_img_data = img_data["url"]
-                   
+
                     if ',' in true_img_data:
                         base64_str = true_img_data.split(',')[1]
                     else:
                         base64_str = true_img_data
-                    
-                    
+
+
                     image_bytes = base64.b64decode(base64_str)
                     return image_bytes
             return "No image in response"
-            
-            
+
+
 
         response = await client.chat.completions.create(  # <-- ВАЖНО: используем chat.completions
             model=user_model,  # <-- ПРАВИЛЬНОЕ имя модели
@@ -883,20 +898,20 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
             ]
         )
 
-        
+
         result = response.choices[0].message.content.strip()
         if not result:
             return "No text result."
-        
+
         return result
-    
+
     except TimeoutError:
         return "Generation took too long. Try again."
-    
+
     except openai.NotFoundError as e:
         print(f"ERROR : {e}")
         return "This model doesn`t support image input"
-        
+
     except Exception as e:
         #print(f"OpenAI SDK error: {e}")
         logger.exception("OpenAI SDK error")
@@ -913,14 +928,14 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-        
+
 
     try:
-        
+
         user_id = user_data_jwt["user_id"]
-        
+
         device_id = user_data_jwt["device_id"]
-        
+
 
 
         user_data = await get_user_state(user_id)
@@ -929,7 +944,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             return {
                 "message":"None"
             }
-        
+
         await update_last_online(device_id)
 
         await refil_all_requests(user_id)
@@ -939,7 +954,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         if req.chat_id is None:
             chat_id = await create_chat(user_id)
-        
+
 
 
 
@@ -1026,7 +1041,7 @@ ANSWER:
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
-            all_models = expensive_models + models + image_generation_models + video_generation_models 
+            all_models = expensive_models + models + image_generation_models + video_generation_models
             count_attemts = 0
             while user_model not in all_models:
                 if count_attemts >= 5:
@@ -1036,7 +1051,7 @@ ANSWER:
                 user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo = False)
                 count_attemts += 1
 
-        
+
         if user_model == "auto" and req.request == None:
             user_model = "google/gemini-3-flash-preview"
 
@@ -1062,25 +1077,26 @@ ANSWER:
                 )
             )
 
-            url = f"https://{cloud_front_domain}/{task_id}.mp4"
-    
+            
 
-            await create_message(
+
+            message_id = await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = None,
-                image_response = url,
+                image_response = None,
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)   
-            await update_chat_last_message_date(chat_id) 
-            
+            await minus_one_req_nano(user_id)
+            await update_chat_last_message_date(chat_id)
+
             return {
-                "video_task_id" : task_id
+                "video_task_id" : task_id,
+                "message_id" : message_id
             }
-    
+
 
         if user_model in image_generation_models:
 
@@ -1097,16 +1113,16 @@ ANSWER:
             )
 
             response = await ask_chat_gpt(promt_for_image_model,user_model)
-            
+
             if type(response) != bytes:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-            
+
 
             url = await AWS_CLIENT.upload_file(
                 file_path = str(uuid.uuid4()) + ".jpg",
                 file_data = response
             )
-            
+
             await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
@@ -1116,15 +1132,15 @@ ANSWER:
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)   
-            await update_chat_last_message_date(chat_id) 
+            await minus_one_req_nano(user_id)
+            await update_chat_last_message_date(chat_id)
             return {
                 "image": url
             } #  либо текст, либо url картинки
         expensive_models_full = expensive_models + image_generation_models + video_generation_models
         if user_data["requests"] <= 0 and user_model not in expensive_models_full:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
-        
+
 
         if user_model in expensive_models_full:
             user_nano_req = user_data["nano_req"]
@@ -1136,10 +1152,10 @@ ANSWER:
 
         if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-        
+
         if user_model in expensive_models_full:
             user_nano_req = user_data["nano_req"]
-            await minus_one_req_nano(user_id)    
+            await minus_one_req_nano(user_id)
 
         else:
             await minus_one_req(user_id)
@@ -1160,14 +1176,14 @@ ANSWER:
         return {
             "message":response
         }
-        
-        
+
+
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
+
 
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
@@ -1175,7 +1191,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
     request_text:Optional[str] = Form(None),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    
+
     data_to_verify = {
         "chat_id":chat_id_form if chat_id_form is not None else "new_chat_id",
         "request":request_text if request_text is not None else "new request text"
@@ -1188,7 +1204,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
     try:
         if len(image_list) > 5:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
-        
+
         user_id = user_data_jwt["user_id"]
         device_id = user_data_jwt["device_id"]
 
@@ -1199,12 +1215,12 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             return {
                 "message":"None"
             }
-        
+
         await update_last_online(device_id)
         await refil_all_requests(user_id)
 
 
-        
+
         chat_id = chat_id_form
         true_request = request_text if request_text is not None else ""
 
@@ -1238,7 +1254,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if user_data["requests"] <= 0 and user_model not in expensive_full_models:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-        
+
 
 
         url_list = []
@@ -1270,9 +1286,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             url_list.append(url)
 
             del image_bytes
-                    
 
-        
+
+
         # OLD VERSION
         #current_chat_messages = await get_chat_messages(chat_id)
         #decoded_messages = []
@@ -1287,7 +1303,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         user_facts = await get_user_fact(
             user_id = user_id
         )
-                
+
         promt = f"""
 You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
 
@@ -1367,10 +1383,10 @@ ANSWER:
 
             if type(response) != bytes:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-            
+
 
             encrypted_message = encrypt(true_request)
-    
+
             response_image_url = await AWS_CLIENT.upload_file(
                     file_path = str(uuid.uuid4()) + ".jpg",
                     file_data = response
@@ -1382,17 +1398,17 @@ ANSWER:
                 message = encrypted_message,
                 response = None,
                 image = url_list,
-                image_response = response_image_url,
+                image_response = None,
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)   
+            await minus_one_req_nano(user_id)
             await update_chat_last_message_date(chat_id)
 
             return {
                 "image":response_image_url
             } #  либо текст, либо url картинки
-        
+
         if user_model in video_generation_models:
             user_nano_req = user_data["nano_req"]
             if user_nano_req <= 0:
@@ -1414,12 +1430,12 @@ ANSWER:
                     model = user_model
                 )
             )
-            
-            
+
+
             url = f"https://{cloud_front_domain}/{task_id}.mp4"
-            
-            
-            await create_message(
+
+
+            message_id = await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
@@ -1429,28 +1445,22 @@ ANSWER:
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)   
+            await minus_one_req_nano(user_id)
             await update_chat_last_message_date(chat_id)
 
             return {
-                "image":response_image_url
+                "video_task_id":task_id,
+                "message_id" : message_id
             } #  либо текст, либо url картинк
-            
-
-
-            
-        
-        
-
 
 
         response = await ask_chat_gpt([promt,image_base64_list],user_model)
 
         if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
-        
+
         if user_model in expensive_models:
-            await minus_one_req_nano(user_id)  
+            await minus_one_req_nano(user_id)
         else:
             await minus_one_req(user_id)
 
@@ -1472,14 +1482,14 @@ ANSWER:
         return {
             "message":response
         }
-        
+
     except HTTPException:
         raise
 
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
+
     finally:
         for image in image_list:
             await image.close()
@@ -1513,7 +1523,7 @@ async def get_user_chats_handler(request:Request,user_data:dict = Depends(get_cu
         result = {}
 
         await update_last_online(device_id)
-        
+
         # chat_id and its first message as in Veora app
         for chat_id in user_chats:
             chat_name = await get_chat_name(chat_id)
@@ -1521,8 +1531,8 @@ async def get_user_chats_handler(request:Request,user_data:dict = Depends(get_cu
                 result[chat_id] = chat_name
             else:
                 result[chat_id] = await get_chat_first_message(chat_id)
-        
-        
+
+
         return result
 
     except HTTPException:
@@ -1537,10 +1547,10 @@ class ChatId(BaseModel):
 @app.post("/delete/chat")
 @limiter.limit("20/minute")
 async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-    
+
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_id = user_data["user_id"]
         user_chats = await get_user_chats(user_id)
@@ -1549,7 +1559,7 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
             return {
                 "message":"error"
             }
-        
+
 
         chat_photos_url = await get_chat_messages_for_front_end(req.chat_id)
 
@@ -1561,16 +1571,16 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
                     await AWS_CLIENT.delete_file(url)
             if message_context["image_response"] is not None:
                 await AWS_CLIENT.delete_file(message_context["image_response"])
-        
+
         await delete_chat(user_id,req.chat_id)
         await delete_chat_messages(req.chat_id)
 
     except HTTPException:
-        raise 
+        raise
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
+
 class RenameChat(BaseModel):
     chat_id:str
     new_name:str
@@ -1586,7 +1596,7 @@ async def rename_chat_handler(
 ):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_chats = await get_chats_order(user_data["user_id"])
         if req.chat_id not in user_chats:
@@ -1614,7 +1624,7 @@ async def rename_chat_handler(
 async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_id = user_data["user_id"]
         user_chats = await get_user_chats(user_id)
@@ -1623,7 +1633,7 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = 
             return {
                 "message":"error"
             }
-        
+
         result = await get_chat_messages_for_front_end(req.chat_id)
         return {
             "result":result
@@ -1644,13 +1654,13 @@ class ChooseModel(BaseModel):
 async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
 
         total_models = models + expensive_models + image_generation_models
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
-        
+
         user_id = user_data["user_id"]
         device_id = user_data["device_id"]
         await update_last_online(device_id)
@@ -1668,7 +1678,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
 async def get_model_name_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_id = user_data["user_id"]
         model_name = await get_user_model_name(user_id)
@@ -1687,7 +1697,7 @@ async def get_model_name_handler(request:Request,user_data:dict = Depends(get_cu
 async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_id = user_data["user_id"]
         result = await get_user_avatar_and_name(user_id)
@@ -1696,7 +1706,7 @@ async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(
         raise
     except Exception:
          raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-        
+
 
 
 # --- SUBSCRIBTION ---
@@ -1736,14 +1746,14 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Apple API error: {str(e)}"
             )
-        
+
         signed_transaction_info = response.signedTransactionInfo
         if not signed_transaction_info:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No signedTransactionInfo returned by Apple"
             )
-        
+
         try:
             decoded_tx = verifier.verify_and_decode_signed_transaction(signed_transaction_info)
         except Exception as e:
@@ -1760,25 +1770,25 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
         bundle_id = decoded_tx.bundleId
 
 
-    
+
         if bundle_id != os.getenv("APPLE_BUNDLE_ID"):
             raise HTTPException(status_code=400, detail="Wrong bundle_id")
-        
+
 
         seen:bool = False
         for sub_type in SUBSCRIPTIONS.keys():
             if "veora_" + sub_type == req.product_id:
                 seen = True
-                
+
         if not seen:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
-        
+
         if req.product_id != product_id:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Product id mismatch")
 
         if await is_transaction_exists(transaction_id):
             return {"ok": True, "duplicate": True}
-        
+
 
 
         try_new_tr:bool = await create_new_trasacrion(
@@ -1797,7 +1807,7 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
         parts = (req.product_id.split("_"))
         if len(parts) < 2:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
-        
+
         sub_type = parts[1]
 
 
@@ -1808,7 +1818,7 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
 
         if not result:
              raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Error while purchasing")
-        
+
         return {
             "ok": True,
             "user_id": user_data["user_id"],
@@ -1826,7 +1836,7 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
     except Exception:
         logger.exception("VALIDATE ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-    
+
 
 class AppleNotificationRequest(BaseModel):
     signedPayload:str
@@ -1857,10 +1867,10 @@ async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depen
 
     if await is_notification_exists(notification_uuid):
         return {"ok": True, "duplicate": True}
-    
 
 
-    
+
+
     await create_new_log(
         notification_type = notification_type,
         notification_id= notification_uuid,
@@ -1895,15 +1905,15 @@ async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depen
                         for sub_type in SUBSCRIPTIONS.keys():
                             if "veora_" + sub_type == product_id:
                                 seen = True
-                                
+
                         if not seen:
                             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
-                        
+
 
                         parts = product_id.split("_")
                         if len(parts) < 2:
                             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
-                        
+
                         sub_type = parts[1]
 
                         result = await unsubscribe(
@@ -1955,7 +1965,7 @@ async def translate_google(text: str, target: str) -> str:
         async with session.get(url, params=params) as response:
             data = await response.json()
             return "".join(chunk[0] for chunk in data[0] if chunk and chunk[0])
-    
+
     return "Error while translating"
 
 
@@ -1969,18 +1979,18 @@ class TranslateText(BaseModel):
 async def translate_handler(request:Request,req:TranslateText,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         result_text:str = await translate_google(req.text,req.target_language)
 
         return result_text
-    
+
     except HTTPException:
         raise
     except Exception:
         logger.exception("TRANSLATION ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-        
+
 #holowknight540@gmail.com
 
 @app.post("/change_avatar")
@@ -1993,7 +2003,7 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
     }
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         file_bytes = await avatar.read(MAX_IMAGE_SIZE + 1)
 
@@ -2004,17 +2014,17 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
                 )
 
         if avatar.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
-          
+
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Unsupported file type"
                 )
-    
+
         user_old_url = await get_user_profile_pict_url(user_data["user_id"])
 
         if user_old_url != "":
             await AWS_CLIENT.delete_file(user_old_url)
-        
+
 
         ext = avatar.filename.split(".")[-1].lower()
 
@@ -2035,7 +2045,7 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-try:  
+try:
     REDIS_CLIENT = RedisClient(
         "localhost",
         6379
@@ -2048,7 +2058,7 @@ except Exception as e:
 async def get_or_write_model_stats_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     models_count_dict = {}
 
     last_update_day = await get_date_last_update()
@@ -2060,7 +2070,7 @@ async def get_or_write_model_stats_handler(request:Request,user_data:dict = Depe
         return {
             "stats":result_stats
         }
-    
+
     try:
 
         for model in models:
@@ -2072,7 +2082,7 @@ async def get_or_write_model_stats_handler(request:Request,user_data:dict = Depe
         return {
             "stats" : models_count_dict
         }
-    
+
     except HTTPException:
         raise
     except Exception:
@@ -2089,7 +2099,7 @@ async def delete_device_api(request:Request,req:DeleteDevice,
                         x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
 
     try:
         user_devices = await get_user_devices(user_data["user_id"])
@@ -2097,7 +2107,7 @@ async def delete_device_api(request:Request,req:DeleteDevice,
         for device_data in user_devices:
             if device_data["device_id"] == req.device_id:
                 seen = True
-        
+
         if not seen:
             return {
                 "message" : "error"
@@ -2122,7 +2132,7 @@ async def get_user_devices_api(request:Request,
     }
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_devices = await get_user_devices(user_data["user_id"])
         return user_devices
@@ -2149,7 +2159,7 @@ async def change_name_handle(
 ):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         await change_name(
             user_id = user_data["user_id"],
@@ -2186,7 +2196,7 @@ async def create_folder_handler(
         )
         if folder_id == "":
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error")
-        
+
         return {
             "folder_id" : folder_id
         }
@@ -2198,7 +2208,7 @@ async def create_folder_handler(
 
 
 @app.get("/user/folders",dependencies=[Depends(safe_get)])
-@limiter.limit("20/minute")    
+@limiter.limit("20/minute")
 async def get_user_folders_handler(
     request:Request,
     user_data:dict = Depends(get_current_user),
@@ -2269,7 +2279,7 @@ async def add_chat_to_folder_or_delete(
                 chat_id = req.chat_id
             )
             return
-        
+
         await add_chat_to_folder(
             chat_id = req.chat_id,
             folder_id = req.folder_id
@@ -2307,7 +2317,7 @@ async def get_folder_chats_handler(
         for folder_data in user_folders:
             if folder_data["folder_id"] == req.folder_id:
                 seen = True
-        
+
         if not seen:
             return {
                 "messsage" : "error"
@@ -2318,7 +2328,7 @@ async def get_folder_chats_handler(
         return {
             "result" : folder_chats
         }
-    
+
     except HTTPException:
         raise
     except Exception:
@@ -2348,7 +2358,7 @@ async def delete_folder_handler(
         for folder_data in user_folders:
             if folder_data["folder_id"] == req.folder_id:
                 seen = True
-        
+
         if not seen:
             return {
                 "messsage" : "error"
@@ -2362,15 +2372,15 @@ async def delete_folder_handler(
             user_id = user_data["user_id"],
             folder_id = req.folder_id
         )
-        
+
     except HTTPException:
         raise
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-    
-    
+
+
 class RenameFolder(BaseModel):
     folder_id:str
     name:str
@@ -2398,12 +2408,12 @@ async def rename_folder_handler(
         for folder_data in user_folders:
             if folder_data["folder_id"] == req.folder_id:
                 seen = True
-        
+
         if not seen:
             return {
                 "messsage" : "error"
             }
-        
+
 
         await rename_folder(
             folder_id = req.folder_id,
@@ -2442,7 +2452,7 @@ async def add_tag_to_folder_handler(
         for folder_data in user_folders:
             if folder_data["folder_id"] == req.folder_id:
                 seen = True
-        
+
         if not seen:
             return {
                 "messsage" : "error"
@@ -2477,7 +2487,7 @@ async def add_tag_to_folder_handler(
         for folder_data in user_folders:
             if folder_data["folder_id"] == req.folder_id:
                 seen = True
-        
+
         if not seen:
             return {
                 "messsage" : "error"
@@ -2493,7 +2503,7 @@ async def add_tag_to_folder_handler(
 
 
 
-# --- WIDGETS --- 
+# --- WIDGETS ---
 
 @app.get("/models/get/stats/today",dependencies=[Depends(safe_get)])
 @limiter.limit("20/minute")
@@ -2505,7 +2515,7 @@ async def get_today_models_count_handler(
 ):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         total_models = expensive_models + models + image_generation_models
         models_count = {}
@@ -2517,10 +2527,10 @@ async def get_today_models_count_handler(
             )
             models_count[model] = result
 
-            
+
         return {
             "result" : models_count
-        }    
+        }
     except HTTPException:
         raise
     except Exception:
@@ -2537,7 +2547,7 @@ async def get_total_models_count_handler(
 ):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         total_models = expensive_models + models + image_generation_models
         models_count = {}
@@ -2552,7 +2562,7 @@ async def get_total_models_count_handler(
 
         return {
             "result" : models_count
-        }    
+        }
     except HTTPException:
         raise
     except Exception:
@@ -2573,7 +2583,7 @@ async def write_user_fact_handler(
 ):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
 
         user_facts = await gather_user_main_information(
@@ -2583,13 +2593,13 @@ async def write_user_fact_handler(
             return {
                 "message" : "not enough chats"
             }
-        
+
         user_summarized_fact = await summarize_user_message_history(
             message_history =  user_facts,
             client = client
         )
 
-        
+
         try_create = await create_fact_data(
             user_id = user_data["user_id"],
             facts = user_summarized_fact
@@ -2598,7 +2608,7 @@ async def write_user_fact_handler(
         return {
             "message" : try_create
         }
-        
+
     except HTTPException:
         raise
     except Exception:
@@ -2616,7 +2626,7 @@ async def update_user_fact_handler(
 ):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         check_gather = await check_last_gather(
             user_id = user_data["user_id"]
@@ -2653,7 +2663,7 @@ async def update_user_fact_handler(
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-    
+
 # --- LINKS ---
 
 
@@ -2668,7 +2678,7 @@ async def create_link_handler(
 ):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
 
         user_chats = await get_user_chats()
@@ -2681,13 +2691,13 @@ async def create_link_handler(
 
         link_id = await create_link(
             user_id = user_data["user_id"],
-            chat_id = req.chat_id 
+            chat_id = req.chat_id
         )
         if link_id != "":
             return {
                 "link_id":link_id
             }
-        
+
         return {
             "message" : "error"
         }
@@ -2708,7 +2718,7 @@ async def share_get_chat_by_link_handler(
 ):
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         chat_id = await get_chat_id_by_link(
             link_id = link_id
@@ -2724,7 +2734,7 @@ async def share_get_chat_by_link_handler(
             return {
                 "message" : "Chat was deleted by the owner."
             }
-        
+
     except HTTPException:
         raise
     except Exception:
@@ -2746,7 +2756,7 @@ async def delete_link_handler(
 ):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
-    
+
     try:
         user_links = await get_user_links(
             user_id = user_data["user_id"]
@@ -2760,7 +2770,7 @@ async def delete_link_handler(
         )
         return {
             "message" : "ok"
-        }        
+        }
     except HTTPException:
         raise
     except Exception:
@@ -2768,11 +2778,10 @@ async def delete_link_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-    
 
-    
+
+
 # --- RUN ---
 
 if __name__ == "__main__":
     uvicorn.run(app,host = "127.0.0.1",port = 8080,proxy_headers=True)
-

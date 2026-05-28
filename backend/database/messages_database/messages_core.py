@@ -12,6 +12,7 @@ from datetime import datetime,timezone,timedelta
 from backend.api.psw_hash import decrypt,encrypt
 from backend.api.config import database_url,async_engine
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +33,7 @@ def encode_images_base64(images:List[str]) -> List[str]:
     for image in images:
         coded_image = encrypt(image)
         new_coded_list.append(coded_image)
-    
+
     return new_coded_list
 
 
@@ -43,19 +44,20 @@ def decode_images_list_base64(images:List[str]) -> List[str]:
     for image in images:
         decoded_image = decrypt(image)
         new_decoded_list.append(decoded_image)
-    
+
     return new_decoded_list
 
 
 
-async def create_message(user_id:str,chat_id:str,message:str | None,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None,model_name:Optional[str] = None):
+async def create_message(user_id:str,chat_id:str,message:str | None,response:str | None,image:Optional[List[str]] = None,image_response: Optional[str] = None,model_name:Optional[str] = None) -> str: 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
+                message_id = str(uuid.uuid4())
                 stmt = messages_table.insert().values(
                     user_id = user_id,
                     chat_id = chat_id,
-                    message_id = str(uuid.uuid4()),
+                    message_id = message_id,
                     message_text = message,
                     response = response,
                     image_message = encode_images_base64(image) if image is not None else None,
@@ -64,7 +66,7 @@ async def create_message(user_id:str,chat_id:str,message:str | None,response:str
                     model_name = model_name
                 )
                 await conn.execute(stmt)
-
+                return message_id
             except Exception:
                 logger.exception("MESSAGES SQL ERROR")
                 return
@@ -80,10 +82,10 @@ async def get_chat_messages(chat_id:str) -> List[str]:
 
             for dt in data:
                 result.append(dt[0])
-            
+
             if len(result) > 20:
                 return result[-20:]
-            
+
             return result
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
@@ -133,18 +135,18 @@ async def get_chat_first_message(chat_id:str) -> str:
             stmt = select(messages_table.c.message_text).where(messages_table.c.chat_id == chat_id).order_by(messages_table.c.created_at.asc()).limit(1)
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
-            
+
             if data is not None:
                 decoded_message = decrypt(data)
                 if len(decoded_message) > 14:
                     result = decoded_message[:14] + "..."
-                    return result.capitalize() 
+                    return result.capitalize()
                 return decoded_message.capitalize()
             return ""
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return ""
-        
+
 async def get_chat_messages_for_front_end(chat_id:str) -> List:
 
     async with AsyncSession(async_engine) as conn:
@@ -176,7 +178,7 @@ async def count_model_messages(model_name:str) -> int:
             return res.scalar_one()
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
-            return 0   
+            return 0
 
 async def get_total_models_usage(user_id:str,model_name:str) -> int:
     async with AsyncSession(async_engine) as conn:
@@ -187,7 +189,7 @@ async def get_total_models_usage(user_id:str,model_name:str) -> int:
         except Exception as e:
             logger.exception("MESSAGES SQL ERROR")
             return 0
-        
+
 async def get_today_models_usage(user_id: str, model_name: str) -> int:
     async with AsyncSession(async_engine) as conn:
         try:
@@ -216,3 +218,18 @@ async def get_today_models_usage(user_id: str, model_name: str) -> int:
         except Exception:
             logger.exception("MESSAGES SQL ERROR")
             return 0
+
+# this is for video generation
+async def update_image_response_url(message_id:str,new_url:str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = messages_table.update().where(
+                    messages_table.c.message_id == message_id
+                ).values(
+                    image_response = new_url # new video url thet was generated
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MESSAGES SQL ERROR")
+                return 0
