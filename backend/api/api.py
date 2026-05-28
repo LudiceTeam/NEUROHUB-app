@@ -649,8 +649,8 @@ async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_u
 
 
 async def decide_whick_model_is_the_best_for_request(request:str,photo:bool) -> str:
-
-    promt = f"Which model is the best for this request: {request} ? Choose from this list: {models[1:]}. Answer only with model name without any other words."
+    all_models = models[1:] + expensive_models + image_generation_models + video_generation_models
+    promt = f"Which model is the best for this request: {request} ? Choose from this list: {all_models}. Answer only with model name without any other words."
 
     if photo:
         promt += " Also user request has a photo in it."
@@ -1213,7 +1213,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
-            all_models = expensive_models + models + image_generation_models
+            all_models = expensive_models + models + image_generation_models + video_generation_models
             count_attemts = 0
             while user_model not in all_models:
                 if count_attemts >= 5:
@@ -1225,14 +1225,14 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
 
-        
+        expensive_full_models = image_generation_models + expensive_models + video_generation_models
         if user_model == "auto" and true_request == "":
             user_model = "google/gemini-3-flash-preview"
 
-        if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
+        if (user_model in image_generation_models or user_model in expensive_models or user_model in video_generation_models) and user_data["nano_req"] <= 0:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-        if user_data["requests"] <= 0 and user_model not in expensive_models:
+        if user_data["requests"] <= 0 and user_model not in expensive_full_models:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
         
@@ -1345,11 +1345,6 @@ Answer the user's current message as helpfully, accurately, and context-aware as
 
 ANSWER:
 """
-    
-
-        
-    
-
 
         if user_model in image_generation_models:
 
@@ -1394,6 +1389,7 @@ ANSWER:
             return {
                 "image":response_image_url
             } #  либо текст, либо url картинки
+        
         
 
 
