@@ -38,7 +38,7 @@ from backend.database.videos_handle_db.videos_core import create_video_task,upda
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -975,68 +975,12 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             user_id = user_id
         )
 
-
-        promt = f"""
-You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
-
-====================
-CONVERSATION CONTEXT:
-{current_chat_messages}
-====================
-
-====================
-MAIN FACTS ABOUT USER:
-{user_facts}
-====================
-
-
-
-CURRENT USER MESSAGE:
-{str(req.request)}
-
-====================
-RULES:
-
-1. CONTEXT:
-- Always consider the conversation history.
-- Do not ignore previous messages if they affect the response.
-- Maintain logical continuity in the dialogue.
-
-2. LANGUAGE:
-- Respond in the same language as the user.
-- If the language is unclear, use English.
-- Do not mix languages unnecessarily.
-
-3. ACCURACY:
-- Do not invent facts.
-- If you are unsure — say it directly.
-- Do not make up non-existent APIs, functions, or data.
-
-4. USEFULNESS:
-- Provide clear, practical answers.
-- If it's code — it must be working.
-- If the task is complex — break it down into steps.
-
-5. STYLE:
-- Be clear and to the point.
-- Avoid unnecessary verbosity.
-- If the user asks for a short answer — keep it short.
-
-6. HANDLING AMBIGUITY:
-- If the request is unclear — ask a clarifying question.
-- Do not make assumptions without basis.
-
-7. SAFETY:
-- Do not assist with harmful or illegal activities.
-- If the request is suspicious — refuse politely.
-
-====================
-
-TASK:
-Answer the user's current message as helpfully, accurately, and context-aware as possible.
-
-ANSWER:
-"""
+        promt = generate_main_promt(
+            current_chat_messages = current_chat_messages,
+            user_facts = user_facts,
+            current_message = str(req.request)
+        )
+        
 
         user_model = await get_user_model_name(user_id)
         if user_model == "auto":
@@ -1062,7 +1006,7 @@ ANSWER:
 
             encrypted_message = encrypt(req.request)
 
-            promt_for_video_model = generate_promt_for_image_models(
+            promt_for_video_model = gennerate_promt_for_video_generation(
                 request = str(req.request),
                 current_chat_messages = current_chat_messages
             )
@@ -1304,66 +1248,13 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             user_id = user_id
         )
 
-        promt = f"""
-You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
-
-====================
-CONVERSATION CONTEXT:
-{current_chat_messages}
-====================
-
-
-====================
-MAIN FACTS ABOUT USER :
-{user_facts}
-====================
-
-CURRENT USER MESSAGE:
-{true_request}
-
-====================
-RULES:
-
-1. CONTEXT:
-- Always consider the conversation history.
-- Do not ignore previous messages if they affect the response.
-- Maintain logical continuity in the dialogue.
-
-2. LANGUAGE:
-- Respond in the same language as the user.
-- If the language is unclear, use English.
-- Do not mix languages unnecessarily.
-
-3. ACCURACY:
-- Do not invent facts.
-- If you are unsure — say it directly.
-- Do not make up non-existent APIs, functions, or data.
-
-4. USEFULNESS:
-- Provide clear, practical answers.
-- If it's code — it must be working.
-- If the task is complex — break it down into steps.
-
-5. STYLE:
-- Be clear and to the point.
-- Avoid unnecessary verbosity.
-- If the user asks for a short answer — keep it short.
-
-6. HANDLING AMBIGUITY:
-- If the request is unclear — ask a clarifying question.
-- Do not make assumptions without basis.
-
-7. SAFETY:
-- Do not assist with harmful or illegal activities.
-- If the request is suspicious — refuse politely.
-
-====================
-
-TASK:
-Answer the user's current message as helpfully, accurately, and context-aware as possible.
-
-ANSWER:
-"""
+        promt = generate_main_promt(
+            current_chat_messages = current_chat_messages,
+            user_fact = user_facts,
+            current_message = true_request
+        )
+                
+        
 
         if user_model in image_generation_models:
 
