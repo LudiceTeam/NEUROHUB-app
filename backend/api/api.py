@@ -43,7 +43,7 @@ import aiohttp
 import random
 from openai import AsyncOpenAI
 import openai
-from typing import List
+from typing import List,Union,Literal
 import base64
 from jose.exceptions import ExpiredSignatureError, JWTError
 import uuid
@@ -132,6 +132,7 @@ class AuthGoogle(BaseModel):
     device_id:Optional[str] = None
     device_name:Optional[str] = None
     id_token:str
+    method:Literal["site","app"]
 
 @app.post("/auth/google")
 @limiter.limit("20/minute")
@@ -140,10 +141,11 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        main_google_client_id = GOOGLE_CLIENT_ID if  req.method == "app" else os.getenv("GOOGLE_CLIENT_ID_SITE")
         idinfo = id_token.verify_oauth2_token(
             req.id_token,
             google_requests.Request(),
-            GOOGLE_CLIENT_ID
+            main_google_client_id
         )
     except Exception:
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid google token")
