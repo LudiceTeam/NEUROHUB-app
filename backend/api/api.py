@@ -55,6 +55,7 @@ from backend.api.s3_client import S3Client
 from datetime import datetime,timezone
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import tempfile
+from rq import Queue
 
 
 logger = logging.getLogger(__name__)
