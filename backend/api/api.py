@@ -2053,6 +2053,36 @@ async def get_or_write_model_stats_handler(request:Request,user_data:dict = Depe
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+# --- STREAK ---
+
+@app.get("/streak/get",dependencies=[Depends(safe_get)])
+@limiter.limit("20/minute")
+async def get_user_streak_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    
+    try:
+        user_streak_data = await get_user_streak_data(
+            user_id = user_data["user_id"]
+        )
+        if user_streak_data != {}:
+            if user_streak_data["streak"] == 30:
+                await subscribe(
+                    user_id = user_data["user_id"],
+                    sub_type = "starter"
+                )
+            
+        return user_streak_data
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+    
+
+
 class DeleteDevice(BaseModel):
     device_id:str
 
