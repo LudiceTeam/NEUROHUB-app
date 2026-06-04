@@ -38,6 +38,7 @@ from backend.database.videos_handle_db.videos_core import create_video_task,upda
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
+from backend.database.streak_db.streak_core import create_user_streak,plus_one_streak_day,reset_streak,get_user_streak_data
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -179,13 +180,18 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
         avatar_url=picture
     )
 
+
     if type(user_id_try) == str:
         user_id_main = user_id_try
-
-
-    await create_default_user_model_name(
-        user_id = user_id_main
-    )
+        
+    else:
+        await create_default_user_model_name(
+            user_id = user_id_main
+        )
+        
+        await create_user_streak(
+            user_id = user_id_main
+        )
 
 
     user_data = {
@@ -272,14 +278,18 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
         provider = "apple",
         avatar_url=None
     )
+    
 
     if type(user_id_try) == str:
         user_id_main = user_id_try
-
-
-    await create_default_user_model_name(
-        user_id = user_id_main
-    )
+    else:    
+        await create_default_user_model_name(
+            user_id = user_id_main
+        )
+        
+        await create_user_streak(
+            user_id = user_id_main
+        )
 
 
     user_data = {
@@ -492,11 +502,15 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
 
         if type(user_id_try) == str:
             user_id_main = user_id_try
+        else:
 
-
-        await create_default_user_model_name(
-            user_id = user_id_main
-        )
+            await create_default_user_model_name(
+                user_id = user_id_main
+            )
+            
+            await create_user_streak(
+                user_id = user_id_main
+            )
 
 
 
@@ -1038,6 +1052,17 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
             await minus_one_req_nano(user_id)
             await update_chat_last_message_date(chat_id)
+            
+            
+            # INCREASING THE STREAK
+            try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+            if not try_streak_increase:
+                await reset_streak(
+                    user_id = user_id
+                )
+            
 
             return {
                 "video_task_id" : task_id,
@@ -1081,6 +1106,18 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
             await minus_one_req_nano(user_id)
             await update_chat_last_message_date(chat_id)
+            
+            # UNCREASING THE STREAK 
+            try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+            if not try_streak_increase:
+                await reset_streak(
+                    user_id = user_id
+                )
+                
+                
+                
             return {
                 "image": url
             } #  либо текст, либо url картинки
@@ -1119,6 +1156,14 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         )
 
         await update_chat_last_message_date(chat_id)
+        
+        try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+        if not try_streak_increase:
+            await reset_streak(
+                user_id = user_id
+            )
 
         return {
             "message":response
@@ -1298,6 +1343,15 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             await minus_one_req_nano(user_id)
             await update_chat_last_message_date(chat_id)
+            
+            
+            try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+            if not try_streak_increase:
+                await reset_streak(
+                    user_id = user_id
+                )
 
             return {
                 "image":response_image_url
@@ -1341,6 +1395,15 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             await minus_one_req_nano(user_id)
             await update_chat_last_message_date(chat_id)
+            
+            
+            try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+            if not try_streak_increase:
+                await reset_streak(
+                    user_id = user_id
+                )
 
             return {
                 "video_task_id":task_id,
@@ -1372,6 +1435,14 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             model_name = user_model
         )
         await update_chat_last_message_date(chat_id)
+        
+        try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+        if not try_streak_increase:
+            await reset_streak(
+                user_id = user_id
+            )
 
         return {
             "message":response
