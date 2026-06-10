@@ -1297,7 +1297,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         promt = generate_main_promt(
             current_chat_messages = current_chat_messages,
-            user_fact = user_facts,
+            user_facts = user_facts,
             current_message = true_request
         )
                 
