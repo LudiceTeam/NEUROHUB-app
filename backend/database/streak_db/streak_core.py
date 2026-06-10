@@ -75,10 +75,11 @@ async def reset_streak(user_id:str):
                 stmt = streak_table.update().where(
                     streak_table.c.user_id == user_id,
                     streak_table.c.last_updated != yesterday,
-                    streak_table.c.last_updated != date
+                    streak_table.c.last_updated != date,
+                    streak_table.c.streak != 1,
                 ).values(
                     last_updated = date,
-                    strek = 1
+                    streak = 1
                 )
                 await conn.execute(stmt)
                 return
