@@ -55,13 +55,29 @@ async def ban_user(user_id:str,ban_days:int) -> bool:
 
 
 
-async def get_ban_info(user_id:str) -> bool | None:
+async def get_ban_info(user_id:str) -> dict | None:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(ban_table.c.user_id).where(
-                ban_table.c.user_id == user_id
-            )
+            stmt = select(
+                ban_table.c.unban_date,
+                ban_table.c.user_id
+            ).where(ban_table.c.user_id == user_id)
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            return dict(data) if data is not None else None
         except Exception:
             logger.exception("BAN SQL ERROR")
             return None
+
+async def unban_user(user_id:str) -> None:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = ban_table.delete().where(
+                    ban_table.c.user_id == user_id
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("BAN SQL ERROR")
+                return None
                 
