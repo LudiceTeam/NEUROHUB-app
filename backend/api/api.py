@@ -683,6 +683,19 @@ async def ban_user_handler(request:Request,req:BanUser,user_data:dict = Depends(
 @limiter.limit("20/minute")
 async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_user)):
     user_id = user_data["user_id"]
+    
+    ban_info = await get_ban_info(
+        user_id = user_id
+    )
+    
+    if ban_info != {}:
+        if ban_info["unban_date"] > datetime.now().date():
+            raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+        else:
+            await unban_user(
+                user_id = user_id
+            )
+            
     try:
         await refil_all_requests(user_id)
 
