@@ -110,6 +110,7 @@ def _sync_verify_signature(data: dict, rec_signature: str) -> bool:
 
 
 
+
 async def safe_get(req: Request):
     try:
         api = req.headers.get("X-API-KEY")
@@ -646,6 +647,36 @@ async def get_current_user(token: str = Header(..., alias="Authorization")) -> d
 
 
 
+# ----- BAN LOGIC -----
+
+class BanUser(BaseModel):
+    user_id:str
+    days:int
+
+
+@limiter.limit("20/minute")
+@app.post("/user/ban")
+async def ban_user_handler(request:Request,req:BanUser,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    try:
+        allowed_users = os.getenv("ALLOWED_USERS")
+        if user_data["user_id"] not in allowed_users:
+            raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+        result = await ban_user(
+            user_id = req.user_id,
+            ban_days = req.days
+        )
+        return {
+            "message" : "ok"
+        } if result else {
+            "message" : "error"
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
 @app.post("/profile")
