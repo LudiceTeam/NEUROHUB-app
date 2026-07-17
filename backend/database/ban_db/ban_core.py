@@ -63,7 +63,7 @@ async def get_ban_info(user_id:str) -> dict | None:
                 ban_table.c.user_id
             ).where(ban_table.c.user_id == user_id)
             res = await conn.execute(stmt)
-            data = res.mappings().all()
+            data = res.mappings().first()
             return dict(data) if data is not None else None
         except Exception:
             logger.exception("BAN SQL ERROR")

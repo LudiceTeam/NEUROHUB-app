@@ -687,7 +687,7 @@ async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_u
         user_id = user_id
     )
     
-    if ban_info != {}:
+    if ban_info is not None:
         if ban_info["unban_date"] > datetime.now().date():
             raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
         else:
@@ -765,6 +765,22 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        
+        user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+            
+            
         user_tasks = await get_user_tasks(
             user_id = user_data["user_id"]
         )
@@ -994,6 +1010,18 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
     try:
 
         user_id = user_data_jwt["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
 
         device_id = user_data_jwt["device_id"]
 
@@ -1238,11 +1266,26 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
     try:
+        
+        user_id = user_data_jwt["user_id"]
+        device_id = user_data_jwt["device_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         if len(image_list) > 5:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "To many photos")
 
-        user_id = user_data_jwt["user_id"]
-        device_id = user_data_jwt["device_id"]
 
 
         user_data = await get_user_state(user_id)
@@ -1522,6 +1565,19 @@ async def get_user_chats_handler(request:Request,user_data:dict = Depends(get_cu
 
         user_id = user_data["user_id"]
         device_id = user_data["device_id"]
+        
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
 
         user_chats = await get_chats_order(user_id)
 
@@ -1562,6 +1618,21 @@ async def delete_chat_handler(request:Request,req:ChatId,user_data:dict = Depend
 
     try:
         user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
+                
         user_chats = await get_user_chats(user_id)
 
         if req.chat_id not in user_chats:
@@ -1607,6 +1678,20 @@ async def rename_chat_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         user_chats = await get_chats_order(user_data["user_id"])
         if req.chat_id not in user_chats:
             return {
@@ -1636,6 +1721,20 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = 
 
     try:
         user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         user_chats = await get_user_chats(user_id)
 
         if req.chat_id not in user_chats:
@@ -1665,12 +1764,25 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-
+        user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         total_models = models + expensive_models + image_generation_models
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
 
-        user_id = user_data["user_id"]
         device_id = user_data["device_id"]
         await update_last_online(device_id)
         await change_user_model_name(user_id,req.model_name)
@@ -1690,6 +1802,18 @@ async def get_model_name_handler(request:Request,user_data:dict = Depends(get_cu
 
     try:
         user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         model_name = await get_user_model_name(user_id)
         return {
             "model_name":model_name
@@ -1709,6 +1833,17 @@ async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(
 
     try:
         user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         result = await get_user_avatar_and_name(user_id)
         return result
     except HTTPException:
@@ -1745,6 +1880,21 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     try:
+        user_id = user_data["user_id"]
+
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         client = await get_apple_api_client()
         verifier = build_verifier()
 
@@ -1853,6 +2003,21 @@ class AppleNotificationRequest(BaseModel):
 @app.post("/webhook/apple/notification")
 async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depends(get_current_user)):
 
+    
+    user_id = user_data["user_id"]
+    
+    ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+    if ban_info is not None:
+        if ban_info["unban_date"] > datetime.now().date():
+            raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+        else:
+            await unban_user(
+                user_id = user_id
+            )
+            
     verifier = build_verifier()
 
     try:
@@ -1990,6 +2155,20 @@ async def translate_handler(request:Request,req:TranslateText,user_data:dict = D
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         result_text:str = await translate_google(req.text,req.target_language)
 
         return result_text
@@ -2014,6 +2193,20 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         file_bytes = await avatar.read(MAX_IMAGE_SIZE + 1)
 
         if len(file_bytes) > MAX_IMAGE_SIZE:
@@ -2106,8 +2299,22 @@ async def get_user_streak_handler(request:Request,user_data:dict = Depends(get_c
     if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
-    
     try:
+        user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         user_streak_data = await get_user_streak_data(
             user_id = user_data["user_id"]
         )
@@ -2141,6 +2348,20 @@ async def delete_device_api(request:Request,req:DeleteDevice,
 
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         user_devices = await get_user_devices(user_data["user_id"])
         seen:bool = False
         for device_data in user_devices:
@@ -2173,6 +2394,19 @@ async def get_user_devices_api(request:Request,
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         user_devices = await get_user_devices(user_data["user_id"])
         return user_devices
     except HTTPException:
@@ -2200,6 +2434,18 @@ async def change_name_handle(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         await change_name(
             user_id = user_data["user_id"],
             new_name = req.new_name
@@ -2228,6 +2474,19 @@ async def create_folder_handler(
 
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         folder_id = await create_folder(
             user_id = user_data["user_id"],
             name = req.folder_name,
@@ -2262,6 +2521,19 @@ async def get_user_folders_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         user_folders:List = await get_user_folders(
             user_id = user_data["user_id"]
         )
@@ -2293,7 +2565,19 @@ async def add_chat_to_folder_or_delete(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         user_chats = await get_user_chats(
             user_data["user_id"]
         )
@@ -2347,6 +2631,19 @@ async def get_folder_chats_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         user_folders = await get_user_folders(
             user_data["user_id"]
         )
@@ -2388,6 +2685,20 @@ async def delete_folder_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
         user_folders = await get_user_folders(
             user_data["user_id"]
         )
@@ -2437,7 +2748,18 @@ async def rename_folder_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         user_folders = await get_user_folders(
             user_data["user_id"]
         )
@@ -2482,6 +2804,30 @@ async def add_tag_to_folder_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         user_folders = await get_user_folders(
             user_data["user_id"]
         )
@@ -2517,6 +2863,18 @@ async def add_tag_to_folder_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         user_folders = await get_user_folders(
             user_data["user_id"]
         )
@@ -2556,6 +2914,19 @@ async def get_today_models_count_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
         total_models = expensive_models + models + image_generation_models
         models_count = {}
 
@@ -2588,6 +2959,18 @@ async def get_total_models_count_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         total_models = expensive_models + models + image_generation_models
         models_count = {}
 
@@ -2624,7 +3007,18 @@ async def write_user_fact_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         user_facts = await gather_user_main_information(
             user_id = user_data["user_id"]
         )
@@ -2667,6 +3061,18 @@ async def update_user_fact_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         check_gather = await check_last_gather(
             user_id = user_data["user_id"]
         )
@@ -2719,8 +3125,19 @@ async def create_link_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-
-        user_chats = await get_user_chats(user_data["user_id"])
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+        user_chats = await get_user_chats(user_id)
 
         if req.chat_id not in user_chats:
             return {
@@ -2759,6 +3176,18 @@ async def share_get_chat_by_link_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         chat_id = await get_chat_id_by_link(
             link_id = link_id
         )
@@ -2797,6 +3226,18 @@ async def delete_link_handler(
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
         user_links = await get_user_links(
             user_id = user_data["user_id"]
         )
