@@ -261,13 +261,12 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
     apple_sub = payload.get("sub")
     email = payload.get("email")
 
-    email_parts = email.split("@")
 
 
     if not apple_sub:
         raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail =  "Invalid payload")
 
-
+    email_parts = email.split("@")
 
     user_id_main = str(uuid.uuid4())
 
@@ -1452,7 +1451,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             encrypted_message = encrypt(true_request)
 
-            promt_for_video_model = generate_promt_for_image_models(
+            promt_for_video_model = gennerate_promt_for_video_generation(
                 request = str(true_request),
                 current_chat_messages = current_chat_messages
             )
@@ -3242,7 +3241,14 @@ async def delete_link_handler(
         user_links = await get_user_links(
             user_id = user_data["user_id"]
         )
-        if req.link_id not in user_links:
+
+        str_links:List = []
+
+        for link in user_links:
+            str_links.append(str(link))
+        
+
+        if req.link_id not in str_links:
             return {
                 "message" : "error"
             }
