@@ -38,3 +38,4 @@ class S3Client():
 
         async with self.get_client() as client:
             await client.delete_object(Bucket=self.bucket_name, Key=object_name)
+            
