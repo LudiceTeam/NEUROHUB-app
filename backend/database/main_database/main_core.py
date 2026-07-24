@@ -4,7 +4,6 @@ from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime,timedelta
 from typing import List,Literal
 from sqlalchemy.orm import sessionmaker
-import asyncpg
 import os
 from dotenv import load_dotenv
 from backend.database.main_database.main_models import metadata_obj,main_table
