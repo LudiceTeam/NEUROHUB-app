@@ -3020,12 +3020,21 @@ async def write_user_fact_handler(
                 await unban_user(
                     user_id = user_id
                 )
+        
+        user_fact_test:str = await get_user_fact(
+            user_id = user_data["user_id"]
+        )
+        if user_fact_test != "":
+            return {
+                "message" : "User already has some facts written"
+            }
+        
         user_facts = await gather_user_main_information(
             user_id = user_data["user_id"]
         )
         if user_facts == "":
             return {
-                "message" : "not enough chats"
+                "message" : "Not enough chats"
             }
 
         user_summarized_fact = await summarize_user_message_history(
@@ -3079,7 +3088,7 @@ async def update_user_fact_handler(
         )
         if not check_gather:
             return {
-                "message" : "error (gather time)"
+                "message" : "Error (gather time)"
             }
 
         user_facts = await gather_user_main_information(
@@ -3087,10 +3096,16 @@ async def update_user_fact_handler(
         )
         if user_facts == "":
             return {
-                "message" : "not enough chats"
+                "message" : "Not enough chats"
             }
+        
+        user_previous_fact:str = await get_user_fact(
+            user_id = user_data["user_id"]
+        )
+
         user_summarized_fact = await summarize_user_message_history(
             message_history =  user_facts,
+            user_previous_fact = user_previous_fact,
             client = client
         )
 
