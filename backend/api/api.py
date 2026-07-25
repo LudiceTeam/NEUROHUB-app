@@ -129,7 +129,8 @@ async def safe_get(req: Request):
 # --- ROUTES ---
 @app.get("/")
 async def main():
-    return "NEXI-API"
+    return "VEORA-API"
+
 
 
 class AuthGoogle(BaseModel):
