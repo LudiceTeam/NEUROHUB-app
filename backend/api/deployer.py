@@ -56,9 +56,9 @@ async def drop_all():
     await async_engine.dispose()
 
 if __name__ == "__main__":
-    pass
+    #pass
     #redis_check()
     #asyncio.run(write_default())
     #asyncio.run(create_all())
-    #asyncio.run(drop_all())
+    asyncio.run(drop_all())
 
