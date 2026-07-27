@@ -1,4 +1,4 @@
-from sqlalchemy import Table,Column,String,MetaData,DateTime
+from sqlalchemy import Table,Column,String,MetaData,DateTime,Boolean
 
 
 metadata_obj = MetaData()
@@ -10,6 +10,7 @@ chats_table = Table(
     Column("user_id",String),
     Column("chat_id",String,primary_key=True),
     Column("created_at",DateTime(timezone=True)),
+    Column("pinned",Boolean),
     Column("folder_id",String),
     Column("name",String),
     Column("last_message_at",DateTime(timezone=True))

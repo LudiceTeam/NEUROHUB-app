@@ -40,7 +40,8 @@ async def create_chat(user_id:str,chat_id:Optional[str] = None) -> str:
                     created_at = datetime.now(timezone.utc),
                     last_message_at = datetime.now(timezone.utc),
                     folder_id = "",
-                    name = ""
+                    name = "",
+                    pinned = False
                 ).on_conflict_do_nothing(
                     index_elements=[chats_table.c.chat_id]
                 )
@@ -67,7 +68,8 @@ async def authorize_chat_for_user(
                     created_at = created_at,
                     last_message_at = last_message_at,
                     name = name,
-                    folder_id = ""
+                    folder_id = "",
+                    pinned = False
                 )
                 await conn.execute(stmt)
             except Exception:
@@ -245,3 +247,16 @@ async def get_chat_name(chat_id:str) -> str:
         except Exception:
             logger.exception("CHATS SQL ERROR")
             return ""
+#depends on the value (dont want to write the same fucking 2 functions)
+async def pin_unpin_chat(chat_id:str,value:bool):
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = chats_table.update().where(
+                chats_table.c.chat_id == chat_id
+            ).values(
+                pinned = value
+            )
+            await conn.execute(stmt)
+        except Exception as e:
+            logger.exception("CHATS SQL ERROR")
+            return 
