@@ -155,7 +155,24 @@ async def update_chat_last_message_date(chat_id:str):
                 logger.exception("CHATS SQL ERROR")
                 return 
 
-
+async def get_pinned_chats_order(user_id:str) -> List:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(chats_table.c.chat_id).where(
+                chats_table.c.user_id == user_id,
+                chats_table.c.pinned == True
+            ).order_by(
+                chats_table.c.last_message_at.desc()
+            )
+            res = await conn.execute(stmt)
+            data = res.mappings().all()
+            result:List = []
+            for dt in data:
+                result.append(dt["chat_id"])
+            return result
+        except Exception:
+            logger.exception("CHATS SQL ERROR")
+            return []
 
 async def get_chats_order(user_id) -> List:
     async with AsyncSession(async_engine) as conn:

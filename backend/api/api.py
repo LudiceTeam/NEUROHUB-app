@@ -23,7 +23,7 @@ from backend.api.auth import create_access_token,create_refresh_token
 from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
-from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,get_chat_last_message_date,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,get_chat_stats,authorize_chat_for_user
+from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
 from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2,update_image_response_url
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
@@ -1582,6 +1582,24 @@ async def get_user_chats_handler(request:Request,user_data:dict = Depends(get_cu
 
         user_chats = await get_chats_order(user_id)
 
+        pinned_chats = await get_pinned_chats_order(
+            user_id = user_id
+        )# a list for pinned chats
+
+        # so here is an algorithm that removes all the pinned chats from the user_chat array.
+        # and then we add them back to fix the order
+        # bc all the pinned chats shall go first
+        # thats how it works
+        if pinned_chats != []:
+            for chat_id in user_chats:
+                if chat_id in pinned_chats:
+                    user_chats.remove(chat_id)
+            user_chats = pinned_chats + user_chats
+        
+            
+
+
+
 
         if user_chats == []:
             return {}
@@ -1752,6 +1770,26 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = 
     except Exception as e:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+
+class PinUnpinChat(BaseModel):
+    chat_id:str
+    pin_value:bool
+@limiter.limit("20/minute")
+@app.post("/chat/pin")
+async def pin_unpin_chat_handler(request:Request,req:PinUnpinChat,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    
+    try:
+        pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
 
 
