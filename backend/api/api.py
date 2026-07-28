@@ -1783,7 +1783,35 @@ async def pin_unpin_chat_handler(request:Request,req:PinUnpinChat,user_data:dict
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     
     try:
-        pass
+        user_id = user_data["user_id"]
+        
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+                
+                
+        user_chats = await get_user_chats(user_id)
+
+        if req.chat_id not in user_chats:
+            return {
+                "message":"error"
+            }
+
+        await pin_unpin_chat(
+            chat_id = req.chat_id,
+            value = req.pin_value
+        )
+        return {
+            "message" : "ok"
+        }
     except HTTPException:
         raise
     except Exception as e:
