@@ -1776,6 +1776,9 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = 
 class PinUnpinChat(BaseModel):
     chat_id:str
     pin_value:bool
+
+
+    
 @limiter.limit("20/minute")
 @app.post("/chat/pin")
 async def pin_unpin_chat_handler(request:Request,req:PinUnpinChat,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
