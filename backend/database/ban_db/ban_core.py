@@ -8,7 +8,7 @@ import logging
 import uuid
 from typing import List,Optional
 from sqlalchemy import select,func
-from datetime import datetime,timezone,timedelta,UTC
+from datetime import datetime,timezone,timedelta
 from backend.api.psw_hash import decrypt,encrypt
 from backend.api.config import database_url,async_engine
 from sqlalchemy.dialects.postgresql import insert
@@ -36,7 +36,7 @@ async def ban_user(user_id:str,ban_days:int) -> bool:
                 if ban_days <= 0:
                     return False
                 
-                date_now = datetime.now(UTC).date()
+                date_now = datetime.now().date()
                 unban_date = date_now + timedelta(days = ban_days)
                 stmt = insert(ban_table).values(
                     user_id = user_id,
