@@ -1046,16 +1046,6 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             chat_id = await create_chat(user_id)
 
 
-
-
-        # OLD VERSION
-        #current_chat_messages = await get_chat_messages(chat_id)
-        #decoded_messages = []
-        #for message in current_chat_messages:
-            #decoded_messages.append(decrypt(message))
-
-        #message_history:str = "\n".join(decoded_messages)
-
         current_chat_messages = await get_chat_messages_2(
             chat_id = chat_id
         )
@@ -1778,7 +1768,7 @@ class PinUnpinChat(BaseModel):
     pin_value:bool
 
 
-    
+
 @limiter.limit("20/minute")
 @app.post("/chat/pin")
 async def pin_unpin_chat_handler(request:Request,req:PinUnpinChat,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
