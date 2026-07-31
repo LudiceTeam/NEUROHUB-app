@@ -37,14 +37,14 @@ SUBSCRIPTIONS = {
     "basic": {
         "days": 30,
         "requests": 25,
-        "nano_req": 5,
+        "nano_req": 10,
         "column": "basic_sub"
     },
 
     "premium" : {
         "days" : 30,
         "requests" : 100,
-        "nano_req" : 15,
+        "nano_req" : 30,
         "column" : "premium_sub"
     },
 
