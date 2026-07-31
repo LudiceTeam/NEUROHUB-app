@@ -9,3 +9,4 @@ backend/api/.env
 backend/.env
 backend/admin_panel/.env
 .env
+backend/keys
