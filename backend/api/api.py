@@ -2023,11 +2023,11 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
         if not try_new_tr:
             raise HTTPException(status_code = status.HTTP_409_CONFLICT,detail = "Transaction already exists")
 
-        parts = (req.product_id.split("_"))
-        if len(parts) < 2:
+        parts = (req.product_id.split("."))
+        if len(parts) < 4:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
 
-        sub_type = parts[1]
+        sub_type = parts[3]
 
 
         result:bool  = await subscribe(
@@ -2137,18 +2137,18 @@ async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depen
                         email = await get_user_email_by_user_id(user_id)
                         seen:bool = False
                         for sub_type in SUBSCRIPTIONS.keys():
-                            if "veora_" + sub_type == product_id:
+                            if "com.sergeyvinogradov.veora." + sub_type == product_id:
                                 seen = True
 
                         if not seen:
                             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
 
 
-                        parts = product_id.split("_")
-                        if len(parts) < 2:
+                        parts = product_id.split(".")
+                        if len(parts) < 4:
                             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid product id")
 
-                        sub_type = parts[1]
+                        sub_type = parts[3]
 
                         result = await unsubscribe(
                             user_id = user_id,
@@ -2169,8 +2169,7 @@ async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depen
 
                         if email != "":
                             await send_email_sub_over(email)
-
-
+                        
         except Exception:
             raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
