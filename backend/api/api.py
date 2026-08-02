@@ -128,6 +128,7 @@ async def safe_get(req: Request):
 
 # --- ROUTES ---
 @app.get("/")
+@limiter.limit("10/minute")
 async def main():
     return "VEORA-API"
 
