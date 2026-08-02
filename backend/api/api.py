@@ -680,7 +680,7 @@ async def ban_user_handler(request:Request,req:BanUser,user_data:dict = Depends(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-@app.post("/profile")
+@app.get("/profile")
 @limiter.limit("20/minute")
 async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_user)):
     user_id = user_data["user_id"]
