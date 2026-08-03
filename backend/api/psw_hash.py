@@ -14,8 +14,8 @@ def make_key(password: str) -> bytes:
     return base64.urlsafe_b64encode(key)
 
 
-def encrypt(message: str) -> str:
-    password = os.getenv("HASH_MESSAGES_KEY")
+def encrypt(message: str,password:str) -> str:
+    #password = os.getenv("HASH_MESSAGES_KEY")
     key = make_key(password)
     f = Fernet(key)
 
@@ -23,8 +23,8 @@ def encrypt(message: str) -> str:
     return encrypted.decode()
 
 
-def decrypt(encrypted_message:str) -> str:
-    password = os.getenv("HASH_MESSAGES_KEY")
+def decrypt(encrypted_message:str,password:str) -> str:
+    #password = os.getenv("HASH_MESSAGES_KEY")
     key = make_key(password)
     f = Fernet(key)
 
@@ -32,20 +32,3 @@ def decrypt(encrypted_message:str) -> str:
     return decrypted.decode()
 
 
-
-def encrypt_memory(message: str) -> str:
-    password = os.getenv("MEMORY_CODE")
-    key = make_key(password)
-    f = Fernet(key)
-
-    encrypted = f.encrypt(message.encode())
-    return encrypted.decode()
-
-
-def decrypt_memory(encrypted_message:str) -> str:
-    password = os.getenv("MEMORY_CODE")
-    key = make_key(password)
-    f = Fernet(key)
-
-    decrypted = f.decrypt(encrypted_message.encode())
-    return decrypted.decode()

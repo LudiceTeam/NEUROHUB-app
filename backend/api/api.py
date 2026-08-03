@@ -1085,7 +1085,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             if user_nano_req <= 0:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
-            encrypted_message = encrypt(req.request)
+            encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
 
             promt_for_video_model = gennerate_promt_for_video_generation(
                 request = str(req.request),
@@ -1141,7 +1141,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-            encrypted_message = encrypt(req.request)
+            encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
 
             promt_for_image_model = generate_promt_for_image_models(
                 request = str(req.request),
@@ -1208,8 +1208,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         else:
             await minus_one_req(user_id)
 
-        encrypted_message = encrypt(req.request)
-        encrypted_response = encrypt(response)
+        encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
+        encrypted_response = encrypt(response,os.getenv("HASH_MESSAGES_KEY"))
 
         await create_message(
             user_id = user_id,
@@ -1403,7 +1403,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
 
 
-            encrypted_message = encrypt(true_request)
+            encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
 
             response_image_url = await AWS_CLIENT.upload_file(
                     file_path = str(uuid.uuid4()) + ".jpg",
@@ -1441,7 +1441,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             if user_nano_req <= 0:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-            encrypted_message = encrypt(true_request)
+            encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
 
             promt_for_video_model = gennerate_promt_for_video_generation(
                 request = str(true_request),
@@ -1501,9 +1501,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             await minus_one_req(user_id)
 
 
-        encrypted_message = encrypt(true_request)
+        encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
 
-        encrypted_response = encrypt(response)
+        encrypted_response = encrypt(response,os.getenv("HASH_MESSAGES_KEY"))
 
         await create_message(
             user_id = user_id,

@@ -31,7 +31,7 @@ def encode_images_base64(images:List[str]) -> List[str]:
     new_coded_list = []
 
     for image in images:
-        coded_image = encrypt(image)
+        coded_image = encrypt(image,os.getenv("HASH_MESSAGES_KEY"))
         new_coded_list.append(coded_image)
 
     return new_coded_list
@@ -42,7 +42,7 @@ def decode_images_list_base64(images:List[str]) -> List[str]:
     new_decoded_list = []
 
     for image in images:
-        decoded_image = decrypt(image)
+        decoded_image = decrypt(image,os.getenv("HASH_MESSAGES_KEY"))
         new_decoded_list.append(decoded_image)
 
     return new_decoded_list
@@ -61,7 +61,7 @@ async def create_message(user_id:str,chat_id:str,message:str | None,response:str
                     message_text = message,
                     response = response,
                     image_message = encode_images_base64(image) if image is not None else None,
-                    image_response = encrypt(image_response) if image_response is not None else None,
+                    image_response = encrypt(image_response,os.getenv("HASH_MESSAGES_KEY")) if image_response is not None else None,
                     created_at = datetime.now(timezone.utc),
                     model_name = model_name
                 )
@@ -110,8 +110,8 @@ async def get_chat_messages_2(chat_id:str) -> List[dict]:
             for message_block in data:
 
                 result.append({
-                    "message_text" : decrypt(message_block["message_text"]),
-                    "response" : decrypt(message_block["response"])
+                    "message_text" : decrypt(message_block["message_text"],os.getenv("HASH_MESSAGES_KEY")),
+                    "response" : decrypt(message_block["response"],os.getenv("HASH_MESSAGES_KEY"))
                 })
             return result
         except Exception:
@@ -137,7 +137,7 @@ async def get_chat_first_message(chat_id:str) -> str:
             data = res.scalar_one_or_none()
 
             if data is not None:
-                decoded_message = decrypt(data)
+                decoded_message = decrypt(data,os.getenv("HASH_MESSAGES_KEY"))
                 if len(decoded_message) > 14:
                     result = decoded_message[:14] + "..."
                     return result.capitalize()
@@ -158,10 +158,10 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
             for msg,resp,image_mes,image_resp,model in data:
                 result.append(
                     {
-                        "message" : decrypt(msg) if msg is not None else None,
-                        "response": decrypt(resp) if resp is not None else None,
+                        "message" : decrypt(msg,os.getenv("HASH_MESSAGES_KEY")) if msg is not None else None,
+                        "response": decrypt(resp,os.getenv("HASH_MESSAGES_KEY")) if resp is not None else None,
                         "image_message" : decode_images_list_base64(image_mes) if image_mes is not None else None,
-                        "image_response" : decrypt(image_resp) if image_resp is not None else None,
+                        "image_response" : decrypt(image_resp,os.getenv("HASH_MESSAGES_KEY")) if image_resp is not None else None,
                         "model" : model
                     }
                 )
