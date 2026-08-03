@@ -11,7 +11,6 @@ from sqlalchemy import select,func
 from sqlalchemy.dialects.postgresql import insert
 from backend.api.config import database_url,async_engine
 from datetime import datetime,timezone,timedelta
-from backend.api.psw_hash import encrypt_memory,decrypt_memory
 
 logger = logging.getLogger(__name__)
 
