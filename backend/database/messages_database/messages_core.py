@@ -219,7 +219,7 @@ async def get_today_models_usage(user_id: str, model_name: str) -> int:
             logger.exception("MESSAGES SQL ERROR")
             return 0
 
-# this is for video generation
+
 async def update_image_response_url(message_id:str,new_url:str):
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
