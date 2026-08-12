@@ -1997,7 +1997,7 @@ async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(g
 
         seen:bool = False
         for sub_type in SUBSCRIPTIONS.keys():
-            if "veora_" + sub_type == req.product_id:
+            if os.getenv("SUB_FIRST") + sub_type == req.product_id:
                 seen = True
 
         if not seen:
@@ -2138,7 +2138,7 @@ async def apple_notification(req:AppleNotificationRequest,user_data:dict = Depen
                         email = await get_user_email_by_user_id(user_id)
                         seen:bool = False
                         for sub_type in SUBSCRIPTIONS.keys():
-                            if "com.sergeyvinogradov.veora." + sub_type == product_id:
+                            if os.getenv("SUB_FIRST") + sub_type == product_id:
                                 seen = True
 
                         if not seen:
