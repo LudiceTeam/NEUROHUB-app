@@ -59,4 +59,31 @@ async def get_user_custom_gpts_ids (user_id:str) -> List[str]:
             return []
 
 async def change_gpt_name(gpt_id:str,new_name:str):
-    pass
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = custom_table.update().where(
+                    custom_table.c.gpt_id == gpt_id
+                ).values(
+                    gpt_name = new_name
+                )
+                await conn.execute(stmt)
+                return
+            except Exception:
+                logger.exception("CUSTOM GPT SQL ERROR")
+                return
+
+async def change_gpt_promt(gpt_id:str,new_promt:str):
+     async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = custom_table.update().where(
+                    custom_table.c.gpt_id == gpt_id
+                ).values(
+                    gpt_promt = new_promt
+                )
+                await conn.execute(stmt)
+                return
+            except Exception:
+                logger.exception("CUSTOM GPT SQL ERROR")
+                return
