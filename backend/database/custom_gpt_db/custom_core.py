@@ -16,7 +16,7 @@ from backend.api.config import async_engine
 logger = logging.getLogger(__name__)
 
 
-
+CUSTOM_GPT_ENCODE_KEY = os.getenv("CUSTOM_GPT_ENCODE")
 
 async def drop_table():
     async with async_engine.begin() as conn:
@@ -25,3 +25,21 @@ async def drop_table():
 async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
+
+
+async def create_custom_gpt(user_id:str,gpt_name:str,gpt_promt:str) -> str:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                gpt_id = str(uuid.uuid4())
+                stmt = custom_table.insert().values(
+                    user_id = user_id,
+                    gpt_id = gpt_id,
+                    gpt_promt = encrypt(gpt_promt,CUSTOM_GPT_ENCODE_KEY),
+                    gpt_name = encrypt(gpt_name,CUSTOM_GPT_ENCODE_KEY),
+                )
+                await conn.execute(stmt)
+                return gpt_id
+            except Exception:
+                logger.exception("CUSTOM GPT SQL ERROR")
+                return ""
