@@ -87,3 +87,14 @@ async def change_gpt_promt(gpt_id:str,new_promt:str):
             except Exception:
                 logger.exception("CUSTOM GPT SQL ERROR")
                 return
+async def delete_gpt(gpt_id:str):
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = custom_table.delete().where(
+                custom_table.c.gpt_id == gpt_id
+            )
+            await conn.execute(stmt)
+            return
+        except Exception:
+            logger.exception("CUSTOM GPT SQL ERROR")
+            return
