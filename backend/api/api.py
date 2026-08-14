@@ -1937,7 +1937,8 @@ class Validate(BaseModel):
 @app.post("/billing/apple/validate")
 @limiter.limit("20/minute")
 async def apple_validate(request:Request,req:Validate,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
-
+    print("APPLE_ENV:", os.getenv("APPLE_ENV"))
+    print("TRANSACTION_ID:", req.transaction_id)
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
     try:
