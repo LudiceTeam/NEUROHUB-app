@@ -3344,6 +3344,46 @@ async def delete_link_handler(
 
 
 
+class CreateCustomGPT(BaseModel):
+    gpt_name:str
+    gpt_promt:str
+
+@app.post("/custom_gpt/create")
+@limiter.limit("20/minute")
+async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+        gpt_id = await create_custom_gpt(
+            user_id = user_id,
+            gpt_name = req.gpt_name,
+            gpt_promt = req.gpt_promt
+        )
+
+        return {
+            "status":"ok",
+            "custom_gpt_id":gpt_id
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+    
 
 
 
