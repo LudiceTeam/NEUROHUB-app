@@ -45,7 +45,7 @@ async def create_custom_gpt(user_id:str,gpt_name:str,gpt_promt:str) -> str:
                 return ""
 
 
-async def get_user_custom_gpts_ids (user_id:str) -> List[str]:
+async def get_user_custom_gpts_ids(user_id:str) -> List[str]:
     async with AsyncSession(async_engine) as conn:
         try:
             stmt = select(custom_table.c.gpt_id).where(
