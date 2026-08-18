@@ -3383,7 +3383,8 @@ async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_dat
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
-    
+
+@app.get("/custom_gpt/get")
 
 
 
