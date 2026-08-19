@@ -3386,7 +3386,7 @@ async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_dat
 
 @app.get("/custom_gpt/get")
 @limiter.limit("20/minute")
-async def get_user_custom_gpts_handler(request:Request):
+async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(get_current_user),x_siganture:str = Header(...),x_timestamp:str = Header(...)):
     pass
 
 
