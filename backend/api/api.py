@@ -3386,8 +3386,37 @@ async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_dat
 
 @app.get("/custom_gpt/get")
 @limiter.limit("20/minute")
-async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(get_current_user),x_siganture:str = Header(...),x_timestamp:str = Header(...)):
-    pass
+async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+
+        user_gpts = await get_user_custom_gpts_ids(
+            user_id = user_id
+        )
+
+        return {
+            "result" : user_gpts
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+
 
 
 
