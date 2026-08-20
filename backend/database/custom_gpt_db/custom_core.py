@@ -98,3 +98,4 @@ async def delete_gpt(gpt_id:str):
         except Exception:
             logger.exception("CUSTOM GPT SQL ERROR")
             return
+#test this table
