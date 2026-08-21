@@ -40,7 +40,7 @@ from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
 from backend.database.streak_db.streak_core import create_user_streak,plus_one_streak_day,reset_streak,get_user_streak_data
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
-from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts_ids,change_gpt_name,change_gpt_promt,delete_gpt
+from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -3403,7 +3403,7 @@ async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(
                     user_id = user_id
                 )
 
-        user_gpts = await get_user_custom_gpts_ids(
+        user_gpts = await get_user_custom_gpts(
             user_id = user_id
         )
 
@@ -3417,6 +3417,25 @@ async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
 
+class ChangeGptSettings(BaseModel):
+    gpt_name:Optional[str]
+    gpt_promt:Optional[str]
+
+
+@app.post("/custom_gpt/settings/change")
+@limiter.limit("20/minute")
+async def change_custom_gpt_setting(request:Request,req:ChangeGptSettings,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+            raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+        pass
+    except HTTPException:
+            raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
 
 
 

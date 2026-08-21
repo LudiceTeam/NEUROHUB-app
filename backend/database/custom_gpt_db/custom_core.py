@@ -45,14 +45,14 @@ async def create_custom_gpt(user_id:str,gpt_name:str,gpt_promt:str) -> str:
                 return ""
 
 
-async def get_user_custom_gpts_ids(user_id:str) -> List[str]:
+async def get_user_custom_gpts(user_id:str) -> List:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = select(custom_table.c.gpt_id).where(
+            stmt = select(custom_table.c.gpt_id,custom_table.c.gpt_name,custom_table.c.gpt_promt).where(
                 custom_table.c.user_id == user_id
             )
             res = await conn.execute(stmt)
-            data = res.scalars().all()
+            data = res.mappings().all()
             return data
         except Exception:
             logger.exception("CUSTOM GPT SQL ERROR")
