@@ -3418,6 +3418,7 @@ async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(
     
 
 class ChangeGptSettings(BaseModel):
+    gpt_id:str
     gpt_name:Optional[str]
     gpt_promt:Optional[str]
 
@@ -3429,9 +3430,36 @@ async def change_custom_gpt_setting(request:Request,req:ChangeGptSettings,user_d
             raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
-        pass
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+
+        if req.gpt_name:
+            await change_gpt_name(
+                gpt_id = req.gpt_id,
+                new_name = req.gpt_name,
+            )
+        if req.gpt_promt:
+            await change_gpt_promt(
+                gpt_id = req.gpt_id,
+                new_promt = req.gpt_promt,
+            )
+
+        return {
+            "message" : "ok"
+        }
+        
     except HTTPException:
-            raise
+        raise
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
