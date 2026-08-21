@@ -40,7 +40,7 @@ from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
 from backend.database.streak_db.streak_core import create_user_streak,plus_one_streak_day,reset_streak,get_user_streak_data
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
-from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt
+from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -3384,6 +3384,8 @@ async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_dat
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+CUSTOM_GPT_ENCODE_KEY = os.getenv("CUSTOM_GPT_ENCODE")
+
 @app.get("/custom_gpt/get")
 @limiter.limit("20/minute")
 async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
@@ -3407,8 +3409,18 @@ async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(
             user_id = user_id
         )
 
+        result = []
+
+        for gpt in user_gpts:
+            result.append({
+                "gpt_id": gpt["gpt_id"],
+                "gpt_promt": decrypt(gpt["gpt_promt"], CUSTOM_GPT_ENCODE_KEY),
+                "gpt_name": decrypt(gpt["gpt_name"], CUSTOM_GPT_ENCODE_KEY),
+            })
+
+
         return {
-            "result" : user_gpts
+            "result" : result
         }
     except HTTPException:
         raise
@@ -3427,7 +3439,7 @@ class ChangeGptSettings(BaseModel):
 @limiter.limit("20/minute")
 async def change_custom_gpt_setting(request:Request,req:ChangeGptSettings,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
-            raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
         user_id = user_data["user_id"]
@@ -3466,7 +3478,37 @@ async def change_custom_gpt_setting(request:Request,req:ChangeGptSettings,user_d
         
 
 
+class GptID(BaseModel):
+    gpt_id:str
 
+@app.delete("/custom_gpt/delete")
+@limiter.limit("20/minute")
+async def delete_custom_gpt_handler(request:Request,req:GptID,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+            raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+
+    try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
+    
 
 # --- RUN ---
 

@@ -98,4 +98,16 @@ async def delete_gpt(gpt_id:str):
         except Exception:
             logger.exception("CUSTOM GPT SQL ERROR")
             return
-#test this table
+
+async def get_custom_gpts_ids(user_id:str) -> List[str]:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(custom_table.c.gpt_id).where(
+                custom_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            data = res.scalars().all()
+            return data
+        except Exception:
+            logger.exception("CUSTOM GPT SQL ERROR")
+            return
