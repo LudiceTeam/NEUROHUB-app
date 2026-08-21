@@ -3431,8 +3431,8 @@ async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(
 
 class ChangeGptSettings(BaseModel):
     gpt_id:str
-    gpt_name:Optional[str]
-    gpt_promt:Optional[str]
+    gpt_name:Optional[str] = None
+    gpt_promt:Optional[str] = None
 
 
 @app.post("/custom_gpt/settings/change")
@@ -3454,6 +3454,16 @@ async def change_custom_gpt_setting(request:Request,req:ChangeGptSettings,user_d
                 await unban_user(
                     user_id = user_id
                 )
+
+        user_gpt_ids = await get_custom_gpts_ids(
+            user_id = user_id
+        )
+
+        if req.gpt_id not in user_gpt_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="GPT not found"
+            )
 
         if req.gpt_name:
             await change_gpt_name(
@@ -3500,7 +3510,21 @@ async def delete_custom_gpt_handler(request:Request,req:GptID,user_data:dict = D
                 await unban_user(
                     user_id = user_id
                 )
+        user_gpt_ids = await get_custom_gpts_ids(
+            user_id = user_id
+        )
 
+        if req.gpt_id not in user_gpt_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="GPT not found"
+            )
+        await delete_gpt(
+            gpt_id = req.gpt_id
+        )
+        return {
+            "message" : "ok"
+        }
         
     except HTTPException:
         raise
