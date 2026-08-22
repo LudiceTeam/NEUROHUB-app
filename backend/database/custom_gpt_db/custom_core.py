@@ -111,3 +111,6 @@ async def get_custom_gpts_ids(user_id:str) -> List[str]:
         except Exception:
             logger.exception("CUSTOM GPT SQL ERROR")
             return
+
+async def get_gpt_settings(gpt_id:str) -> Dict[str,str]:
+    pass
