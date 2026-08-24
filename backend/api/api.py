@@ -234,7 +234,7 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
 
 
 APPLE_ISSUER = os.getenv("APPLE_ISSUER")
-APPLE_AUDIENCE = os.getenv("APPLE_AUDIENCE")
+APPLE_AUDIENCE = os.getenv("APPLE_BUNDLE_ID")
 
 
 class AuthApple(BaseModel):
