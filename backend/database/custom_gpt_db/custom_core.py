@@ -112,5 +112,18 @@ async def get_custom_gpts_ids(user_id:str) -> List[str]:
             logger.exception("CUSTOM GPT SQL ERROR")
             return
 
-async def get_gpt_settings(gpt_id:str) -> Dict[str,str]:
-    pass
+async def get_gpt_settings(gpt_id:str) -> Dict | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(
+                custom_table.c.gpt_name,
+                custom_table.c.gpt_promt
+            ).where(
+                custom_table.c.gpt_id == gpt_id
+            )
+            res = await conn.execute(stmt)
+            data = res.mappings().first()
+            return data if data is not None else None
+        except Exception:
+            logger.exception("CUSTOM SQL ERROR")
+            return {}
