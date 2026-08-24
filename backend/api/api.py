@@ -40,7 +40,8 @@ from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
 from backend.database.streak_db.streak_core import create_user_streak,plus_one_streak_day,reset_streak,get_user_streak_data
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
-from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids
+from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
+from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -79,6 +80,13 @@ AWS_CLIENT = S3Client(
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_ID_SITE = os.getenv("GOOGLE_CLIENT_ID_SITE")
+
+
+
+CUSTOM_GPT_ENCODE_KEY = os.getenv("CUSTOM_GPT_ENCODE")
+
+
+
 app = FastAPI()
 
 limiter = Limiter(key_func=get_remote_address)
@@ -996,6 +1004,9 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         #print(f"OpenAI SDK error: {e}")
         logger.exception("OpenAI SDK error")
         return "Some error happened. Try again."
+
+async def get_user_custom_model_promt(user_id:str) -> str | None:
+    pass
 
 
 class AskText(BaseModel):
@@ -3384,7 +3395,6 @@ async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_dat
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-CUSTOM_GPT_ENCODE_KEY = os.getenv("CUSTOM_GPT_ENCODE")
 
 @app.get("/custom_gpt/get")
 @limiter.limit("20/minute")
@@ -3495,7 +3505,7 @@ class GptID(BaseModel):
 @limiter.limit("20/minute")
 async def delete_custom_gpt_handler(request:Request,req:GptID,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
-            raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     try:
         user_id = user_data["user_id"]
@@ -3532,7 +3542,47 @@ async def delete_custom_gpt_handler(request:Request,req:GptID,user_data:dict = D
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         
+@app.post("/custom_gpt/select")
+@limiter.limit("20/minute") 
+async def select_user_custom_gpt_handler(request:Request,req:GptID,user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature(req.model_dump(),x_signature,x_timestamp):
+            raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
     
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+        user_gpt_ids = await get_custom_gpts_ids(
+            user_id = user_id
+        )
+
+        if req.gpt_id not in user_gpt_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="GPT not found"
+            )
+        await select_user_custom_gpt(
+            user_id = user_id,
+            gpt_id = req.gpt_id
+        )
+        return {
+            "message" : "ok"
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+            
+
 
 # --- RUN ---
 
