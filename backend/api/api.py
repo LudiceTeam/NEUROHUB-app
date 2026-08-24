@@ -234,6 +234,7 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
 
 
 APPLE_ISSUER = os.getenv("APPLE_ISSUER")
+APPLE_KEYS_URL = os.getenv("APPLE_KEYS_URL")
 APPLE_AUDIENCE = os.getenv("APPLE_BUNDLE_ID")
 
 
@@ -249,7 +250,7 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
         raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(APPLE_AUDIENCE) as resp:
+        async with session.get(APPLE_KEYS_URL) as resp:
             json_data = await resp.json()
             try:
 
