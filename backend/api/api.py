@@ -1006,8 +1006,20 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
         logger.exception("OpenAI SDK error")
         return "Some error happened. Try again."
 
+
+
 async def get_user_custom_model_promt(user_id:str) -> str | None:
-    pass
+    user_gpt_id = await get_user_gpt(
+        user_id = user_id
+    )
+    if user_gpt_id is not None:
+        gpt_details = await get_gpt_settings(
+            gpt_id = user_gpt_id
+        )
+        decoded_promt = decrypt(gpt_details["gpt_promt"],CUSTOM_GPT_ENCODE_KEY)
+        return decoded_promt
+    else:
+        return None
 
 
 class AskText(BaseModel):
@@ -1069,10 +1081,15 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             user_id = user_id
         )
 
+        user_custom_gpt_promt = await get_user_custom_model_promt(
+            user_id = user_id
+        )
+
         promt = generate_main_promt(
             current_chat_messages = current_chat_messages,
             user_facts = user_facts,
-            current_message = str(req.request)
+            current_message = str(req.request),
+            custom_model_prompt = user_custom_gpt_promt
         )
         
 
@@ -1158,7 +1175,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
             promt_for_image_model = generate_promt_for_image_models(
                 request = str(req.request),
-                current_chat_messages = current_chat_messages
+                current_chat_messages = current_chat_messages,
+                custom_model_prompt = user_custom_gpt_promt
             )
 
             response = await ask_chat_gpt(promt_for_image_model,user_model)
@@ -1388,10 +1406,15 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             user_id = user_id
         )
 
+        user_custom_gpt_promt = await get_user_custom_model_promt(
+            user_id = user_id
+        )
+
         promt = generate_main_promt(
             current_chat_messages = current_chat_messages,
             user_facts = user_facts,
-            current_message = true_request
+            current_message = true_request,
+            custom_model_prompt = user_custom_gpt_promt
         )
                 
         
@@ -1405,7 +1428,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             promt_for_image_model = generate_promt_for_image_models(
                 request = true_request,
-                current_chat_messages = current_chat_messages
+                current_chat_messages = current_chat_messages,
+                custom_model_prompt = user_custom_gpt_promt
             )
 
             response = await ask_chat_gpt([promt_for_image_model,image_base64_list],user_model)
@@ -1458,7 +1482,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             promt_for_video_model = gennerate_promt_for_video_generation(
                 request = str(true_request),
-                current_chat_messages = current_chat_messages
+                current_chat_messages = current_chat_messages,
+                custom_model_prompt = user_custom_gpt_promt
             )
 
             task_id = str(uuid.uuid4())

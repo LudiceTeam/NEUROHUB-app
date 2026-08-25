@@ -52,7 +52,7 @@ async def get_user_gpt(user_id:str) -> str | None:
             )
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
-            return str(data) if data is not None else ""
+            return str(data) if data is not None else None
         except Exception:
             logger.exception("SELECT CUSTOM GPT ERROR")
             return None

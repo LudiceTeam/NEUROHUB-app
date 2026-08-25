@@ -4,6 +4,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import os
 from typing import List
+#from backend.database.custom_gpt_select_db.select_core import get_user_gpt
+#from backend.database.custom_gpt_db.custom_core import get_gpt_settings
+#from backend.api.psw_hash import decrypt
 
 
 load_dotenv()
@@ -156,9 +159,33 @@ video_generation_models = [
     "google/veo-3.1-fast"
 ]
 
-def generate_promt_for_image_models(request:str,current_chat_messages:List) -> str:
+
+
+
+
+def generate_promt_for_image_models(
+    request: str,
+    current_chat_messages: List,
+    custom_model_prompt: str | None = None
+) -> str:
+
+    custom_role = ""
+
+    if custom_model_prompt:
+        custom_role = f"""
+====================
+CUSTOM MODEL ROLE:
+{custom_model_prompt}
+====================
+
+Follow this custom role/instruction while generating the image,
+unless it conflicts with higher-priority safety rules.
+"""
+
     prompt = f"""
 You are an advanced AI image generation model.
+
+{custom_role}
 
 Generate a real image based on the user's request and conversation context.
 
@@ -178,11 +205,33 @@ Rules:
 - Do not return a text description.
 - Generate only the image.
 """
+
     return prompt
 
-def gennerate_promt_for_video_generation(request:str,current_chat_messages:List) -> str:
+
+def gennerate_promt_for_video_generation(
+    request: str,
+    current_chat_messages: List,
+    custom_model_prompt: str | None = None
+) -> str:
+
+    custom_role = ""
+
+    if custom_model_prompt:
+        custom_role = f"""
+====================
+CUSTOM MODEL ROLE:
+{custom_model_prompt}
+====================
+
+Follow this custom role/instruction while generating the video,
+unless it conflicts with higher-priority safety rules.
+"""
+
     prompt = f"""
 You are an advanced AI video generation model.
+
+{custom_role}
 
 Generate a high-quality cinematic video based on the user's request and conversation context.
 
@@ -196,37 +245,41 @@ Rules:
 - Generate the actual video, not a rewritten prompt.
 - Maintain visual consistency with previous messages if needed.
 - Preserve characters, appearance, clothing, environments, colors, mood, and scene continuity from the conversation.
-- Automatically choose appropriate:
-  - camera movement
-  - cinematic composition
-  - scene transitions
-  - lighting
-  - motion dynamics
-  - depth
-  - visual effects
-  - animation timing
-  - atmosphere
-  - textures
-  - realism level
-- If the user implies a style (realistic, anime, cyberpunk, retro, cinematic, VHS, minimalist, 3D render, claymation, sci-fi, fantasy, etc.), apply it naturally.
-- Add natural motion to all subjects and environments.
-- Make movements smooth, physically believable, and visually coherent.
-- Characters should have realistic facial expressions, eye movement, body motion, and interaction with the environment.
-- Camera motion should feel professional and cinematic unless the user requests otherwise.
-- If the request involves action, make the motion dynamic and impactful.
-- If the request is calm or emotional, make motion subtle and atmospheric.
+- Automatically choose appropriate camera movement, composition, lighting, motion, atmosphere and realism.
 - Maintain temporal consistency between frames.
 - Avoid flickering, distortion, unstable anatomy, or inconsistent objects.
 - Do not explain anything.
 - Do not return a text description.
 - Generate only the video.
 """
+
     return prompt
+ 
 
 
-def generate_main_promt(current_chat_messages:List,user_facts:str,current_message:str) -> str:
+def generate_main_promt(
+    current_chat_messages: List,
+    user_facts: str,
+    current_message: str,
+    custom_model_prompt: str | None = None
+) -> str:
+
+    custom_role = ""
+
+    if custom_model_prompt:
+        custom_role = f"""
+====================
+CUSTOM MODEL ROLE:
+{custom_model_prompt}
+====================
+
+Follow the custom model role above when answering the user.
+"""
+
     promt = f"""
 You are a smart AI assistant inside an application. Your task is to help the user as accurately, usefully, and safely as possible, taking into account the conversation context.
+
+{custom_role}
 
 ====================
 CONVERSATION CONTEXT:
@@ -237,8 +290,6 @@ CONVERSATION CONTEXT:
 MAIN FACTS ABOUT USER:
 {user_facts}
 ====================
-
-
 
 CURRENT USER MESSAGE:
 {current_message}
@@ -277,7 +328,6 @@ RULES:
 
 7. SAFETY:
 - Do not assist with harmful or illegal activities.
-- If the request is suspicious — refuse politely.
 
 ====================
 
@@ -286,4 +336,5 @@ Answer the user's current message as helpfully, accurately, and context-aware as
 
 ANSWER:
 """
+
     return promt
