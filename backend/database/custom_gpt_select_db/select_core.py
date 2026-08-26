@@ -56,3 +56,4 @@ async def get_user_gpt(user_id:str) -> str | None:
         except Exception:
             logger.exception("SELECT CUSTOM GPT ERROR")
             return None
+#write some tests here
