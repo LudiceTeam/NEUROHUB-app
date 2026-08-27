@@ -3607,7 +3607,12 @@ async def select_user_custom_gpt_handler(request:Request,req:GptID,user_data:dic
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-            
+
+
+@app.get("/voice_to_text")
+@limiter.limiter("20/minute")
+async def voice_to_text(request:Request):
+    pass
 
 
 # --- RUN ---
