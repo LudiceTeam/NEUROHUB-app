@@ -1070,6 +1070,13 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         if req.chat_id is None:
             chat_id = await create_chat(user_id)
+        else:
+            user_chats = await get_user_chats(user_id)
+            
+            if req.chat_id not in user_chats:
+                return {
+                    "message":"error"
+                }
 
 
         current_chat_messages = await get_chat_messages_2(
@@ -1329,6 +1336,13 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         if chat_id_form is None:
             chat_id:str = await create_chat(user_id)
+        else:
+            user_chats = await get_user_chats(user_id)
+            
+            if chat_id_form not in user_chats:
+                return {
+                    "message":"error"
+                }
 
 
         user_model = await get_user_model_name(user_id)
