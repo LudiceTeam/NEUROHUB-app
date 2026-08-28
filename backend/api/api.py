@@ -60,7 +60,7 @@ from datetime import datetime,timezone
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import tempfile
 from rq import Queue
-
+import magic
 
 logger = logging.getLogger(__name__)
 
@@ -3609,10 +3609,99 @@ async def select_user_custom_gpt_handler(request:Request,req:GptID,user_data:dic
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-@app.get("/voice_to_text")
-@limiter.limiter("20/minute")
-async def voice_to_text(request:Request):
-    pass
+ALLOWED_AUDIO_CONTENT_TYPES = {
+    "audio/mpeg": "mp3",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/webm": "webm",
+}
+
+
+async def transcribe_voice_to_text(file_data:bytes,file_format:str) -> str:
+    audio_base64 = base64.b64encode(
+        file_data
+    ).decode("utf-8")
+
+    payload = {
+        "model": "openai/whisper-large-v3",
+        "input_audio": {
+            "data": audio_base64,
+            "format": file_format
+        }
+    }
+
+    headers = {
+        "Authorization": f"Bearer {OPEN_AI_KEY}",
+        "Content-Type": "application/json"
+    }
+    timeout = aiohttp.ClientTimeout(total=60)
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(
+            "https://openrouter.ai/api/v1/audio/transcriptions",
+            json=payload,
+            headers=headers
+        ) as response:
+
+            if response.status != 200:
+                error = await response.text()
+                raise Exception(
+                    f"OpenRouter STT error: {error}"
+                )
+
+            data = await response.json()
+
+            return data["text"]
+
+
+MAX_AUDIO_SIZE = 15 * 1024 * 1024
+
+@app.post("/voice_to_text")
+@limiter.limit("20/minute")
+async def voice_to_text(request:Request,user_data:dict = Depends(get_current_user),audio: UploadFile = File(...),x_signature:str = Header(...),x_timestamp:str = Header(...)):
+    if not await verify_signature({"user_id":user_data["user_id"]},x_signature,x_timestamp):
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED,detail = "Invalid signature")
+    try:
+        file_data = await audio.read(MAX_AUDIO_SIZE + 1)
+        if len(file_data) > MAX_AUDIO_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Audio file too large"
+            )
+        if not file_data:
+            raise HTTPException(
+                status_code=400,
+                detail="Audio file is empty"
+            )
+        
+        mime = magic.from_buffer(file_data[:8192], mime=True)
+
+        if mime not in ALLOWED_AUDIO_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported audio format: {mime}"
+            )
+
+        
+        file_format = ALLOWED_AUDIO_CONTENT_TYPES[mime]
+
+        result_text = await transcribe_voice_to_text(
+            file_data = file_data,
+            file_format = file_format
+        )
+        return {
+            "result" : result_text
+        }
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+
 
 
 # --- RUN ---
