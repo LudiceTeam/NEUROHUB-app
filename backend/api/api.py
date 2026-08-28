@@ -3691,7 +3691,6 @@ async def voice_to_text(request:Request,user_data:dict = Depends(get_current_use
             file_data = file_data,
             file_format = file_format
         )
-        print(result_text)
         return {
             "result" : result_text
         }
