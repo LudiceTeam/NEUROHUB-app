@@ -1378,10 +1378,12 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         image_bytes_sum = 0
 
         for image in image_list:
-            if image.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
-                raise HTTPException(status_code=400, detail="Unsupported file type")
-
+            
             image_bytes = await image.read(MAX_IMAGE_SIZE + 1)
+
+            mime = magic.from_buffer(image_bytes[:8192], mime=True)
+            if mime not in ALLOWED_IMAGE_CONTENT_TYPES:
+                raise HTTPException(status_code=400, detail="Unsupported file type")
 
             if len(image_bytes) > MAX_IMAGE_SIZE:
                 raise HTTPException(status_code=413, detail="Image too large")
@@ -2294,12 +2296,24 @@ async def translate_handler(request:Request,req:TranslateText,user_data:dict = D
 
 #holowknight540@gmail.com
 
+
+ALLOWED_IMAGE_CONTENT_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/bmp",
+    "image/tiff",
+    "image/heic",
+    "image/heif",
+    "image/avif",
+]
+
 @app.post("/change_avatar")
 @limiter.limit("20/minute")
 async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),user_data:dict = Depends(get_current_user),x_signature:str = Header(...),x_timestamp:str = Header(...)):
     data_to_verify = {
         "filename":avatar.filename,
-        "content_type":avatar.content_type,
         "user_id":user_data["user_id"]
     }
     if not await verify_signature(data_to_verify,x_signature,x_timestamp):
@@ -2328,8 +2342,10 @@ async def change_avatar_handler(request:Request,avatar:UploadFile = File(...),us
                     detail="Image too large"
                 )
 
-        if avatar.content_type not in ["image/jpeg", "image/png", "image/webp","image/jpg"]:
 
+        mime = magic.from_buffer(file_bytes[:8192], mime=True)
+
+        if mime not in ALLOWED_IMAGE_CONTENT_TYPES:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Unsupported file type"
