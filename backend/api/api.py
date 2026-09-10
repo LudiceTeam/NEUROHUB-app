@@ -225,6 +225,11 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
             refresh_token
         )
 
+    await send_new_login(
+        device_name = req.device_name,
+        email = email,
+    )
+
     return {
         "user_id":user_id_main,
         "access_token":acces_token,
@@ -387,6 +392,10 @@ async def auth_apple_handler(request:Request,req:AuthApple,x_signature:str = Hea
             req.device_id,
             refresh_token
         )
+    await send_new_login(
+        device_name = req.device_name,
+        email = email,
+    )
 
     return {
         "user_id":user_id_main,
@@ -609,6 +618,11 @@ async def check_code_router(request:Request,req:Verify_Code,x_signature:str = He
                 req.device_id,
                 refresh_token
             )
+
+        await send_new_login(
+            device_name = req.device_name,
+            email = req.email,
+        )
 
         return {
             "user_id":user_id_main,
