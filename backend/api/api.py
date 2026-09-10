@@ -233,6 +233,71 @@ async def auth_google_handler(request:Request,req:AuthGoogle,x_signature:str = H
     }
 
 
+async def send_new_login(device_name:str,email:str):
+    url =  "https://api.resend.com/emails"
+    headers = {
+            "Authorization": f"Bearer {os.getenv('EMAIL_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+
+    payload = {
+        "from": os.getenv("EMAIL_FROM"),
+        "to": [email],
+        "subject": "VEORA New Login Detected ",
+        "html": f"""
+        <div style="font-family: Arial, sans-serif; background-color:#f5f5f5; padding:40px; color:#111111;"> <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:12px; padding:30px; text-align:center; border:1px solid #e5e7eb;">
+
+    <h1 style="color:#111111; letter-spacing:2px;">VEORA</h1>
+
+    <h2 style="margin-top:20px; color:#1f2937;">New Login Detected</h2>
+
+    <p style="color:#4b5563; font-size:16px;">
+        A new login to your VEORA account was detected.
+    </p>
+
+    <div style="
+        margin:30px 0;
+        padding:18px 25px;
+        background:#f9fafb;
+        border-radius:10px;
+        border:1px solid #e5e7eb;
+    ">
+        <p style="margin:0; color:#6b7280; font-size:14px;">
+            Device
+        </p>
+
+        <p style="margin:8px 0 0; color:#111111; font-size:20px; font-weight:bold;">
+            {device_name}
+        </p>
+    </div>
+
+    <p style="color:#6b7280;">
+        If this was you, no action is required.
+    </p>
+
+    <p style="margin-top:20px; color:#9ca3af; font-size:14px;">
+        If you don't recognize this login, we recommend securing your account immediately.
+    </p>
+
+</div>
+
+</div>
+        """
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload, headers=headers) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                raise Exception(f"Ошибка отправки: {text}")
+
+
+
+    
+
+
+
+
 APPLE_ISSUER = os.getenv("APPLE_ISSUER")
 APPLE_KEYS_URL = os.getenv("APPLE_KEYS_URL")
 APPLE_AUDIENCE = os.getenv("APPLE_BUNDLE_ID")
