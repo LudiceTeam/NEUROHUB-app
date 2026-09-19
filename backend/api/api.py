@@ -60,6 +60,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import tempfile
 from rq import Queue
 import magic
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -506,7 +507,7 @@ async def send_code(request:Request,req:AuthWithEmail):
 
         await check_login_limit(req.email)
 
-        code = random.randint(100000,999999)
+        code = secrets.randbelow(900000) + 100000.
         try_create_code = await create_code(req.email,code)
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
@@ -714,8 +715,9 @@ class BanUser(BaseModel):
     days:int
 
 
-@limiter.limit("20/minute")
+
 @app.post("/user/ban")
+@limiter.limit("20/minute")
 async def ban_user_handler(request:Request,req:BanUser,user_data:dict = Depends(get_current_user)):
     try:
         allowed_users = os.getenv("ALLOWED_USERS")
@@ -1848,8 +1850,8 @@ class PinUnpinChat(BaseModel):
 
 
 
-@limiter.limit("20/minute")
 @app.post("/chat/pin")
+@limiter.limit("20/minute")
 async def pin_unpin_chat_handler(request:Request,req:PinUnpinChat,user_data:dict = Depends(get_current_user)):
     
     try:
