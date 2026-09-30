@@ -1,0 +1,127 @@
+export function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === "class") el.className = v;
+    else if (k === "html") el.innerHTML = v;
+    else if (k in el && typeof v !== "string") el[k] = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : String(c));
+  }
+  return el;
+}
+
+export function icon(name) {
+  const paths = {
+    plus: "M12 5v14M5 12h14",
+    send: "M5 12h14M13 6l6 6-6 6",
+    clip: "M21 11.5l-8.6 8.6a5 5 0 01-7.1-7.1l8.6-8.6a3.3 3.3 0 014.7 4.7L10 17.7a1.7 1.7 0 01-2.4-2.4l8-8",
+    dots: "M12 6h.01M12 12h.01M12 18h.01",
+    menu: "M4 6h16M4 12h16M4 18h16",
+    close: "M6 6l12 12M18 6L6 18",
+    pin: "M9 4h6l-1 6 4 4H6l4-4-1-6zM12 14v6",
+  };
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", paths[name]);
+  svg.append(p);
+  return svg;
+}
+
+const ERRORS = {
+  "Doesnt have requests": "You're out of requests for this model. They refill automatically, or upgrade your plan in the app.",
+  "Access denied": "Your account is temporarily restricted.",
+  "Invalid code": "That code isn't right. Check your email and try again.",
+  "Code already sent": "A code was already sent. Check your inbox (and spam).",
+  "Error while generating": "The model couldn't generate a response. Try again or pick another model.",
+  "Invalid model name": "This model isn't available.",
+  "To many photos": "You can attach up to 5 photos.",
+  "Invalid API key": "The site isn't configured with the API key (see frontend/js/config.js).",
+  "Token expired": "Your session expired. Please sign in again.",
+  "Rate limit exceeded": "Too many requests. Wait a minute and try again.",
+};
+
+export function errorText(e) {
+  const msg = e?.message || String(e);
+  for (const [key, text] of Object.entries(ERRORS)) if (msg.includes(key)) return text;
+  if (e?.status === 429) return ERRORS["Rate limit exceeded"];
+  if (e instanceof TypeError) return "Can't reach the server. Check your connection.";
+  return msg;
+}
+
+let toastTimer;
+export function toast(message, kind = "error") {
+  let el = document.querySelector(".toast");
+  if (!el) {
+    el = h("div", { class: "toast", role: "status" });
+    document.body.append(el);
+  }
+  el.textContent = message;
+  el.dataset.kind = kind;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 4000);
+}
+
+export function markdown(text) {
+  const { marked, DOMPurify } = window;
+  if (!marked || !DOMPurify) return h("div", { class: "md" }, h("p", {}, text));
+  const html = DOMPurify.sanitize(marked.parse(text, { breaks: true, gfm: true }));
+  const el = h("div", { class: "md", html });
+  el.querySelectorAll("a").forEach((a) => { a.target = "_blank"; a.rel = "noopener noreferrer"; });
+  el.querySelectorAll("pre").forEach((pre) => {
+    const btn = h("button", { class: "copy", type: "button" }, "Copy");
+    btn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(pre.querySelector("code")?.innerText ?? pre.innerText);
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+    });
+    pre.append(btn);
+  });
+  return el;
+}
+
+// Minimal modal on top of <dialog>. Resolves with the value passed to close(), or null.
+export function modal(title, buildBody, { wide = false } = {}) {
+  return new Promise((resolve) => {
+    const dlg = h("dialog", { class: `modal${wide ? " wide" : ""}` });
+    const close = (value = null) => { dlg.close(); dlg.remove(); resolve(value); };
+    dlg.append(
+      h("header", {},
+        h("h2", {}, title),
+        h("button", { class: "icon-btn", type: "button", "aria-label": "Close", onclick: () => close() }, icon("close"))),
+      buildBody(close),
+    );
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
+    document.body.append(dlg);
+    dlg.showModal();
+  });
+}
+
+export function promptModal(title, { value = "", placeholder = "", confirm = "Save" } = {}) {
+  return modal(title, (close) => {
+    const input = h("input", { class: "input", value, placeholder, maxlength: "120" });
+    const form = h("form", { class: "stack", onsubmit: (e) => { e.preventDefault(); close(input.value.trim() || null); } },
+      input,
+      h("div", { class: "row end" },
+        h("button", { class: "btn ghost", type: "button", onclick: () => close() }, "Cancel"),
+        h("button", { class: "btn primary", type: "submit" }, confirm)));
+    setTimeout(() => { input.focus(); input.select(); });
+    return form;
+  });
+}
+
+export function confirmModal(title, text, { confirm = "Delete", danger = true } = {}) {
+  return modal(title, (close) => h("div", { class: "stack" },
+    h("p", { class: "muted" }, text),
+    h("div", { class: "row end" },
+      h("button", { class: "btn ghost", type: "button", onclick: () => close(false) }, "Cancel"),
+      h("button", { class: `btn ${danger ? "danger" : "primary"}`, type: "button", onclick: () => close(true) }, confirm))));
+}
