@@ -11,19 +11,31 @@ API_URL=http://127.0.0.1:8000 python3 frontend/serve.py   # against a local back
 
 `serve.py` serves the static files and proxies `/api/*` to the backend, because the backend has no CORS middleware.
 
+## API key — `frontend/.env`
+
+`serve.py` adds `X-API-KEY` to every proxied request, so the key never reaches the browser.
+Create `frontend/.env` (git-ignored):
+
+```
+X_API_KEY=<backend X-API-KEY>
+```
+
+It's needed for token refresh, current model, streak and devices.
+
 ## Configure — `js/config.js`
 
 | Key | What |
 | --- | --- |
 | `API_BASE` | `/api` (through the proxy). Use the full API URL only if the backend enables CORS for the site's domain. |
-| `API_KEY` | Backend `X-API-KEY`. Required for token refresh, current model, streak and devices. It ends up public in the browser. |
-| `GOOGLE_CLIENT_ID` | Backend `GOOGLE_CLIENT_ID_SITE`. Empty hides the Google button. The site origin must be allowed in the Google Cloud OAuth client. |
+| `API_KEY` | Leave empty when using the proxy. Anything here is public in the browser. |
+
+Sign-in works by email code only. The Google and Apple buttons are placeholders (`providerButtons` in `js/auth.js`) until the site endpoints exist.
 
 The model list in `config.js` mirrors `backend/api/config.py`. Update both when models change.
 
 ## Features
 
-- Sign in with an email code or Google (`method: "site"`); JWT refresh on `401`
+- Sign in with an email code (Google and Apple buttons are placeholders); JWT refresh on `401`
 - Chats: list, open, rename, pin, delete; new chat is created on the first message
 - Text chat with markdown/code rendering, image attachments (up to 5, 5 MB each, paste or drag & drop)
 - Image generation results; video results from history

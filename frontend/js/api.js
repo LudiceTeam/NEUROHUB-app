@@ -81,13 +81,19 @@ async function request(path, opts = {}) {
   try {
     return await raw(path, opts);
   } catch (e) {
-    const canRefresh = e instanceof ApiError && e.status === 401 && opts.auth !== false && tokens.refresh;
-    if (!canRefresh) throw e;
+    // Only a rejected access token should trigger a refresh; a 401 for a missing
+    // X-API-KEY ("Invalid API key") says nothing about the session.
+    const tokenRejected = e instanceof ApiError && e.status === 401
+      && ["Token expired", "Could not validate credentials"].includes(e.message);
+    if (!tokenRejected || opts.auth === false || !tokens.refresh) throw e;
     try {
       await refreshTokens();
-    } catch {
-      tokens.clear();
-      onLogout();
+    } catch (refreshError) {
+      // Network or server trouble keeps the session; a refused refresh ends it.
+      if (refreshError instanceof ApiError && refreshError.status === 401) {
+        tokens.clear();
+        onLogout();
+      }
       throw e;
     }
     return raw(path, opts);

@@ -6,9 +6,6 @@ export const config = {
   // Value of the backend X-API-KEY env var. Needed for /refresh, /get_model_name,
   // /streak/get and /get/user/devices. Anything here is visible to site visitors.
   API_KEY: "",
-
-  // GOOGLE_CLIENT_ID_SITE from the backend. Leave empty to hide Google sign-in.
-  GOOGLE_CLIENT_ID: "",
 };
 
 // Mirrors backend/api/config.py. Video models are omitted: /change_model rejects them.

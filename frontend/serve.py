@@ -7,17 +7,35 @@ Serves the static files from this folder and proxies every request under
 
     python3 frontend/serve.py                      # proxies to https://api.nexi.center
     API_URL=http://127.0.0.1:8000 python3 frontend/serve.py
+
+Settings can also go in frontend/.env (git-ignored): API_URL, PORT, X_API_KEY.
 """
 import os
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+
+def load_env(path):
+    # Minimal KEY=VALUE reader so frontend/.env works without python-dotenv.
+    if not os.path.exists(path):
+        return
+    for line in open(path):
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+load_env(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
 API_URL = os.getenv("API_URL", "https://api.nexi.center").rstrip("/")
+# Added to every proxied request so the key never has to ship to the browser.
+X_API_KEY = os.getenv("X_API_KEY", "")
 PORT = int(os.getenv("PORT", "5173"))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-FORWARD_HEADERS = ("Authorization", "Content-Type", "X-API-KEY", "Accept")
+FORWARD_HEADERS = ("Authorization", "Content-Type", "Accept")
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -34,6 +52,10 @@ class Handler(SimpleHTTPRequestHandler):
             value = self.headers.get(name)
             if value:
                 req.add_header(name, value)
+        if X_API_KEY:
+            req.add_header("X-API-KEY", X_API_KEY)
+        # Cloudflare in front of the API rejects the default "Python-urllib" agent (error 1010).
+        req.add_header("User-Agent", self.headers.get("User-Agent") or "Mozilla/5.0 VeoraWeb")
 
         try:
             resp = urllib.request.urlopen(req, timeout=300)

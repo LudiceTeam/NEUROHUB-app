@@ -129,7 +129,10 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .brand img { border-radius: 14px; }
 .brand.small { font-size: 17px; gap: 10px; }
 .brand.small img { border-radius: 8px; }
-.google-slot { display: flex; justify-content: center; min-height: 44px; }
+.providers { gap: 10px; }
+.btn.provider { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 500; }
+.provider-icon { display: inline-flex; width: 18px; height: 18px; }
+.provider-icon svg { width: 100%; height: 100%; }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .input.code { font: 600 24px/1 "JetBrains Mono", monospace; letter-spacing: .5em; text-align: center; padding-left: calc(14px + .5em); }

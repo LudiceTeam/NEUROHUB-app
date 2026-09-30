@@ -1,5 +1,4 @@
 import { api, tokens } from "./api.js";
-import { config } from "./config.js";
 import { h, errorText } from "./dom.js";
 
 export function renderLogin(root, onSuccess) {
@@ -37,14 +36,13 @@ export function renderLogin(root, onSuccess) {
       },
     }, h("label", { class: "label" }, "Email", email), submit);
 
-    const google = config.GOOGLE_CLIENT_ID ? googleBlock() : null;
 
     card.replaceChildren(
       h("div", { class: "brand" }, h("img", { src: "logo.png", alt: "", width: "56", height: "56" }), h("span", {}, "Veora")),
       h("h1", {}, "All AI in one place"),
       h("p", { class: "muted" }, "Sign in to chat with 40+ models from OpenAI, Anthropic, Google, Meta and more."),
-      google,
-      google && h("div", { class: "divider" }, h("span", {}, "or")),
+      providerButtons(),
+      h("div", { class: "divider" }, h("span", {}, "or")),
       form,
       error,
     );
@@ -87,37 +85,21 @@ export function renderLogin(root, onSuccess) {
     code.focus();
   }
 
-  function googleBlock() {
-    const slot = h("div", { class: "google-slot" });
-    loadGoogle().then(() => {
-      window.google.accounts.id.initialize({
-        client_id: config.GOOGLE_CLIENT_ID,
-        callback: async ({ credential }) => {
-          showError();
-          try { finish(await api.googleAuth(credential)); } catch (err) { showError(err); }
-        },
-      });
-      const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-      window.google.accounts.id.renderButton(slot, {
-        theme: dark ? "filled_black" : "outline", size: "large", shape: "pill", width: 320, text: "continue_with",
-      });
-    }).catch(() => slot.remove());
-    return slot;
+  // Google / Apple sign-in are placeholders until the site endpoints are ready.
+  // Wire them up by replacing the onclick with the real flow.
+  function providerButtons() {
+    const soon = () => { error.textContent = "Coming soon. Sign in with email for now."; };
+    return h("div", { class: "stack providers" },
+      h("button", { class: "btn block provider", type: "button", onclick: soon },
+        h("span", { class: "provider-icon", html: GOOGLE_SVG }), "Continue with Google"),
+      h("button", { class: "btn block provider", type: "button", onclick: soon },
+        h("span", { class: "provider-icon", html: APPLE_SVG }), "Continue with Apple"),
+    );
   }
 
   root.replaceChildren(h("main", { class: "auth" }, card));
   emailStep();
 }
 
-let googleScript;
-function loadGoogle() {
-  googleScript ??= new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://accounts.google.com/gsi/client";
-    s.async = true;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.append(s);
-  });
-  return googleScript;
-}
+const GOOGLE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.6 10.6 0 0 0 12 1 11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>`;
+const APPLE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.64c-.02-2.2 1.8-3.26 1.88-3.31a4.04 4.04 0 0 0-3.18-1.72c-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.86-.76a4.24 4.24 0 0 0-3.59 2.18c-1.53 2.66-.39 6.59 1.1 8.74.73 1.05 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13a9.4 9.4 0 0 0 1.2-2.47 3.83 3.83 0 0 1-2.3-3.51zM14.2 6.17c.6-.74 1.01-1.76.9-2.78-.87.04-1.93.58-2.55 1.31-.56.64-1.05 1.68-.92 2.68.97.07 1.96-.49 2.57-1.21z"/></svg>`;
