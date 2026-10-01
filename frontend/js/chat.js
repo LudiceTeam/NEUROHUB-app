@@ -1,7 +1,8 @@
 import { api } from "./api.js";
-import { MODEL_GROUPS, PREMIUM_MODELS } from "./config.js";
+import { createModelPicker, modelLabel } from "./model-picker.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
+import { setupSidebar } from "./sidebar.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -25,6 +26,7 @@ export function renderApp(root, logout) {
   const sidebar = h("aside", { class: "sidebar" },
     h("div", { class: "sidebar-top" },
       h("div", { class: "brand small" }, h("img", { src: "logo.png", alt: "", width: "28", height: "28" }), h("span", {}, "Veora")),
+      h("button", { class: "icon-btn only-desktop", type: "button", "aria-label": "Close sidebar", title: "Close sidebar (⌘⇧S)", onclick: () => sidebarCtl.collapse() }, icon("sidebar")),
       h("button", { class: "icon-btn only-mobile", type: "button", "aria-label": "Close menu", onclick: () => toggleSidebar(false) }, icon("close"))),
     h("button", { class: "btn new-chat", type: "button", onclick: newChat }, icon("plus"), "New chat"),
     chatList,
@@ -32,15 +34,15 @@ export function renderApp(root, logout) {
   );
   const scrim = h("div", { class: "scrim", onclick: () => toggleSidebar(false) });
 
-  const modelSelect = h("select", { class: "model-select", "aria-label": "Model", onchange: onModelChange },
-    MODEL_GROUPS.map(([group, list]) => h("optgroup", { label: group },
-      list.map((m) => h("option", { value: m }, modelLabel(m) + (PREMIUM_MODELS.has(m) ? "  ✦" : ""))))));
+  const picker = createModelPicker({ value: state.model, onSelect: onModelChange });
 
   const title = h("div", { class: "chat-title" });
   const header = h("header", { class: "topbar" },
     h("button", { class: "icon-btn only-mobile", type: "button", "aria-label": "Open menu", onclick: () => toggleSidebar(true) }, icon("menu")),
+    h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "Open sidebar", title: "Open sidebar (⌘⇧S)", onclick: () => sidebarCtl.expand() }, icon("sidebar")),
+    h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "New chat", title: "New chat", onclick: newChat }, icon("plus")),
     title,
-    modelSelect);
+    picker.el);
 
   const thread = h("div", { class: "thread", "aria-live": "polite" });
   const scroller = h("div", { class: "scroller" }, thread);
@@ -73,6 +75,7 @@ export function renderApp(root, logout) {
   const main = h("main", { class: "main" }, header, scroller, h("div", { class: "composer-wrap" }, composer, quota));
   const shell = h("div", { class: "shell" }, sidebar, scrim, main);
   root.replaceChildren(shell);
+  const sidebarCtl = setupSidebar(shell);
 
   // Drag & drop images anywhere on the chat.
   main.addEventListener("dragover", (e) => { e.preventDefault(); main.classList.add("dragging"); });
@@ -214,20 +217,16 @@ export function renderApp(root, logout) {
     } catch {
       // Needs X-API-KEY; without it we just keep the default.
     }
-    if (![...modelSelect.options].some((o) => o.value === state.model)) {
-      modelSelect.append(h("option", { value: state.model }, modelLabel(state.model)));
-    }
-    modelSelect.value = state.model;
+    picker.setValue(state.model);
   }
 
-  async function onModelChange() {
-    const prev = state.model;
+  async function onModelChange(id) {
     try {
-      await api.changeModel(modelSelect.value);
-      state.model = modelSelect.value;
+      await api.changeModel(id);
+      state.model = id;
     } catch (e) {
-      modelSelect.value = prev;
       toast(errorText(e));
+      throw e;
     }
   }
 
@@ -376,13 +375,6 @@ function fromHistory(m) {
   if (!m.response && !m.image_response) reply.videoPending = true;
   out.push(reply);
   return out;
-}
-
-export function modelLabel(id) {
-  if (!id) return "";
-  if (id === "auto") return "Auto";
-  const name = id.split("/").pop();
-  return name.replace(/:free$/, " (free)").replace(/-/g, " ").replace(/\b([a-z])/g, (c) => c.toUpperCase());
 }
 
 export function planName(p) {

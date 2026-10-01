@@ -24,6 +24,9 @@ export function icon(name) {
     menu: "M4 6h16M4 12h16M4 18h16",
     close: "M6 6l12 12M18 6L6 18",
     pin: "M9 4h6l-1 6 4 4H6l4-4-1-6zM12 14v6",
+    copy: "M9 9h10v10H9zM5 15V5h10",
+    check: "M5 13l4 4L19 7",
+    sidebar: "M4 5h16v14H4zM9 5v14",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
@@ -70,21 +73,58 @@ export function toast(message, kind = "error") {
   toastTimer = setTimeout(() => el.classList.remove("show"), 4000);
 }
 
+const LANG_NAMES = {
+  js: "JavaScript", javascript: "JavaScript", jsx: "JSX", ts: "TypeScript", typescript: "TypeScript", tsx: "TSX",
+  py: "Python", python: "Python", rb: "Ruby", ruby: "Ruby", go: "Go", golang: "Go", rs: "Rust", rust: "Rust",
+  java: "Java", kt: "Kotlin", kotlin: "Kotlin", swift: "Swift", c: "C", cpp: "C++", "c++": "C++", cs: "C#", csharp: "C#",
+  php: "PHP", sh: "Shell", bash: "Bash", zsh: "Zsh", shell: "Shell", ps1: "PowerShell", powershell: "PowerShell",
+  html: "HTML", xml: "XML", css: "CSS", scss: "SCSS", json: "JSON", yaml: "YAML", yml: "YAML", toml: "TOML",
+  sql: "SQL", md: "Markdown", markdown: "Markdown", dockerfile: "Dockerfile", diff: "Diff", plaintext: "Text", text: "Text",
+};
+
+function languageName(lang) {
+  if (!lang) return "Code";
+  return LANG_NAMES[lang.toLowerCase()] || lang.charAt(0).toUpperCase() + lang.slice(1);
+}
+
+// Wraps a <pre> in a card with a language label and copy button, and highlights it with highlight.js.
+function enhanceCodeBlock(pre) {
+  const code = pre.querySelector("code");
+  if (!code) return;
+  const requested = [...code.classList].find((c) => c.startsWith("language-"))?.slice(9);
+  const { hljs } = window;
+  let lang = requested;
+  if (hljs) {
+    if (requested && !hljs.getLanguage(requested)) code.className = "";
+    hljs.highlightElement(code);
+    // highlight.js adds language-<detected> when it had to guess.
+    lang = requested || [...code.classList].find((c) => c.startsWith("language-"))?.slice(9);
+  }
+
+  const label = h("span", {}, "Copy");
+  const btn = h("button", { class: "code-copy", type: "button", "aria-label": "Copy code" }, icon("copy"), label);
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(code.innerText);
+      btn.replaceChildren(icon("check"), h("span", {}, "Copied"));
+      btn.classList.add("done");
+      setTimeout(() => { btn.replaceChildren(icon("copy"), label); btn.classList.remove("done"); }, 1600);
+    } catch { /* clipboard blocked */ }
+  });
+
+  const block = h("div", { class: "code-block" },
+    h("div", { class: "code-head" }, h("span", { class: "code-lang" }, languageName(lang)), btn));
+  pre.replaceWith(block);
+  block.append(pre);
+}
+
 export function markdown(text) {
   const { marked, DOMPurify } = window;
   if (!marked || !DOMPurify) return h("div", { class: "md" }, h("p", {}, text));
   const html = DOMPurify.sanitize(marked.parse(text, { breaks: true, gfm: true }));
   const el = h("div", { class: "md", html });
   el.querySelectorAll("a").forEach((a) => { a.target = "_blank"; a.rel = "noopener noreferrer"; });
-  el.querySelectorAll("pre").forEach((pre) => {
-    const btn = h("button", { class: "copy", type: "button" }, "Copy");
-    btn.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(pre.querySelector("code")?.innerText ?? pre.innerText);
-      btn.textContent = "Copied";
-      setTimeout(() => { btn.textContent = "Copy"; }, 1500);
-    });
-    pre.append(btn);
-  });
+  el.querySelectorAll("pre").forEach(enhanceCodeBlock);
   return el;
 }
 
