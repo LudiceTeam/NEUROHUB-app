@@ -132,7 +132,7 @@ class AuthGoogle(BaseModel):
 async def auth_google_handler(request:Request,req:AuthGoogle):
 
     try:
-        main_google_client_id = GOOGLE_CLIENT_ID if  req.method == "app" else os.getenv("GOOGLE_CLIENT_ID_SITE")
+        main_google_client_id = GOOGLE_CLIENT_ID_SITE if  req.method == "app" else os.getenv("GOOGLE_CLIENT_ID_SITE")
         idinfo = id_token.verify_oauth2_token(
             req.id_token,
             google_requests.Request(),
