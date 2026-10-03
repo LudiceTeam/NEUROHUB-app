@@ -49,6 +49,8 @@ import openai
 from typing import List,Union,Literal
 import base64
 import re
+import io
+import wave
 from jose.exceptions import ExpiredSignatureError, JWTError
 import uuid
 from appstoreserverlibrary.api_client import APIException
@@ -1065,13 +1067,26 @@ def clean_text_for_speech(text:str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-async def text_to_speech(text:str, tts_model:str) -> bytes:
+def pcm_to_wav(pcm:bytes, sample_rate:int) -> bytes:
+    # Raw 16-bit little-endian mono PCM -> playable WAV file.
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        wav.writeframes(pcm)
+    return buffer.getvalue()
+
+
+async def text_to_speech(text:str, tts_model:str) -> tuple[bytes, str, str]:
+    """Returns (audio bytes, file extension, content type)."""
     settings = tts_models[tts_model]
+    audio_format = settings.get("format", "mp3")
     payload = {
         "model": settings["model"],
         "input": text,
         "voice": settings["voice"],
-        "response_format": "mp3"
+        "response_format": audio_format
     }
     headers = {
         "Authorization": f"Bearer {OPEN_AI_KEY}",
@@ -1089,7 +1104,11 @@ async def text_to_speech(text:str, tts_model:str) -> bytes:
                 raise Exception(
                     f"OpenRouter TTS error: {error}"
                 )
-            return await response.read()
+            audio = await response.read()
+
+    if audio_format == "pcm":
+        return pcm_to_wav(audio, settings["sample_rate"]), "wav", "audio/wav"
+    return audio, "mp3", "audio/mpeg"
 
 
 class AskText(BaseModel):
@@ -1197,15 +1216,15 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
             try:
-                audio_bytes = await text_to_speech(text_to_voice,user_model)
+                audio_bytes, audio_ext, audio_type = await text_to_speech(text_to_voice,user_model)
             except Exception:
                 logger.exception("TTS ERROR")
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
 
             url = await AWS_CLIENT.upload_file(
-                file_path = str(uuid.uuid4()) + ".mp3",
+                file_path = f"{uuid.uuid4()}.{audio_ext}",
                 file_data = audio_bytes,
-                content_type = "audio/mpeg"
+                content_type = audio_type
             )
 
             encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))

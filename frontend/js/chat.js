@@ -392,7 +392,7 @@ function fromHistory(m) {
   if (m.response) reply.text = m.response;
   if (m.image_response) {
     if (/\.mp4(\?|$)/i.test(m.image_response)) reply.video = m.image_response;
-    else if (/\.mp3(\?|$)/i.test(m.image_response)) reply.audio = m.image_response;
+    else if (/\.(mp3|wav)(\?|$)/i.test(m.image_response)) reply.audio = m.image_response;
     else reply.image = m.image_response;
   }
   if (!m.response && !m.image_response) reply.videoPending = true;
