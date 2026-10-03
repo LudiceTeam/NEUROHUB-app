@@ -42,6 +42,13 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
 
+    def end_headers(self):
+        # Static files must be revalidated on every load, otherwise browsers and
+        # Cloudflare keep serving old JS modules after a deploy.
+        if not self.path.startswith("/api"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def _proxy(self):
         path = self.path[len("/api"):] or "/"
         length = int(self.headers.get("Content-Length") or 0)
