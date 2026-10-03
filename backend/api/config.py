@@ -160,6 +160,21 @@ video_generation_models = [
 ]
 
 
+# Text-to-speech models (OpenRouter /audio/speech). Every entry is one voice of a speech
+# model: the key is what the user picks and what is stored as model_name, the value is
+# what gets sent to OpenRouter. All of these handle Russian and English.
+tts_models = {
+    "google/gemini-3.8-flash-tts:kore": {"model": "google/gemini-3.8-flash-tts", "voice": "Kore"},
+    "google/gemini-3.8-flash-tts:puck": {"model": "google/gemini-3.8-flash-tts", "voice": "Puck"},
+    "google/gemini-3.8-flash-lite-tts:aoede": {"model": "google/gemini-3.8-flash-lite-tts", "voice": "Aoede"},
+    "google/gemini-3.8-flash-lite-tts:charon": {"model": "google/gemini-3.8-flash-lite-tts", "voice": "Charon"},
+    "x-ai/grok-voice-tts-1.0:eve": {"model": "x-ai/grok-voice-tts-1.0", "voice": "eve"},
+    "x-ai/grok-voice-tts-1.0:rex": {"model": "x-ai/grok-voice-tts-1.0", "voice": "rex"},
+}
+
+MAX_TTS_CHARS = 3000
+
+
 
 
 

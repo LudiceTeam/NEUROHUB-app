@@ -13,20 +13,24 @@ const PROVIDERS = {
   "bytedance-seed": { name: "ByteDance", color: "#325ab4", mark: "B" },
   bytedance: { name: "ByteDance", color: "#325ab4", mark: "B" },
   "z-ai": { name: "Z.ai", color: "#1f2937", mark: "Z" },
+  "x-ai": { name: "xAI", color: "#111111", mark: "X" },
   moonshotai: { name: "Moonshot", color: "#111827", mark: "K" },
   nvidia: { name: "NVIDIA", color: "#76b900", mark: "N" },
 };
 
 const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
+export const VOICE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Voice")?.[1] || []);
 
 export function modelLabel(id) {
   if (!id) return "";
   if (id === "auto") return "Auto";
-  const name = id.split("/").pop().replace(/:free$/, "");
-  return name
+  // Voice models are "<model>:<voice>"; show the voice after the model name.
+  const [base, voice] = VOICE_MODELS.has(id) ? id.split(/:(?=[^:]+$)/) : [id];
+  const name = base.split("/").pop().replace(/:free$/, "")
     .replace(/-/g, " ")
-    .replace(/\b(gpt|glm|vl|it|ui)\b/gi, (w) => w.toUpperCase())
+    .replace(/\b(gpt|glm|vl|it|ui|tts)\b/gi, (w) => w.toUpperCase())
     .replace(/\b([a-z])/g, (c) => c.toUpperCase());
+  return voice ? `${name} · ${voice.charAt(0).toUpperCase()}${voice.slice(1)}` : name;
 }
 
 function provider(id) {
@@ -38,6 +42,7 @@ function provider(id) {
 function tags(id) {
   const out = [];
   if (IMAGE_MODELS.has(id)) out.push(["Image", "image"]);
+  else if (VOICE_MODELS.has(id)) out.push(["Voice", "voice"]);
   else if (PREMIUM_MODELS.has(id)) out.push(["Premium", "premium"]);
   if (id.endsWith(":free")) out.push(["Free", "free"]);
   if (/thinking/.test(id)) out.push(["Reasoning", "reasoning"]);
@@ -108,7 +113,8 @@ export function createModelPicker({ value = "auto", onSelect }) {
       if (!matches.length) continue;
       sections.push(h("div", { class: "model-group", role: "group", "aria-label": group },
         h("div", { class: "model-group-title" }, group === "Smart" ? "Recommended" : group),
-        matches.map((id) => option(id, id === "auto" ? "Picks the best model for each request" : id))));
+        matches.map((id) => option(id, id === "auto" ? "Picks the best model for each request"
+          : VOICE_MODELS.has(id) ? "Reads your text aloud" : id))));
     }
     list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
     items = [...list.querySelectorAll(".model-option")];

@@ -41,13 +41,14 @@ from backend.database.streak_db.streak_core import create_user_streak,plus_one_s
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
 import openai
 from typing import List,Union,Literal
 import base64
+import re
 from jose.exceptions import ExpiredSignatureError, JWTError
 import uuid
 from appstoreserverlibrary.api_client import APIException
@@ -1053,6 +1054,44 @@ async def get_user_custom_model_promt(user_id:str) -> str | None:
         return None
 
 
+def clean_text_for_speech(text:str) -> str:
+    # Markdown symbols and code would be read out loud, so strip them before TTS.
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+", "", text, flags=re.M)
+    text = re.sub(r"(\*\*|__|~~|\*)", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+async def text_to_speech(text:str, tts_model:str) -> bytes:
+    settings = tts_models[tts_model]
+    payload = {
+        "model": settings["model"],
+        "input": text,
+        "voice": settings["voice"],
+        "response_format": "mp3"
+    }
+    headers = {
+        "Authorization": f"Bearer {OPEN_AI_KEY}",
+        "Content-Type": "application/json"
+    }
+    timeout = aiohttp.ClientTimeout(total=120)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(
+            "https://openrouter.ai/api/v1/audio/speech",
+            json=payload,
+            headers=headers
+        ) as response:
+            if response.status != 200:
+                error = await response.text()
+                raise Exception(
+                    f"OpenRouter TTS error: {error}"
+                )
+            return await response.read()
+
+
 class AskText(BaseModel):
     chat_id:Optional[str] = None
     request:Optional[str] = None
@@ -1145,6 +1184,55 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         if user_model == "auto" and req.request == None:
             user_model = "google/gemini-3-flash-preview"
+
+        if user_model in tts_models:
+            # Voice models read the user's text as is; the chat history isn't used.
+            text_to_voice = clean_text_for_speech(req.request or "")
+            if not text_to_voice:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Nothing to voice")
+            if len(text_to_voice) > MAX_TTS_CHARS:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Text is too long")
+
+            if user_data["nano_req"] <= 0:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
+            try:
+                audio_bytes = await text_to_speech(text_to_voice,user_model)
+            except Exception:
+                logger.exception("TTS ERROR")
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
+
+            url = await AWS_CLIENT.upload_file(
+                file_path = str(uuid.uuid4()) + ".mp3",
+                file_data = audio_bytes,
+                content_type = "audio/mpeg"
+            )
+
+            encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
+
+            await create_message(
+                user_id = user_id,
+                chat_id = chat_id,
+                message = encrypted_message,
+                response = None,
+                image_response = url,
+                model_name = user_model
+            )
+
+            await minus_one_req_nano(user_id)
+            await update_chat_last_message_date(chat_id)
+
+            try_streak_increase = await plus_one_streak_day(
+                user_id = user_id
+            )
+            if not try_streak_increase:
+                await reset_streak(
+                    user_id = user_id
+                )
+
+            return {
+                "audio": url
+            }
 
         if user_model in video_generation_models:
             user_nano_req = user_data["nano_req"]
@@ -1385,6 +1473,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         expensive_full_models = image_generation_models + expensive_models + video_generation_models
         if user_model == "auto" and true_request == "":
             user_model = "google/gemini-3-flash-preview"
+
+        if user_model in tts_models:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice models don't accept images")
 
         if (user_model in image_generation_models or user_model in expensive_models or user_model in video_generation_models) and user_data["nano_req"] <= 0:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
@@ -1898,7 +1989,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
                 )
                 
                 
-        total_models = models + expensive_models + image_generation_models
+        total_models = models + expensive_models + image_generation_models + list(tts_models)
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
 
@@ -2987,7 +3078,7 @@ async def get_today_models_count_handler(
                     user_id = user_id
                 )
                 
-        total_models = expensive_models + models + image_generation_models
+        total_models = expensive_models + models + image_generation_models + list(tts_models)
         models_count = {}
 
         for model in total_models:
@@ -3027,7 +3118,7 @@ async def get_total_models_count_handler(
                 await unban_user(
                     user_id = user_id
                 )
-        total_models = expensive_models + models + image_generation_models
+        total_models = expensive_models + models + image_generation_models + list(tts_models)
         models_count = {}
 
         for model in total_models:

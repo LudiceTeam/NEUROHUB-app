@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { createModelPicker, modelLabel } from "./model-picker.js";
+import { createModelPicker, modelLabel, VOICE_MODELS } from "./model-picker.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
@@ -63,12 +63,12 @@ export function renderApp(root, logout) {
     onchange: () => { addFiles([...fileInput.files]); fileInput.value = ""; },
   });
   const previews = h("div", { class: "previews" });
+  const attachBtn = h("button", { class: "icon-btn", type: "button", "aria-label": "Attach images", onclick: () => fileInput.click() }, icon("clip"));
   const sendBtn = h("button", { class: "send-btn", type: "submit", "aria-label": "Send" }, icon("send"));
   const composer = h("form", { class: "composer", onsubmit: (e) => { e.preventDefault(); send(); } },
     previews,
     h("div", { class: "composer-row" },
-      h("button", { class: "icon-btn", type: "button", "aria-label": "Attach images", onclick: () => fileInput.click() }, icon("clip")),
-      textarea, fileInput, sendBtn),
+      attachBtn, textarea, fileInput, sendBtn),
   );
   const quota = h("p", { class: "quota" });
 
@@ -144,6 +144,9 @@ export function renderApp(root, logout) {
     if (m.error) body.push(h("p", { class: "msg-error" }, m.error));
     if (m.text) body.push(markdown(m.text));
     if (m.image) body.push(h("a", { href: m.image, target: "_blank", rel: "noopener", class: "gen-image" }, h("img", { src: m.image, alt: "Generated image", loading: "lazy" })));
+    if (m.audio) body.push(h("div", { class: "gen-audio" },
+      h("audio", { src: m.audio, controls: true, preload: "metadata" }),
+      h("a", { class: "btn ghost small", href: m.audio, download: "", target: "_blank", rel: "noopener" }, "Download")));
     if (m.video) body.push(h("video", { src: m.video, controls: true, playsinline: true, class: "gen-video" }));
     if (m.videoPending) body.push(h("p", { class: "muted" }, "🎬 Your video is being generated. Open this chat again in a few minutes to see it."));
     return h("div", { class: "msg assistant" },
@@ -174,6 +177,18 @@ export function renderApp(root, logout) {
     profileBtn.replaceChildren(
       pic ? h("img", { class: "avatar-img", src: pic, alt: "" }) : h("span", { class: "avatar-img initials" }, (p.Name || "?").slice(0, 1).toUpperCase()),
       h("span", { class: "profile-meta" }, h("strong", {}, p.Name || "Account"), h("small", {}, planName(p))));
+  }
+
+  // Voice models read the text aloud and don't take images.
+  function updateComposerHint() {
+    const voice = VOICE_MODELS.has(state.model);
+    textarea.placeholder = voice ? "Text to read aloud…" : "Message Veora…";
+    attachBtn.disabled = voice;
+    attachBtn.title = voice ? "Voice models don't accept images" : "";
+    if (voice && state.attachments.length) {
+      state.attachments = [];
+      renderPreviews();
+    }
   }
 
   function autosize() {
@@ -214,6 +229,7 @@ export function renderApp(root, logout) {
     try {
       const { model_name } = await api.getModel();
       if (model_name) state.model = model_name;
+      updateComposerHint();
     } catch {
       // Needs X-API-KEY; without it we just keep the default.
     }
@@ -224,6 +240,7 @@ export function renderApp(root, logout) {
     try {
       await api.changeModel(id);
       state.model = id;
+      updateComposerHint();
     } catch (e) {
       toast(errorText(e));
       throw e;
@@ -288,6 +305,10 @@ export function renderApp(root, logout) {
   }
 
   function addFiles(files) {
+    if (VOICE_MODELS.has(state.model)) {
+      if (files.length) toast("Voice models don't accept images. Pick another model to send photos.");
+      return;
+    }
     for (const f of files) {
       if (!f.type.startsWith("image/")) continue;
       if (f.size > MAX_IMAGE_SIZE) { toast(`${f.name} is larger than 5 MB`); continue; }
@@ -342,7 +363,8 @@ export function renderApp(root, logout) {
   function applyReply(reply, res) {
     reply.model = state.model === "auto" ? null : state.model;
     if (!res || typeof res !== "object") { reply.error = "Empty response from server."; return; }
-    if (res.image) reply.image = res.image;
+    if (res.audio) reply.audio = res.audio;
+    else if (res.image) reply.image = res.image;
     else if (res.video_task_id) reply.videoPending = true;
     else if (res.message === "error") reply.error = "This chat is not available.";
     else if (res.message === "None") reply.error = "Account not found. Try signing in again.";
@@ -370,6 +392,7 @@ function fromHistory(m) {
   if (m.response) reply.text = m.response;
   if (m.image_response) {
     if (/\.mp4(\?|$)/i.test(m.image_response)) reply.video = m.image_response;
+    else if (/\.mp3(\?|$)/i.test(m.image_response)) reply.audio = m.image_response;
     else reply.image = m.image_response;
   }
   if (!m.response && !m.image_response) reply.videoPending = true;

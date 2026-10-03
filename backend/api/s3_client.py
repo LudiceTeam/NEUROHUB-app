@@ -24,12 +24,13 @@ class S3Client():
         async with self.session.create_client("s3", **self.config) as client:
             yield client
 
-    async def upload_file(self,file_path:str,file_data:bytes) -> str:
+    async def upload_file(self,file_path:str,file_data:bytes,content_type:str | None = None) -> str:
 
         object_name = file_path.split("/")[-1]
+        extra = {"ContentType": content_type} if content_type else {}
 
         async with self.get_client() as client:
-                await client.put_object(Bucket=self.bucket_name, Key=object_name, Body=file_data)
+                await client.put_object(Bucket=self.bucket_name, Key=object_name, Body=file_data, **extra)
 
         return f"https://{self.cloud_front_domain}/{object_name}"
     

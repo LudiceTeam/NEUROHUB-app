@@ -35,7 +35,8 @@ export function deviceName() {
 
 export class ApiError extends Error {
   constructor(status, detail) {
-    super(typeof detail === "string" ? detail : `Request failed (${status})`);
+    // HTTP/2 responses have no statusText, so an empty or non-JSON error body needs a fallback.
+    super(typeof detail === "string" && detail ? detail : `Request failed (${status})`);
     this.status = status;
     this.detail = detail;
   }

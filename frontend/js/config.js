@@ -61,6 +61,15 @@ export const MODEL_GROUPS = [
     "nvidia/nemotron-nano-12b-vl",
   ]],
   ["Image generation", ["google/gemini-3-pro-image-preview", "google/gemini-3.1-flash-image-preview"]],
+  // Mirrors tts_models in backend/api/config.py: "<model>:<voice>".
+  ["Voice", [
+    "google/gemini-3.8-flash-tts:kore",
+    "google/gemini-3.8-flash-tts:puck",
+    "google/gemini-3.8-flash-lite-tts:aoede",
+    "google/gemini-3.8-flash-lite-tts:charon",
+    "x-ai/grok-voice-tts-1.0:eve",
+    "x-ai/grok-voice-tts-1.0:rex",
+  ]],
 ];
 
 export const PREMIUM_MODELS = new Set([
