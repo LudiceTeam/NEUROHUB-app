@@ -4,10 +4,13 @@ import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "
 import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
+import { moveToFolderModal, tagsModal } from "./folders.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const PINNED_KEY = "veora_pinned";
+const EXPANDED_KEY = "veora_open_folders";
+const DRAG_TYPE = "text/veora-chat";
 
 export function renderApp(root, logout) {
   const state = {
@@ -19,6 +22,9 @@ export function renderApp(root, logout) {
     attachments: [],      // File[]
     sending: false,
     pinned: new Set(JSON.parse(localStorage.getItem(PINNED_KEY) || "[]")),
+    folders: [],          // [{ folder_id, folder_name, tags }]
+    folderOf: new Map(),  // chat_id -> folder_id
+    expanded: new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]")),
   };
 
   // ---------- layout ----------
@@ -85,7 +91,11 @@ export function renderApp(root, logout) {
   const sidebarCtl = setupSidebar(shell);
 
   // Drag & drop images anywhere on the chat.
-  main.addEventListener("dragover", (e) => { e.preventDefault(); main.classList.add("dragging"); });
+  main.addEventListener("dragover", (e) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    main.classList.add("dragging");
+  });
   main.addEventListener("dragleave", (e) => { if (e.target === main) main.classList.remove("dragging"); });
   main.addEventListener("drop", (e) => {
     e.preventDefault();
@@ -97,29 +107,104 @@ export function renderApp(root, logout) {
   function toggleSidebar(open) { shell.classList.toggle("sidebar-open", open); }
 
   function renderChats() {
-    if (!state.chats.length) {
-      chatList.replaceChildren(h("p", { class: "empty-list" }, "No chats yet"));
-      return;
-    }
-    chatList.replaceChildren(...state.chats.map(([id, name]) => {
-      const pinned = state.pinned.has(id);
-      const item = h("div", { class: `chat-item${id === state.chatId ? " active" : ""}` },
-        h("button", { class: "chat-link", type: "button", title: name, onclick: () => openChat(id) },
-          pinned && icon("pin"), h("span", {}, name || "New chat")),
-        h("button", { class: "icon-btn chat-more", type: "button", "aria-label": "Chat options", onclick: (e) => { e.stopPropagation(); chatMenu(item, id, name); } }, icon("dots")));
-      return item;
-    }));
+    const loose = state.chats.filter(([id]) => !state.folderOf.get(id));
+
+    const folderSection = h("div", { class: "side-section" },
+      h("div", { class: "side-head" },
+        h("span", {}, "Folders"),
+        h("button", { class: "icon-btn tiny", type: "button", "aria-label": "New folder", title: "New folder", onclick: () => newFolder() }, icon("folderPlus"))),
+      state.folders.length ? state.folders.map(folderBlock) : h("p", { class: "empty-list" }, "Group chats into folders"));
+
+    const chatsSection = h("div", { class: "side-section" },
+      h("div", { class: "side-head" }, h("span", {}, "Chats")),
+      loose.length ? loose.map(([id, name]) => chatItem(id, name))
+        : h("p", { class: "empty-list" }, state.chats.length ? "All chats are in folders" : "No chats yet"));
+    // Dropping a chat on the "Chats" section takes it out of its folder.
+    dropTarget(chatsSection, "");
+
+    chatList.replaceChildren(folderSection, chatsSection);
+  }
+
+  function chatItem(id, name) {
+    const pinned = state.pinned.has(id);
+    const item = h("div", {
+      class: `chat-item${id === state.chatId ? " active" : ""}`, draggable: "true",
+      ondragstart: (e) => {
+        e.dataTransfer.setData(DRAG_TYPE, id);
+        e.dataTransfer.effectAllowed = "move";
+        item.classList.add("dragging");
+      },
+      ondragend: () => item.classList.remove("dragging"),
+    },
+      h("button", { class: "chat-link", type: "button", title: name, onclick: () => openChat(id) },
+        pinned && icon("pin"), h("span", {}, name || "New chat")),
+      h("button", { class: "icon-btn chat-more", type: "button", "aria-label": "Chat options", onclick: (e) => { e.stopPropagation(); chatMenu(item, id, name); } }, icon("dots")));
+    return item;
+  }
+
+  function folderBlock(f) {
+    const open = state.expanded.has(f.folder_id);
+    const chats = state.chats.filter(([id]) => state.folderOf.get(id) === f.folder_id);
+    const tags = f.tags?.length ? f.tags.join(", ") : "";
+    const row = h("div", { class: "chat-item folder-item" },
+      h("button", {
+        class: "chat-link", type: "button", "aria-expanded": String(open), title: tags ? `${f.folder_name} · ${tags}` : f.folder_name,
+        onclick: () => toggleFolder(f.folder_id),
+      },
+        h("span", { class: `folder-chevron${open ? " open" : ""}` }, icon("chevron")),
+        icon("folder"),
+        h("span", {}, f.folder_name),
+        h("small", { class: "folder-count" }, String(chats.length))),
+      h("button", { class: "icon-btn chat-more", type: "button", "aria-label": "Folder options", onclick: (e) => { e.stopPropagation(); folderMenu(row, f); } }, icon("dots")));
+    const block = h("div", { class: "folder" }, row,
+      open && h("div", { class: "folder-chats" },
+        chats.length ? chats.map(([id, name]) => chatItem(id, name)) : h("p", { class: "empty-list" }, "Drag chats here")));
+    dropTarget(block, f.folder_id);
+    return block;
+  }
+
+  function dropTarget(el, folderId) {
+    el.addEventListener("dragover", (e) => {
+      if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.add("drop");
+    });
+    el.addEventListener("dragleave", (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove("drop"); });
+    el.addEventListener("drop", (e) => {
+      const id = e.dataTransfer.getData(DRAG_TYPE);
+      if (!id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove("drop");
+      moveChat(id, folderId);
+    });
+  }
+
+  function showMenu(item, entries) {
+    document.querySelector(".menu")?.remove();
+    const menu = h("div", { class: "menu", role: "menu" },
+      entries.map(([label, action, danger]) => h("button", { type: "button", class: danger ? "danger" : "", onclick: action }, label)));
+    item.append(menu);
+    setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }));
   }
 
   function chatMenu(item, id, name) {
-    document.querySelector(".menu")?.remove();
     const pinned = state.pinned.has(id);
-    const menu = h("div", { class: "menu", role: "menu" },
-      h("button", { type: "button", onclick: () => rename(id, name) }, "Rename"),
-      h("button", { type: "button", onclick: () => togglePin(id, !pinned) }, pinned ? "Unpin" : "Pin"),
-      h("button", { type: "button", class: "danger", onclick: () => remove(id) }, "Delete"));
-    item.append(menu);
-    setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }));
+    showMenu(item, [
+      ["Rename", () => rename(id, name)],
+      [pinned ? "Unpin" : "Pin", () => togglePin(id, !pinned)],
+      ["Move to folder…", () => moveChatDialog(id)],
+      ["Delete", () => remove(id), true],
+    ]);
+  }
+
+  function folderMenu(item, f) {
+    showMenu(item, [
+      ["Rename", () => renameFolder(f)],
+      ["Tags…", () => editTags(f)],
+      ["Delete folder", () => removeFolder(f), true],
+    ]);
   }
 
   function renderTitle() {
@@ -297,6 +382,111 @@ export function renderApp(root, logout) {
     }
   }
 
+  // ---------- folders ----------
+  async function loadFolders() {
+    try {
+      const res = await api.folders();
+      state.folders = res?.result || [];
+      const lists = await Promise.all(state.folders.map((f) =>
+        api.folderChats(f.folder_id).then((r) => r?.result || []).catch(() => [])));
+      state.folderOf = new Map();
+      state.folders.forEach((f, i) => lists[i].forEach((chatId) => state.folderOf.set(chatId, f.folder_id)));
+    } catch (e) {
+      if (e.status !== 401) toast(errorText(e));
+    }
+    renderChats();
+  }
+
+  function saveExpanded() {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...state.expanded]));
+  }
+
+  function toggleFolder(id) {
+    state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id);
+    saveExpanded();
+    renderChats();
+  }
+
+  // Folder endpoints answer {"messsage": "error"} (sic) when the folder isn't the user's.
+  function checkFolderResult(res) {
+    if (res?.message === "error" || res?.messsage === "error") throw new Error("This folder is not available.");
+  }
+
+  async function newFolder(presetName) {
+    const name = presetName ?? await promptModal("New folder", { placeholder: "Folder name", confirm: "Create" });
+    if (!name) return null;
+    try {
+      const { folder_id } = await api.createFolder(name);
+      state.folders.push({ folder_id, folder_name: name, tags: [] });
+      state.expanded.add(folder_id);
+      saveExpanded();
+      renderChats();
+      return folder_id;
+    } catch (e) {
+      toast(errorText(e));
+      return null;
+    }
+  }
+
+  async function moveChat(chatId, folderId) {
+    if ((state.folderOf.get(chatId) || "") === folderId) return;
+    try {
+      checkFolderResult(await api.moveChat(chatId, folderId));
+      if (folderId) {
+        state.folderOf.set(chatId, folderId);
+        state.expanded.add(folderId);
+        saveExpanded();
+      } else {
+        state.folderOf.delete(chatId);
+      }
+      renderChats();
+    } catch (e) { toast(errorText(e)); }
+  }
+
+  async function moveChatDialog(chatId) {
+    const choice = await moveToFolderModal(state.folders, state.folderOf.get(chatId) || "");
+    if (!choice) return;
+    const target = choice.newName ? await newFolder(choice.newName) : choice.folderId;
+    if (target != null) moveChat(chatId, target);
+  }
+
+  async function renameFolder(f) {
+    const name = await promptModal("Rename folder", { value: f.folder_name });
+    if (!name || name === f.folder_name) return;
+    try {
+      checkFolderResult(await api.renameFolder(f.folder_id, name));
+      f.folder_name = name;
+      renderChats();
+    } catch (e) { toast(errorText(e)); }
+  }
+
+  async function editTags(f) {
+    await tagsModal(f, {
+      onAdd: async (tag) => {
+        checkFolderResult(await api.addFolderTag(f.folder_id, tag));
+        f.tags = [...(f.tags || []), tag];
+      },
+      onRemove: async (tag) => {
+        checkFolderResult(await api.removeFolderTag(f.folder_id, tag));
+        f.tags = (f.tags || []).filter((t) => t !== tag);
+      },
+    });
+    renderChats();
+  }
+
+  async function removeFolder(f) {
+    const ok = await confirmModal("Delete folder?", `“${f.folder_name}” will be deleted. Its chats stay in your chat list.`);
+    if (!ok) return;
+    try {
+      checkFolderResult(await api.deleteFolder(f.folder_id));
+      state.folders = state.folders.filter((x) => x.folder_id !== f.folder_id);
+      for (const [chatId, folderId] of state.folderOf) if (folderId === f.folder_id) state.folderOf.delete(chatId);
+      state.expanded.delete(f.folder_id);
+      saveExpanded();
+      renderChats();
+    } catch (e) { toast(errorText(e)); }
+  }
+
   async function rename(id, current) {
     const name = await promptModal("Rename chat", { value: current });
     if (!name) return;
@@ -321,6 +511,7 @@ export function renderApp(root, logout) {
     try {
       await api.deleteChat(id);
       state.pinned.delete(id);
+      state.folderOf.delete(id);
       localStorage.setItem(PINNED_KEY, JSON.stringify([...state.pinned]));
       if (state.chatId === id) newChat();
       await loadChats();
@@ -429,6 +620,7 @@ export function renderApp(root, logout) {
   renderProfileBtn();
   loadProfile();
   loadChats();
+  loadFolders();
   loadModel();
   textarea.focus();
 }

@@ -229,7 +229,46 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; }
 .new-chat { justify-content: flex-start; border-radius: 12px; }
 .chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
-.empty-list { color: var(--muted); font-size: 14px; padding: 8px 10px; }
+.empty-list { color: var(--muted); font-size: 13px; padding: 6px 10px; margin: 0; }
+
+/* sidebar sections & folders */
+.side-section { display: flex; flex-direction: column; gap: 2px; border-radius: 12px; transition: background .15s, box-shadow .15s; }
+.side-section + .side-section { margin-top: 14px; }
+.side-head {
+  display: flex; align-items: center; justify-content: space-between; min-height: 28px; padding: 0 4px 2px 10px;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+}
+.icon-btn.tiny { width: 26px; height: 26px; border-radius: 8px; }
+.icon-btn.tiny .icon { width: 16px; height: 16px; }
+.folder { border-radius: 12px; transition: background .15s, box-shadow .15s; }
+.folder-item .chat-link .icon { width: 16px; height: 16px; color: var(--muted); }
+.folder-item .chat-link > span:nth-of-type(2) { flex: 1; min-width: 0; }
+.folder-chevron { display: inline-flex; transition: transform .15s; }
+.folder-chevron .icon { width: 12px !important; height: 12px !important; }
+.folder-chevron.open { transform: rotate(90deg); }
+.folder-count { margin-left: auto; padding-left: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.folder-chats { display: flex; flex-direction: column; gap: 2px; margin-left: 14px; padding-left: 8px; border-left: 1px solid var(--border); }
+.chat-item.dragging { opacity: .45; }
+.folder.drop, .side-section.drop { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+.chat-item[draggable="true"] { cursor: grab; }
+
+.folder-options { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.folder-option {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--bg-elev); text-align: left;
+}
+.folder-option:hover { background: var(--bg-soft); }
+.folder-option.selected { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
+.folder-option > span:nth-of-type(1) { flex: 1; }
+.folder-option .icon { width: 18px; height: 18px; color: var(--muted); }
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 13px; font-weight: 500;
+}
+.tag-chip button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; }
+.tag-chip button:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.tag-chip .icon { width: 12px; height: 12px; }
 .chat-item { position: relative; display: flex; align-items: center; border-radius: 10px; }
 .chat-item:hover, .chat-item.active { background: color-mix(in srgb, var(--text) 7%, transparent); }
 .chat-link {

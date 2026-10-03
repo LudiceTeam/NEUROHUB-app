@@ -136,6 +136,17 @@ export const api = {
   pinChat: (chat_id, pin_value) => post("/chat/pin", { chat_id, pin_value }),
   deleteChat: (chat_id) => post("/delete/chat", { chat_id }),
 
+  // folders
+  folders: () => request("/user/folders", { apiKey: true }),
+  createFolder: (folder_name, folder_tags = []) => post("/folder/create", { folder_name, folder_tags }),
+  folderChats: (folder_id) => post("/folder/get/chats", { folder_id }),
+  // folder_id "" takes the chat out of its folder.
+  moveChat: (chat_id, folder_id) => post("/folder/add_or_delte/chat", { chat_id, folder_id }),
+  renameFolder: (folder_id, name) => post("/folder/rename", { folder_id, name }),
+  deleteFolder: (folder_id) => post("/folder/delete", { folder_id }),
+  addFolderTag: (folder_id, tag) => post("/folder/tag/add", { folder_id, tag }),
+  removeFolderTag: (folder_id, tag) => post("/folder/tag/remove", { folder_id, tag }),
+
   askText: (chat_id, text) => post("/ask_text", { chat_id, request: text }),
   askPhoto: (chat_id, text, files) => {
     const form = new FormData();

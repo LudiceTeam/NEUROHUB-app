@@ -2786,7 +2786,8 @@ async def add_chat_to_folder_or_delete(
             if folder_data["folder_id"] == req.folder_id:
                 seen = True
 
-        if req.chat_id not in user_chats or not seen:
+        # folder_id == "" means "remove from folder", so there is no folder to own.
+        if req.chat_id not in user_chats or (req.folder_id != "" and not seen):
             return {
                 "message" : "error"
             }
