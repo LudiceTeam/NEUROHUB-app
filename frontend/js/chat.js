@@ -3,6 +3,7 @@ import { createModelPicker, modelLabel, VOICE_MODELS } from "./model-picker.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
+import { createTtsStudio } from "./tts-studio.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -72,7 +73,13 @@ export function renderApp(root, logout) {
   );
   const quota = h("p", { class: "quota" });
 
-  const main = h("main", { class: "main" }, header, scroller, h("div", { class: "composer-wrap" }, composer, quota));
+  // Voice models get a text-to-speech studio instead of the chat thread.
+  const studio = createTtsStudio({
+    onGenerate: generateSpeech,
+    onSelectModel: async (id) => { await onModelChange(id); picker.setValue(id); },
+  });
+  const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
+  const main = h("main", { class: "main" }, header, chatView, studio.el);
   const shell = h("div", { class: "shell" }, sidebar, scrim, main);
   root.replaceChildren(shell);
   const sidebarCtl = setupSidebar(shell);
@@ -179,9 +186,18 @@ export function renderApp(root, logout) {
       h("span", { class: "profile-meta" }, h("strong", {}, p.Name || "Account"), h("small", {}, planName(p))));
   }
 
-  // Voice models read the text aloud and don't take images.
-  function updateComposerHint() {
+  // Voice models open the TTS studio; the chat composer also refuses images for them.
+  function updateMode() {
     const voice = VOICE_MODELS.has(state.model);
+    const wasVoice = main.classList.contains("tts-mode");
+    main.classList.toggle("tts-mode", voice);
+    if (voice) {
+      studio.setModel(state.model);
+      if (!wasVoice) studio.setGenerations(collectGenerations());
+    } else if (wasVoice) {
+      studio.stop();
+      renderThread();
+    }
     textarea.placeholder = voice ? "Text to read aloud…" : "Message Veora…";
     attachBtn.disabled = voice;
     attachBtn.title = voice ? "Voice models don't accept images" : "";
@@ -211,6 +227,7 @@ export function renderApp(root, logout) {
     }
     renderProfileBtn();
     renderQuota();
+    studio.setCredits(state.profile?.["Nano Requests"] ?? null);
     if (!state.messages.length) renderThread();
   }
 
@@ -229,7 +246,7 @@ export function renderApp(root, logout) {
     try {
       const { model_name } = await api.getModel();
       if (model_name) state.model = model_name;
-      updateComposerHint();
+      updateMode();
     } catch {
       // Needs X-API-KEY; without it we just keep the default.
     }
@@ -240,7 +257,7 @@ export function renderApp(root, logout) {
     try {
       await api.changeModel(id);
       state.model = id;
-      updateComposerHint();
+      updateMode();
     } catch (e) {
       toast(errorText(e));
       throw e;
@@ -262,6 +279,7 @@ export function renderApp(root, logout) {
       toast(errorText(e));
     }
     renderThread();
+    if (VOICE_MODELS.has(state.model)) studio.setGenerations(collectGenerations());
   }
 
   function newChat() {
@@ -271,7 +289,12 @@ export function renderApp(root, logout) {
     renderChats();
     renderTitle();
     renderThread();
-    textarea.focus();
+    if (VOICE_MODELS.has(state.model)) {
+      studio.setGenerations([]);
+      studio.focus();
+    } else {
+      textarea.focus();
+    }
   }
 
   async function rename(id, current) {
@@ -346,7 +369,34 @@ export function renderApp(root, logout) {
     reply.pending = false;
     renderThread();
     setSending(false);
+    await afterSend(knownChats);
+  }
 
+  // Studio "Generate speech": a voice-model /ask_text call stored in the open chat.
+  async function generateSpeech(text) {
+    const knownChats = new Set(state.chats.map(([id]) => id));
+    const res = await api.askText(state.chatId, text);
+    if (!res?.audio) {
+      throw new Error(res?.message === "error" ? "This chat is not available." : "Unexpected response from server.");
+    }
+    state.messages.push({ role: "user", text }, { role: "assistant", audio: res.audio, model: state.model });
+    afterSend(knownChats);
+    return res.audio;
+  }
+
+  // Generations for the studio: every audio reply paired with the text before it.
+  function collectGenerations() {
+    const out = [];
+    state.messages.forEach((m, i) => {
+      if (m.role === "assistant" && m.audio) {
+        const prev = state.messages[i - 1];
+        out.push({ url: m.audio, text: prev?.role === "user" ? prev.text : "", model: m.model || state.model });
+      }
+    });
+    return out;
+  }
+
+  async function afterSend(knownChats) {
     // The backend doesn't return the id of a newly created chat; find it by diffing the list.
     await loadChats();
     if (!state.chatId) {
