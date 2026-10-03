@@ -175,6 +175,17 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .btn.provider { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 500; }
 .provider-icon { display: inline-flex; width: 18px; height: 18px; }
 .provider-icon svg { width: 100%; height: 100%; }
+.provider-wrap { position: relative; }
+/* Google's own button sits invisibly on top of ours and receives the click. */
+.google-overlay {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  overflow: hidden; opacity: .01;
+}
+.provider-wrap.ready .google-overlay { display: flex; }
+.provider-wrap.ready:hover .btn { background: var(--bg-soft); }
+.provider-wrap:focus-within .btn { outline: 2px solid var(--accent); outline-offset: 2px; }
+.provider-wrap.busy { pointer-events: none; }
+.provider-wrap.busy .btn { opacity: .7; }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .input.code { font: 600 24px/1 "JetBrains Mono", monospace; letter-spacing: .5em; text-align: center; padding-left: calc(14px + .5em); }

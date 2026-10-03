@@ -41,6 +41,8 @@ export function icon(name) {
 const ERRORS = {
   "Doesnt have requests": "You're out of requests for this model. They refill automatically, or upgrade your plan in the app.",
   "Access denied": "Your account is temporarily restricted.",
+  "Invalid google token": "Google sign-in failed. Try again or use email.",
+  "Email is not verified": "Your Google account email isn't verified.",
   "Invalid code": "That code isn't right. Check your email and try again.",
   "Code already sent": "A code was already sent. Check your inbox (and spam).",
   "Error while generating": "The model couldn't generate a response. Try again or pick another model.",

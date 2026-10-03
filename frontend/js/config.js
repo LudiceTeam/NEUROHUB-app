@@ -6,6 +6,10 @@ export const config = {
   // Value of the backend X-API-KEY env var. Needed for /refresh, /get_model_name,
   // /streak/get and /get/user/devices. Anything here is visible to site visitors.
   API_KEY: "",
+
+  // Web OAuth client ID — the same value as GOOGLE_CLIENT_ID_SITE on the backend.
+  // Client IDs are public; web.nexi.center must be in its "Authorized JavaScript origins".
+  GOOGLE_CLIENT_ID: "962589409407-fakiji2ntktqrajott08keggldq75g1o.apps.googleusercontent.com",
 };
 
 // Mirrors backend/api/config.py. Video models are omitted: /change_model rejects them.
