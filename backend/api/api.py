@@ -3474,9 +3474,6 @@ async def voice_to_text(request:Request,user_data:dict = Depends(get_current_use
 class PaySubStripe(BaseModel):
     sub_type:str
 
-
-
-
 @app.post("/stripe/create/payment")
 @limiter.limit("20/minute")
 async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict = Depends(get_current_user)):
@@ -3514,7 +3511,7 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
 
         metadata={
             "user_id":user_id,
-            "plan": req.sub_type
+            "plan": req.sub_type,
         },
 
         success_url="https://example.com/success",
