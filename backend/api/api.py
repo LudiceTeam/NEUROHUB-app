@@ -3764,7 +3764,7 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
                     user_id = user_id
                 )
 
-                
+
         sub_data = SUBSCRIPTIONS.get(req.sub_type)
         if sub_data is None:
             raise HTTPException(
@@ -3782,6 +3782,7 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
         ],
 
         metadata={
+            "user_id":user_id,
             "plan": req.sub_type
         },
 
@@ -3800,6 +3801,71 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
         
 
 
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+@app.post("/stripe/webhook")
+@limiter.limit("20/minute")
+async def stripe_webhook(request:Request,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]
+                    
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+
+        payload = await request.body()
+        signature = request.headers.get("stripe-signature")
+
+        if not signature:
+            raise HTTPException(status_code=400)
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload,
+                signature,
+                STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError:
+            raise HTTPException(status_code=400)
+
+        except stripe.SignatureVerificationError:
+            raise HTTPException(status_code=400)
+        
+        if event["type"] == "checkout.session.completed":
+            session = event["data"]["object"]
+
+            user_id = session["metadata"]["user_id"]
+            plan = session["metadata"]["plan"]
+
+            subscription_id = session["subscription"]
+            customer_id = session["customer"]
+
+            if user_id != user_data["user_id"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail = "Error",
+                )
+            
+            await subscribe(
+                user_id = user_id, 
+                sub_type = plan
+            )
+
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+            
 
 
 
