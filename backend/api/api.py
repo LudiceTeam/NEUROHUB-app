@@ -63,6 +63,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import tempfile
 from rq import Queue
 import magic
+import stripe
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,8 @@ GOOGLE_CLIENT_ID_SITE = os.getenv("GOOGLE_CLIENT_ID_SITE")
 
 CUSTOM_GPT_ENCODE_KEY = os.getenv("CUSTOM_GPT_ENCODE")
 
+
+stripe.api_key = os.getenv("STRIPE_API_KEY")
 
 
 app = FastAPI()
@@ -3737,6 +3740,66 @@ async def voice_to_text(request:Request,user_data:dict = Depends(get_current_use
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
+class PaySubStripe(BaseModel):
+    sub_type:str
+    cur:str
+
+
+
+@app.post("/stripe/create/payment")
+@limiter.limit("20/minute")
+async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+            
+        ban_info = await get_ban_info(
+                user_id = user_id
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+
+                
+        sub_data = SUBSCRIPTIONS.get(req.sub_type)
+        if sub_data is None:
+            raise HTTPException(
+            status_code=400,
+            detail="Invalid subscription plan"
+        )
+        session = stripe.checkout.Session.create(
+        mode="subscription",
+
+        line_items=[
+            {
+                "price": sub_data["price_id"],
+                "quantity": 1
+            }
+        ],
+
+        metadata={
+            "plan": req.sub_type
+        },
+
+        success_url="https://example.com/success",
+        cancel_url="https://example.com/cancel"
+    )
+
+        return {
+            "payment_url": session.url
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        
+
+
 
 
 

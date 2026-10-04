@@ -41,42 +41,48 @@ SUBSCRIPTIONS = {
         "days": 30,
         "requests": 25,
         "nano_req": 10,
-        "column": "basic_sub"
+        "column": "basic_sub",
+        "price_id" : "some_id"
     },
 
     "premium" : {
         "days" : 30,
         "requests" : 100,
         "nano_req" : 30,
-        "column" : "premium_sub"
+        "column" : "premium_sub",
+        "price_id" : "some_id"
     },
 
     "starter": {
         "days": 30,
         "requests": 20,
         "nano_req": 5,
-        "column": "starter_sub"
+        "column": "starter_sub",
+        "price_id" : "some_id"
     },
 
     "plus": {
         "days": 30,
         "requests": 70,
         "nano_req": 20,
-        "column": "plus_sub"
+        "column": "plus_sub",
+        "price_id" : "some_id"
     },
     
     "max" : {
         "days" : 30,
         "requests" : 200,
         "nano_req" : 60,
-        "column" : "max_sub"
+        "column" : "max_sub",
+        "price_id" : "some_id"
     },
 
     "elite" : {
         "days" : 30,
         "requests" : 500,
         "nano_req" : 150,
-        "column" : "elite_sub"
+        "column" : "elite_sub",
+        "price_id" : "some_id"
     }
 }
 

@@ -46,3 +46,5 @@ anyio==4.12.1
 # Redis
 
 rq
+
+stripe
