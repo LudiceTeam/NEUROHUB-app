@@ -3,8 +3,6 @@ from sqlalchemy import Table,Column,String,MetaData,Boolean
 
 metadata_obj = MetaData()
 
-
-
 voices_table = Table(
     "voices_table",
     metadata_obj,

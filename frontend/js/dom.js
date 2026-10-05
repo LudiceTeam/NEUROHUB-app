@@ -26,6 +26,8 @@ export function icon(name) {
     pin: "M9 4h6l-1 6 4 4H6l4-4-1-6zM12 14v6",
     copy: "M9 9h10v10H9zM5 15V5h10",
     check: "M5 13l4 4L19 7",
+    translate: "M4 5h8M8 3v2M10 5c-.6 3.6-2.6 6.6-6 8M6 8.5c1 2 2.6 3.6 5 4.5M13 20l4-9 4 9M14.4 17h5.2",
+    chevronDown: "M6 9l6 6 6-6",
     sidebar: "M4 5h16v14H4zM9 5v14",
     folder: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z",
     folderPlus: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5zM12 10.5v5M9.5 13h5",

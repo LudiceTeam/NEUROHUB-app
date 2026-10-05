@@ -29,7 +29,57 @@ async def create_voice(user_id:str,name:str,link:str,agree:bool) -> bool | None:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                pass
+                voice_id:str = str(uuid.uuid4())
+                stmt = insert(voices_table).values(
+                    user_id = user_id,
+                    name = name,
+                    voice_id = voice_id,
+                    link = link,
+                    agree = agree
+                )
+                res = await conn.execute(stmt)
+                return res.rowcount > 0
+            except Exception:
+                logger.exception("VOICES SQL ERROR")
+                return None
+
+async def delete_voice(voice_id:str) -> None:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = voices_table.delete().where(
+                    voices_table.c.voice_id == voice_id
+                )
+                await conn.execute(stmt)
+                return None
+            except Exception:
+                logger.exception("VOICES SQL ERROR")
+                return None
+
+async def get_user_voices(user_id:str) -> List[Dict] | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(voices_table).where(
+                voices_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            data = [dict(row) for row in res.mappings().all()]
+            return data
+        except Exception:
+            logger.exception("VOICES SQL ERROR")
+            return None
+
+async def rename_voice(voice_id:str,new_name:str) -> None:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = voices_table.update().where(
+                    voices_table.c.voice_id == voice_id
+                ).values(
+                    name = new_name
+                )
+                await conn.execute(stmt)
+                return None
             except Exception:
                 logger.exception("VOICES SQL ERROR")
                 return None

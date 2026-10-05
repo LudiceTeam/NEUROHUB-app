@@ -147,6 +147,9 @@ export const api = {
   addFolderTag: (folder_id, tag) => post("/folder/tag/add", { folder_id, tag }),
   removeFolderTag: (folder_id, tag) => post("/folder/tag/remove", { folder_id, tag }),
 
+  // Returns the translated text as a plain string.
+  translate: (text, target_language) => post("/translate", { text, target_language }),
+
   askText: (chat_id, text) => post("/ask_text", { chat_id, request: text }),
   askPhoto: (chat_id, text, files) => {
     const form = new FormData();

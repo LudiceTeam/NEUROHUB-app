@@ -6,6 +6,7 @@ import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
+import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -284,24 +285,104 @@ export function renderApp(root, logout) {
   function renderMessage(m) {
     if (m.role === "user") {
       return h("div", { class: "msg user" },
-        m.images?.length && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, h("img", { src, alt: "Attached image", loading: "lazy" })))),
+        m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, h("img", { src, alt: "Attached image", loading: "lazy" })))),
         m.text && h("div", { class: "bubble" }, m.text));
     }
     const body = [];
     if (m.pending) body.push(h("div", { class: "typing", "aria-label": "Generating" }, h("span"), h("span"), h("span")));
     if (m.error) body.push(h("p", { class: "msg-error" }, m.error));
-    if (m.text) body.push(markdown(m.text));
+    if (m.text) body.push(markdown(m.showTranslated && m.translation ? m.translation.text : m.text));
     if (m.image) body.push(h("a", { href: m.image, target: "_blank", rel: "noopener", class: "gen-image" }, h("img", { src: m.image, alt: "Generated image", loading: "lazy" })));
     if (m.audio) body.push(h("div", { class: "gen-audio" },
       h("audio", { src: m.audio, controls: true, preload: "metadata" }),
       h("a", { class: "btn ghost small", href: m.audio, download: "", target: "_blank", rel: "noopener" }, "Download")));
     if (m.video) body.push(h("video", { src: m.video, controls: true, playsinline: true, class: "gen-video" }));
     if (m.videoPending) body.push(h("p", { class: "muted" }, "🎬 Your video is being generated. Open this chat again in a few minutes to see it."));
-    return h("div", { class: "msg assistant" },
+    const el = h("div", { class: "msg assistant" },
       h("div", { class: "avatar" }, h("img", { src: "logo.png", alt: "" })),
       h("div", { class: "msg-body" },
         m.model && h("div", { class: "msg-model" }, modelLabel(m.model)),
-        body));
+        body,
+        m.text && !m.pending && messageActions(m)));
+    m.el = el;
+    return el;
+  }
+
+  // Re-renders one message in place (used by copy/translate state changes).
+  function rerenderMessage(m) {
+    const old = m.el;
+    const fresh = renderMessage(m);
+    if (old?.isConnected) old.replaceWith(fresh);
+  }
+
+  function messageActions(m) {
+    const shownText = () => (m.showTranslated && m.translation ? m.translation.text : m.text);
+    const copyBtn = h("button", {
+      class: "msg-action", type: "button",
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(shownText());
+          copyBtn.replaceChildren(icon("check"), "Copied");
+          setTimeout(() => copyBtn.replaceChildren(icon("copy"), "Copy"), 1500);
+        } catch { toast("Couldn't copy to the clipboard."); }
+      },
+    }, icon("copy"), "Copy");
+
+    const lang = preferredLanguage();
+    const label = m.translating ? "Translating…"
+      : m.showTranslated ? "Show original"
+      : `Translate · ${languageName(lang)}`;
+    const wrap = h("div", { class: "msg-actions" },
+      copyBtn,
+      h("span", { class: "msg-action-group" },
+        h("button", { class: "msg-action", type: "button", disabled: Boolean(m.translating), onclick: () => toggleTranslation(m, lang) },
+          icon("translate"), label),
+        h("button", {
+          class: "msg-action caret", type: "button", "aria-label": "Choose translation language", disabled: Boolean(m.translating),
+          onclick: (e) => {
+            e.stopPropagation();
+            languageMenu(wrap, (code) => {
+              setPreferredLanguage(code);
+              toggleTranslation(m, code, true);
+            });
+          },
+        }, icon("chevronDown"))),
+      m.showTranslated && m.translation && h("span", { class: "msg-translated-note" }, `Translated to ${languageName(m.translation.lang)}`));
+    return wrap;
+  }
+
+  async function toggleTranslation(m, lang, forceLang = false) {
+    if (m.showTranslated && !forceLang) {
+      m.showTranslated = false;
+      rerenderMessage(m);
+      return;
+    }
+    if (m.translation?.lang === lang) {
+      m.showTranslated = true;
+      rerenderMessage(m);
+      return;
+    }
+    m.translating = true;
+    rerenderMessage(m);
+    try {
+      m.translation = { lang, text: await translateMarkdown(m.text, lang) };
+      m.showTranslated = true;
+    } catch (e) {
+      toast(errorText(e));
+    }
+    m.translating = false;
+    rerenderMessage(m);
+  }
+
+  function languageMenu(anchor, onPick) {
+    document.querySelector(".menu")?.remove();
+    const current = preferredLanguage();
+    // Open upwards when there isn't room below (e.g. the last message above the composer).
+    const up = anchor.getBoundingClientRect().bottom > innerHeight * 0.55;
+    const menu = h("div", { class: `menu lang-menu${up ? " up" : ""}`, role: "menu" },
+      LANGUAGES.map(([code, name]) => h("button", { type: "button", class: code === current ? "selected" : "", onclick: () => onPick(code) }, name)));
+    anchor.append(menu);
+    setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }));
   }
 
   function renderPreviews() {
