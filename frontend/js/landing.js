@@ -1,14 +1,16 @@
 import { MODEL_GROUPS } from "./config.js";
 import { mountCrystal } from "./crystal.js";
 
-// Daily quotas, from refil_all_requests in backend/database/main_database/main_core.py.
+// Mirrors SUBSCRIPTIONS in backend/api/config.py (requests / premium requests).
+const FREE_PLAN = { requests: 10, premium: 1 };
 const PLANS = [
-  { name: "Free", requests: 10, premium: 1, note: "To try every model" },
+  { name: "Starter", requests: 20, premium: 5, note: "To get going" },
+  { name: "Basic", requests: 25, premium: 10, note: "For light use" },
   { name: "Plus", requests: 70, premium: 20, note: "For everyday work" },
-  { name: "Premium", requests: 100, premium: 15, note: "For power users", popular: true },
-  { name: "Elite", requests: 500, premium: 150, note: "For teams of one" },
+  { name: "Premium", requests: 100, premium: 30, note: "For power users", popular: true },
+  { name: "Max", requests: 200, premium: 60, note: "For heavy creators" },
+  { name: "Elite", requests: 500, premium: 150, note: "No compromises" },
 ];
-const MORE_PLANS = "Starter (20 / 5), Basic (25 / 5) and Max (200 / 60) are available too.";
 
 const FEATURES = [
   { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true, accent: true },
@@ -143,6 +145,10 @@ export function renderLanding(root, { onLogin, onSignup }) {
           <h2>Start free. Upgrade when you're ready.</h2>
           <p>Requests refill every day. Premium requests cover top-tier models and image, video and voice generation.</p>
         </div>
+        <div class="l-free reveal">
+          <div><strong>Free</strong><span>${FREE_PLAN.requests} requests and ${FREE_PLAN.premium} premium request every day, all models included.</span></div>
+          <button class="l-btn ghost" type="button" data-action="signup">Start free</button>
+        </div>
         <div class="l-plans">
           ${PLANS.map((p) => `
             <article class="l-plan reveal${p.popular ? " popular" : ""}">
@@ -154,12 +160,12 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <ul>
                 <li>All ${modelCount} models</li>
                 <li>Vision & encrypted history</li>
-                ${p.name === "Free" ? "<li>Images, video & voice with premium requests</li>" : "<li>More images, video & voice</li>"}
+                <li>Images, video & voice</li>
               </ul>
-              <button class="l-btn ${p.popular ? "primary" : "ghost"} block" type="button" data-action="signup">${p.name === "Free" ? "Start free" : `Get ${p.name}`}</button>
+              <button class="l-btn ${p.popular ? "primary" : "ghost"} block" type="button" data-action="signup">Get ${p.name}</button>
             </article>`).join("")}
         </div>
-        <p class="l-plans-more reveal">${MORE_PLANS} Subscriptions are purchased in the Veora iOS app.</p>
+        <p class="l-plans-more reveal">Subscriptions are purchased in the Veora iOS app and work on the web with the same account.</p>
       </section>
 
       <section class="l-section" id="faq">
