@@ -152,7 +152,7 @@ export function renderLogin(root, onSuccess, { mode = "login", onBack } = {}) {
   }
 
   const back = onBack && h("button", { class: "auth-back", type: "button", onclick: onBack }, "← Back to home");
-  root.replaceChildren(h("main", { class: "auth" }, back, card));
+  root.replaceChildren(h("main", { class: "auth" }, back || null, card));
   emailStep();
 }
 

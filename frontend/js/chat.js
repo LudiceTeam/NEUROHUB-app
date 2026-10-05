@@ -5,6 +5,7 @@ import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
+import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -25,6 +26,7 @@ export function renderApp(root, logout) {
     folders: [],          // [{ folder_id, folder_name, tags }]
     folderOf: new Map(),  // chat_id -> folder_id
     expanded: new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]")),
+    loading: { chats: true, folders: true, profile: true },
   };
 
   // ---------- layout ----------
@@ -86,7 +88,16 @@ export function renderApp(root, logout) {
   });
   const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
   const main = h("main", { class: "main" }, header, chatView, studio.el);
-  const shell = h("div", { class: "shell" }, sidebar, scrim, main);
+  // Shown only if the first load takes longer than a moment, so fast loads don't flash.
+  const splash = h("div", { class: "boot-splash", hidden: true, role: "status", "aria-live": "polite" },
+    h("div", { class: "boot-inner" },
+      h("img", { class: "boot-logo", src: "logo.png", alt: "", width: "72", height: "72" }),
+      h("p", {}, "Loading your chats…"),
+      h("div", { class: "boot-bar" })));
+  // Splash after 300 ms of loading; after 2.5 s it gives way to the skeletons below it.
+  const splashTimer = setTimeout(() => { if (booting()) splash.hidden = false; }, 300);
+  const splashCap = setTimeout(() => hideSplash(), 2500);
+  const shell = h("div", { class: "shell" }, sidebar, scrim, main, splash);
   root.replaceChildren(shell);
   const sidebarCtl = setupSidebar(shell);
 
@@ -106,7 +117,52 @@ export function renderApp(root, logout) {
   // ---------- rendering ----------
   function toggleSidebar(open) { shell.classList.toggle("sidebar-open", open); }
 
+  // The splash waits for chats and profile; folders keep the sidebar skeleton until they arrive.
+  function booting() {
+    return state.loading.chats || state.loading.profile;
+  }
+
+  function hideSplash() {
+    clearTimeout(splashTimer);
+    clearTimeout(splashCap);
+    if (!splash.isConnected) return;
+    if (splash.hidden) { splash.remove(); return; }
+    splash.classList.add("hide");
+    setTimeout(() => splash.remove(), 400);
+  }
+
+  function finishBoot() {
+    if (!booting()) hideSplash();
+  }
+
+  const skel = (width, cls = "") => h("span", { class: `skel ${cls}`, style: `width:${width}` });
+
+  function sidebarSkeleton() {
+    const rows = (widths) => widths.map((w) => h("div", { class: "skel-row" }, skel(w)));
+    return [
+      h("div", { class: "side-section", "aria-hidden": "true" },
+        h("div", { class: "side-head" }, h("span", {}, "Folders")), rows(["58%", "44%"])),
+      h("div", { class: "side-section", "aria-hidden": "true" },
+        h("div", { class: "side-head" }, h("span", {}, "Chats")), rows(["72%", "55%", "84%", "61%", "47%", "76%", "58%", "66%"])),
+    ];
+  }
+
+  function threadSkeleton() {
+    const assistant = (widths) => h("div", { class: "msg assistant skel-msg" },
+      h("span", { class: "skel skel-avatar" }),
+      h("div", { class: "msg-body" }, widths.map((w) => skel(w, "skel-line"))));
+    return h("div", { class: "thread-skeleton", "aria-label": "Loading messages", role: "status" },
+      h("div", { class: "msg user" }, skel("42%", "skel-bubble")),
+      assistant(["92%", "86%", "64%"]),
+      h("div", { class: "msg user" }, skel("28%", "skel-bubble")),
+      assistant(["88%", "74%"]));
+  }
+
   function renderChats() {
+    if (state.loading.chats || state.loading.folders) {
+      chatList.replaceChildren(...sidebarSkeleton());
+      return;
+    }
     const loose = state.chats.filter(([id]) => !state.folderOf.get(id));
 
     const folderSection = h("div", { class: "side-section" },
@@ -264,6 +320,12 @@ export function renderApp(root, logout) {
   }
 
   function renderProfileBtn() {
+    if (state.loading.profile && !state.profile) {
+      profileBtn.replaceChildren(
+        h("span", { class: "skel skel-avatar" }),
+        h("span", { class: "profile-meta grow" }, skel("70%"), skel("45%", "skel-small")));
+      return;
+    }
     const p = state.profile || {};
     const pic = p["Profile Picture"];
     profileBtn.replaceChildren(
@@ -310,8 +372,15 @@ export function renderApp(root, logout) {
     } catch (e) {
       if (e.status !== 401) toast(errorText(e));
     }
+    state.loading.profile = false;
+    if (state.profile) {
+      const perks = hasPerks(state.profile);
+      cachePerks(perks);
+      applyAppearance(loadPrefs(), perks);
+    }
     renderProfileBtn();
     renderQuota();
+    finishBoot();
     studio.setCredits(state.profile?.["Nano Requests"] ?? null);
     if (!state.messages.length) renderThread();
   }
@@ -323,8 +392,10 @@ export function renderApp(root, logout) {
     } catch (e) {
       toast(errorText(e));
     }
+    state.loading.chats = false;
     renderChats();
     renderTitle();
+    finishBoot();
   }
 
   async function loadModel() {
@@ -336,6 +407,7 @@ export function renderApp(root, logout) {
       // Needs X-API-KEY; without it we just keep the default.
     }
     picker.setValue(state.model);
+    picker.el.classList.remove("is-loading");
   }
 
   async function onModelChange(id) {
@@ -354,7 +426,7 @@ export function renderApp(root, logout) {
     state.chatId = id;
     renderChats();
     renderTitle();
-    thread.replaceChildren(h("div", { class: "loading" }, h("div", { class: "typing" }, h("span"), h("span"), h("span"))));
+    thread.replaceChildren(threadSkeleton());
     try {
       const data = await api.messages(id);
       if (state.chatId !== id) return;
@@ -394,7 +466,9 @@ export function renderApp(root, logout) {
     } catch (e) {
       if (e.status !== 401) toast(errorText(e));
     }
+    state.loading.folders = false;
     renderChats();
+    finishBoot();
   }
 
   function saveExpanded() {
@@ -614,6 +688,8 @@ export function renderApp(root, logout) {
   }
 
   // ---------- boot ----------
+  applyAppearance(loadPrefs(), cachedPerks());
+  picker.el.classList.add("is-loading");
   renderChats();
   renderTitle();
   renderThread();

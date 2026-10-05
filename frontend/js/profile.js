@@ -1,6 +1,7 @@
 import { api, deviceId } from "./api.js";
 import { h, modal, toast, errorText, confirmModal } from "./dom.js";
 import { planName } from "./chat.js";
+import { BASE_THEMES, CUSTOM_THEMES, BUBBLES, hasPerks, loadPrefs, savePrefs, applyAppearance } from "./appearance.js";
 
 export function openProfile(state, { logout, onChange }) {
   return modal("Account", (close) => {
@@ -56,6 +57,8 @@ export function openProfile(state, { logout, onChange }) {
       .then((s) => { streak.textContent = s?.streak != null ? `${s.streak} 🔥` : "0"; })
       .catch(() => { streak.textContent = "—"; });
 
+    body.append(appearanceSection(state));
+
     // Devices
     const devices = h("ul", { class: "devices" }, h("li", { class: "muted" }, "Loading…"));
     body.append(h("h3", {}, "Signed-in devices"), devices);
@@ -65,6 +68,72 @@ export function openProfile(state, { logout, onChange }) {
       h("button", { class: "btn danger", type: "button", onclick: () => { close(); logout(); } }, "Sign out")));
     return body;
   }, { wide: true });
+}
+
+const LOCKED_MESSAGE = "Custom themes and message colors come with Basic and above. Subscribe in the Veora iOS app.";
+
+function appearanceSection(state) {
+  const perks = hasPerks(state.profile);
+  const prefs = loadPrefs();
+  const wrap = h("section", { class: "appearance" });
+
+  const choose = (patch, locked) => {
+    if (locked) { toast(LOCKED_MESSAGE, "info"); return; }
+    Object.assign(prefs, patch);
+    savePrefs(prefs);
+    applyAppearance(prefs, perks);
+    render();
+  };
+
+  // What is actually applied: locked saved choices show as the defaults.
+  const activeTheme = () => (perks || !CUSTOM_THEMES.some((t) => t.id === prefs.theme) ? prefs.theme : "system");
+  const activeBubble = () => (perks ? prefs.bubble : "default");
+
+  const lock = () => h("span", { class: "lock", "aria-label": "Basic plan or higher" }, "🔒");
+
+  function themeCard(theme, locked) {
+    const selected = activeTheme() === theme.id;
+    const [a, b, c] = theme.preview;
+    return h("button", {
+      class: `theme-card${selected ? " selected" : ""}${locked ? " locked" : ""}`, type: "button", "aria-pressed": String(selected),
+      onclick: () => choose({ theme: theme.id }, locked),
+    },
+      h("span", { class: `theme-swatch${theme.id === "system" ? " split" : ""}`, style: `--a:${a};--b:${b};--c:${c}`, "aria-hidden": "true" },
+        h("span", { class: "sw-side" }), h("span", { class: "sw-dot" })),
+      h("span", { class: "theme-name" }, theme.name, locked && lock()));
+  }
+
+  function bubbleSwatch(bubble) {
+    const locked = !perks && Boolean(bubble.value);
+    const selected = activeBubble() === bubble.id;
+    return h("button", {
+      class: `bubble-swatch${selected ? " selected" : ""}${bubble.value ? "" : " default"}${locked ? " locked" : ""}`,
+      type: "button", title: bubble.name, "aria-label": bubble.name, "aria-pressed": String(selected),
+      style: bubble.value ? `--sw:${bubble.value}` : "",
+      onclick: () => choose({ bubble: bubble.id }, locked),
+    }, locked && lock());
+  }
+
+  function render() {
+    // replaceChildren would print `false`, so conditional parts are filtered out.
+    wrap.replaceChildren(...[
+      h("div", { class: "appearance-head" },
+        h("h3", {}, "Appearance"),
+        h("span", { class: `badge${perks ? "" : " muted-badge"}` }, perks ? "Basic+ unlocked" : "Custom looks: Basic+")),
+      h("div", { class: "theme-grid" },
+        BASE_THEMES.map((t) => themeCard(t, false)),
+        CUSTOM_THEMES.map((t) => themeCard(t, !perks))),
+      h("h4", {}, "Message color"),
+      h("div", { class: "bubble-row" }, BUBBLES.map(bubbleSwatch)),
+      h("div", { class: "appearance-preview", "aria-hidden": "true" },
+        h("div", { class: "msg user" }, h("div", { class: "bubble" }, "Make my messages pop ✨")),
+        h("div", { class: "preview-reply" }, h("img", { src: "logo.png", alt: "" }), h("span", {}, "Done — your new look is saved on this device."))),
+      !perks && h("p", { class: "muted small" }, "Custom themes and message colors are included with Basic, Plus, Premium, Max and Elite. Subscribe in the Veora iOS app."),
+    ].filter(Boolean));
+  }
+
+  render();
+  return wrap;
 }
 
 async function loadDevices(list) {

@@ -2,6 +2,7 @@ import { tokens, setOnLogout } from "./api.js";
 import { renderLogin } from "./auth.js";
 import { renderApp } from "./chat.js";
 import { renderLanding } from "./landing.js";
+import { resetAppearance, cachePerks } from "./appearance.js";
 
 const root = document.getElementById("app");
 let cleanup = null;
@@ -31,6 +32,8 @@ function start() {
 
 function logout() {
   tokens.clear();
+  cachePerks(false);
+  resetAppearance();
   document.querySelectorAll("dialog").forEach((d) => d.remove());
   history.replaceState(null, "", location.pathname + location.search);
   start();
