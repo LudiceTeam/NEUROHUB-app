@@ -189,6 +189,15 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .input.code { font: 600 24px/1 "JetBrains Mono", monospace; letter-spacing: .5em; text-align: center; padding-left: calc(14px + .5em); }
+.auth { position: relative; }
+.auth-back {
+  position: absolute; top: 20px; left: 20px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-elev); color: var(--muted); font-size: 14px; font-weight: 500;
+}
+.auth-back:hover { color: var(--text); }
+.auth-switch { text-align: center; font-size: 14px; }
+.auth-switch a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.auth-switch a:hover { text-decoration: underline; }
 .form-error { color: var(--danger); font-size: 14px; min-height: 1em; margin: 0; }
 .form-error:empty { display: none; }
 

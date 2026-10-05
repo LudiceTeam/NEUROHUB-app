@@ -2,9 +2,11 @@ import { api, tokens } from "./api.js";
 import { config } from "./config.js";
 import { h, errorText } from "./dom.js";
 
-export function renderLogin(root, onSuccess) {
+// mode: "login" | "signup" (same email-code flow; only the copy differs). onBack returns to the landing page.
+export function renderLogin(root, onSuccess, { mode = "login", onBack } = {}) {
   const error = h("p", { class: "form-error", role: "alert" });
   const card = h("div", { class: "auth-card" });
+  const signup = mode === "signup";
 
   const showError = (e) => { error.textContent = e ? errorText(e) : ""; };
   const finish = (data) => { tokens.set(data); onSuccess(); };
@@ -40,12 +42,16 @@ export function renderLogin(root, onSuccess) {
 
     card.replaceChildren(
       h("div", { class: "brand" }, h("img", { src: "logo.png", alt: "", width: "56", height: "56" }), h("span", {}, "Veora")),
-      h("h1", {}, "All AI in one place"),
-      h("p", { class: "muted" }, "Sign in to chat with 40+ models from OpenAI, Anthropic, Google, Meta and more."),
+      h("h1", {}, signup ? "Create your account" : "Welcome back"),
+      h("p", { class: "muted" }, signup
+        ? "Get 10 free requests every day across 40+ models from OpenAI, Anthropic, Google, Meta and more."
+        : "Sign in to continue to your chats."),
       providerButtons(),
       h("div", { class: "divider" }, h("span", {}, "or")),
       form,
       error,
+      h("p", { class: "auth-switch muted" }, signup ? "Already have an account? " : "New to Veora? ",
+        h("a", { href: signup ? "#login" : "#signup" }, signup ? "Log in" : "Create an account")),
     );
     email.focus();
   }
@@ -145,7 +151,8 @@ export function renderLogin(root, onSuccess) {
     return wrap;
   }
 
-  root.replaceChildren(h("main", { class: "auth" }, card));
+  const back = onBack && h("button", { class: "auth-back", type: "button", onclick: onBack }, "← Back to home");
+  root.replaceChildren(h("main", { class: "auth" }, back, card));
   emailStep();
 }
 
