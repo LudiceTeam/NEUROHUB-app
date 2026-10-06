@@ -9,7 +9,10 @@
   --l-accent: #8b7dff;
   --l-accent-2: #c57bff;
   --l-accent-3: #7fd4ff;
-  position: relative; min-height: 100dvh; overflow-x: clip;
+  position: relative; min-height: 100dvh;
+  /* clip (not hidden) on both axes: the parallax background moves down while scrolling and
+     must not grow the page, and clip keeps the sticky nav working. */
+  overflow: clip;
   background: var(--l-bg); color: var(--l-text);
   font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -342,6 +345,11 @@ html.landing-mode #app { height: auto; }
 .fx-spotlight::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .5s;
   background: radial-gradient(520px circle at var(--hx, 50%) var(--hy, 50%), rgba(139, 125, 255, .13), transparent 60%);
+  /* Fade out toward the hero's edges so the glow never shows the box's straight borders. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent), linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent), linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  mask-composite: intersect;
 }
 .fx-spotlight.fx-lit::before { opacity: 1; }
 
