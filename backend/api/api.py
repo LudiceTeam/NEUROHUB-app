@@ -14,12 +14,12 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import timedelta
-from typing import Optional
+from typing import Optional,Dict
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
@@ -41,7 +41,7 @@ from backend.database.streak_db.streak_core import create_user_streak,plus_one_s
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
-from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice
+from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -3644,6 +3644,38 @@ async def voice_create_handler(request:Request,req:CreateVoice,user_data:dict = 
             raise HTTPException(
                 status_code = status.HTTP_400_BAD_REQUEST,
                 detail = "Agree is false"
+            )
+
+        user_plan:Dict = await get_user_plan(
+            user_id = user_id_for_check
+        )
+        user_sub = None
+
+        for plan in user_plan.keys():
+            if user_plan[plan]:
+                user_sub = plan
+
+        if user_sub is not None:
+            sub_name = user_sub.split("_")[0] # this is for the dict names in config.py
+            if sub_name == "starter":
+                raise HTTPException(
+                    status_code = status.HTTP_400_BAD_REQUEST,
+                    detail = "Invalid plan"
+                )
+            else:
+                user_sub_details = SUBSCRIPTIONS.get(sub_name)
+                sub_voice_limit = user_sub_details["voices_amount"]
+                user_voices_amount:int = await get_user_voices_amount(user_id = user_id_for_check)
+                if user_voices_amount >= sub_voice_limit:
+                    raise HTTPException(
+                        status_code = status.HTTP_400_BAD_REQUEST,
+                        detail = "Limit error"
+                    )
+                    
+        else:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Invalid plan"
             )
         
         file_format = ALLOWED_AUDIO_CONTENT_TYPES[mime]

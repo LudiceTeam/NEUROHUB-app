@@ -83,3 +83,17 @@ async def rename_voice(voice_id:str,new_name:str) -> None:
             except Exception:
                 logger.exception("VOICES SQL ERROR")
                 return None
+
+async def get_user_voices_amount(user_id:str) -> int | None:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = select(func.count()).where(
+                    voices_table.c.user_id == user_id
+                )
+                res = await conn.execute(stmt)
+                count:int  = res.scalar_one()
+                return count
+            except Exception:
+                logger.exception("VOICES SQL ERROR")
+                return None

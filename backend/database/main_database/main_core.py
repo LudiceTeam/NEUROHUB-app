@@ -2,7 +2,7 @@ from sqlalchemy import text,select,and_
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime,timedelta
-from typing import List,Literal
+from typing import List,Literal,Dict
 from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
@@ -513,3 +513,29 @@ async def change_name(user_id:str,new_name:str):
             except Exception:
                 logger.exception("MAIN SQL ERROR")
                 return
+
+
+async def get_user_plan(user_id:str) -> Dict | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(
+                main_table.c.premium_sub,
+                main_table.c.starter_sub,
+                main_table.c.plus_sub,
+                main_table.c.max_sub,
+                main_table.c.elite_sub,
+                main_table.c.basic_sub,
+            ).where(
+                main_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            row = res.fetchone()
+            if row is None:
+                return {}
+            
+            return dict(row._mapping)
+            
+        except Exception:
+            logger.exception("MAIN SQL ERORR")
+            return None
+

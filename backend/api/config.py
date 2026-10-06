@@ -42,7 +42,8 @@ SUBSCRIPTIONS = {
         "requests": 25,
         "nano_req": 10,
         "column": "basic_sub",
-        "price_id" : "some_id"
+        "price_id" : "some_id",
+        "voices_amount" : 2
     },
 
     "premium" : {
@@ -50,7 +51,8 @@ SUBSCRIPTIONS = {
         "requests" : 100,
         "nano_req" : 30,
         "column" : "premium_sub",
-        "price_id" : "some_id"
+        "price_id" : "some_id",
+        "voices_amount" : 5
     },
 
     "starter": {
@@ -58,7 +60,8 @@ SUBSCRIPTIONS = {
         "requests": 20,
         "nano_req": 5,
         "column": "starter_sub",
-        "price_id" : "some_id"
+        "price_id" : "some_id",
+        "voices_amount" : 0
     },
 
     "plus": {
@@ -66,7 +69,8 @@ SUBSCRIPTIONS = {
         "requests": 70,
         "nano_req": 20,
         "column": "plus_sub",
-        "price_id" : "some_id"
+        "price_id" : "some_id",
+        "voices_amount" : 4
     },
     
     "max" : {
@@ -74,7 +78,8 @@ SUBSCRIPTIONS = {
         "requests" : 200,
         "nano_req" : 60,
         "column" : "max_sub",
-        "price_id" : "some_id"
+        "price_id" : "some_id",
+        "voices_amount" : 10
     },
 
     "elite" : {
@@ -82,7 +87,8 @@ SUBSCRIPTIONS = {
         "requests" : 500,
         "nano_req" : 150,
         "column" : "elite_sub",
-        "price_id" : "some_id"
+        "price_id" : "some_id",
+        "voices_amount" : 15
     }
 }
 
