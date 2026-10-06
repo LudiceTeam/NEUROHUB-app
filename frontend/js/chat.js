@@ -7,6 +7,7 @@ import { createTtsStudio } from "./tts-studio.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
+import { openLightbox } from "./lightbox.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -55,6 +56,15 @@ export function renderApp(root, logout) {
     picker.el);
 
   const thread = h("div", { class: "thread", "aria-live": "polite" });
+  // Images open in the fullscreen viewer (with every image of the chat) instead of a new tab.
+  const IMAGE_SELECTOR = ".msg-images img, .gen-image img";
+  thread.addEventListener("click", (e) => {
+    const img = e.target.closest(IMAGE_SELECTOR);
+    if (!img || e.metaKey || e.ctrlKey) return;   // Cmd/Ctrl-click still opens a tab
+    e.preventDefault();
+    const all = [...thread.querySelectorAll(IMAGE_SELECTOR)];
+    openLightbox(all.map((el) => ({ src: el.currentSrc || el.src, alt: el.alt })), all.indexOf(img));
+  });
   const scroller = h("div", { class: "scroller" }, thread);
 
   const textarea = h("textarea", {

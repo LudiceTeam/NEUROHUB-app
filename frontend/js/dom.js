@@ -28,6 +28,8 @@ export function icon(name) {
     check: "M5 13l4 4L19 7",
     translate: "M4 5h8M8 3v2M10 5c-.6 3.6-2.6 6.6-6 8M6 8.5c1 2 2.6 3.6 5 4.5M13 20l4-9 4 9M14.4 17h5.2",
     chevronDown: "M6 9l6 6 6-6",
+    download: "M12 4v11M7 10.5l5 5 5-5M5 20h14",
+    external: "M14 5h5v5M19 5l-8 8M18 14v5H5V6h5",
     sidebar: "M4 5h16v14H4zM9 5v14",
     folder: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z",
     folderPlus: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5zM12 10.5v5M9.5 13h5",
