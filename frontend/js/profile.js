@@ -81,7 +81,7 @@ function appearanceSection(state) {
     if (locked) { toast(LOCKED_MESSAGE, "info"); return; }
     Object.assign(prefs, patch);
     savePrefs(prefs);
-    applyAppearance(prefs, perks);
+    applyAppearance(prefs, perks, { animate: true });
     render();
   };
 

@@ -18,7 +18,7 @@ const PROVIDERS = {
   nvidia: { name: "NVIDIA", color: "#76b900", mark: "N" },
 };
 
-const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
+export const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
 export const VOICE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Voice")?.[1] || []);
 
 export function modelLabel(id) {
@@ -118,6 +118,7 @@ export function createModelPicker({ value = "auto", onSelect }) {
     }
     list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
     items = [...list.querySelectorAll(".model-option")];
+    items.forEach((b, i) => b.style.setProperty("--i", String(Math.min(i, 14))));
     setActive(Math.max(0, items.findIndex((b) => b.dataset.id === current)), false);
   }
 

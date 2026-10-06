@@ -866,3 +866,130 @@ html.lb-open, html.lb-open body { overflow: hidden; }
   .lb-img { max-width: 100vw; max-height: calc(100dvh - 90px); border-radius: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .lightbox, .lightbox.closing, .lb-img.animate { animation: none; transition: none; } }
+
+/* =========================================================
+   Motion — every animation here is off with prefers-reduced-motion
+   ========================================================= */
+@property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes fade-up-soft { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fade-in-soft { from { opacity: 0; } }
+
+/* messages */
+.msg.enter { animation: msg-in .45s cubic-bezier(.2, .8, .2, 1) both; }
+.msg.user.enter { transform-origin: bottom right; animation-name: msg-in-user; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(12px); } }
+@keyframes msg-in-user { from { opacity: 0; transform: translateY(10px) scale(.96); } }
+.msg.arrive .md > *, .msg.arrive .gen-image, .msg.arrive .gen-audio, .msg.arrive .gen-video, .msg.arrive .msg-error {
+  animation: block-in .55s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+.msg.arrive .msg-actions { animation: fade-in-soft .4s ease .35s both; }
+@keyframes block-in { from { opacity: 0; transform: translateY(8px); filter: blur(3px); } }
+.thread.thread-in > * { animation: fade-up-soft .4s ease both; }
+
+/* "Thinking…" with a light sweeping across the text */
+.thinking { display: inline-flex; align-items: center; gap: 10px; padding: 6px 0; }
+.thinking-text {
+  font-weight: 500;
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, var(--text) 50%, var(--muted) 65%, var(--muted) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: text-shimmer 2s linear infinite;
+}
+@keyframes text-shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+.thinking .typing { padding: 0; }
+.thinking .typing span { width: 5px; height: 5px; background: var(--accent); }
+
+/* images fade in when loaded */
+.msg-images img.fade-img, .gen-image img.fade-img { opacity: 0; filter: blur(8px); transition: opacity .45s ease, filter .45s ease, transform .15s; }
+.msg-images img.fade-img.loaded, .gen-image img.fade-img.loaded { opacity: 1; filter: none; }
+
+/* welcome */
+.welcome { padding-top: 9vh; }
+.welcome-logo { position: relative; z-index: 0; animation: float-soft 6s ease-in-out infinite; }
+.welcome-logo::before {
+  content: ""; position: absolute; inset: -22px; z-index: -1; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 40%, transparent), transparent 70%);
+  filter: blur(10px); animation: glow-breathe 4s ease-in-out infinite;
+}
+.welcome-logo img { display: block; border-radius: 18px; box-shadow: 0 12px 30px rgba(0, 0, 0, .18); }
+@keyframes float-soft { 50% { transform: translateY(-8px); } }
+@keyframes glow-breathe { 50% { opacity: .55; transform: scale(1.12); } }
+.welcome > h1, .welcome > p { animation: fade-up-soft .6s cubic-bezier(.2, .8, .2, 1) both; }
+.welcome > p { animation-delay: .08s; }
+.suggestions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 640px; margin-top: 22px; }
+.suggestion {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--bg-elev); color: var(--text); text-align: left; font-size: 14px; line-height: 1.35;
+  animation: fade-up-soft .5s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.15s + var(--i, 0) * 70ms);
+  transition: border-color .2s, box-shadow .2s, translate .25s cubic-bezier(.2, .8, .2, 1);
+}
+.suggestion:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); translate: 0 -2px;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.suggestion-emoji { font-size: 18px; flex: none; }
+@media (max-width: 640px) { .suggestions { grid-template-columns: 1fr; } }
+
+/* composer: animated gradient ring on focus, springy send button */
+.composer { position: relative; isolation: isolate; transition: border-color .2s, box-shadow .3s; }
+.composer::before {
+  content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: conic-gradient(from var(--angle), var(--accent), var(--accent-2), #7fd4ff, var(--accent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity .35s;
+}
+.composer:focus-within { border-color: transparent; box-shadow: 0 10px 34px color-mix(in srgb, var(--accent) 16%, transparent); }
+.composer:focus-within::before { opacity: 1; animation: spin-angle 5s linear infinite; }
+@keyframes spin-angle { to { --angle: 360deg; } }
+.send-btn { transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s, opacity .15s; }
+.send-btn:hover:not(:disabled) { transform: scale(1.07); box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+.send-btn:active:not(:disabled) { transform: scale(.9); }
+.send-btn .icon { transition: transform .2s; }
+.send-btn:hover:not(:disabled) .icon { transform: translateX(2px); }
+.composer.busy .send-btn { animation: send-pulse 1.2s ease-in-out infinite; }
+@keyframes send-pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 18%, transparent); } }
+
+/* sidebar */
+.chat-list.intro .chat-item { animation: slide-in .4s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 35ms); }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-8px); } }
+.chat-item { transition: background .15s; }
+.chat-item.active::before {
+  content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 3px;
+  background: linear-gradient(var(--accent), var(--accent-2)); animation: bar-in .3s cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes bar-in { from { transform: scaleY(0); } }
+.folder-chats { animation: fade-up-soft .25s ease both; }
+.new-chat .icon { transition: transform .3s cubic-bezier(.2, .8, .2, 1); }
+.new-chat:hover .icon { transform: rotate(90deg); }
+.profile-btn .avatar-img { transition: transform .25s cubic-bezier(.3, 1.6, .5, 1); }
+.profile-btn:hover .avatar-img { transform: scale(1.08); }
+
+/* buttons */
+.btn { transition: background .15s, border-color .15s, opacity .15s, transform .15s cubic-bezier(.3, 1.6, .5, 1); }
+.btn:active:not(:disabled), .icon-btn:active:not(:disabled) { transform: scale(.95); }
+.icon-btn { transition: background .15s, color .15s, transform .15s; }
+
+/* model picker options cascade in */
+.model-panel .model-option { animation: fade-up-soft .3s ease both; animation-delay: calc(var(--i, 0) * 18ms); }
+
+/* modals & toasts */
+.modal[open] { animation: modal-in .3s cubic-bezier(.2, .9, .3, 1.15) both; }
+.modal[open]::backdrop { animation: fade-in-soft .25s ease both; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.96); } }
+.toast { transition: opacity .25s, transform .45s cubic-bezier(.2, 1.4, .4, 1); }
+
+/* theme switches glide instead of snapping */
+html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
+  transition: background-color .45s ease, color .45s ease, border-color .45s ease, box-shadow .45s ease, fill .45s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg.enter, .msg.arrive *, .thread.thread-in > *, .welcome-logo, .welcome-logo::before, .welcome > *, .suggestion,
+  .chat-list.intro .chat-item, .chat-item.active::before, .folder-chats, .model-panel .model-option,
+  .modal[open], .modal[open]::backdrop, .thinking-text, .composer:focus-within::before, .composer.busy .send-btn {
+    animation: none !important;
+  }
+  .msg-images img.fade-img, .gen-image img.fade-img { opacity: 1; filter: none; transition: none; }
+}
+

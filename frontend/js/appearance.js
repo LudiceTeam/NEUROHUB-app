@@ -94,8 +94,14 @@ let appliedVars = [];
 
 // Locked choices fall back to defaults without touching the saved prefs,
 // so they come back if the user subscribes again.
-export function applyAppearance(prefs, perks) {
+export function applyAppearance(prefs, perks, { animate = false } = {}) {
   const root = document.documentElement;
+  // Colors glide to the new theme instead of snapping (only for user-initiated changes).
+  if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    root.classList.add("theme-anim");
+    clearTimeout(applyAppearance.timer);
+    applyAppearance.timer = setTimeout(() => root.classList.remove("theme-anim"), 500);
+  }
   for (const name of appliedVars) root.style.removeProperty(name);
   appliedVars = [];
 

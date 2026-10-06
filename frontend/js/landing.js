@@ -1,5 +1,6 @@
 import { MODEL_GROUPS } from "./config.js";
 import { mountCrystal } from "./crystal.js";
+import { enhanceLanding } from "./landing-fx.js";
 
 // Mirrors SUBSCRIPTIONS in backend/api/config.py (requests / premium requests).
 const FREE_PLAN = { requests: 10, premium: 1 };
@@ -68,7 +69,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
       <section class="l-hero">
         <div class="l-hero-copy">
           <span class="l-eyebrow"><span class="l-dot"></span>${modelCount} models · images · video · voice</span>
-          <h1>All AI.<br><span class="l-gradient">One place.</span></h1>
+          <h1><span class="l-line"><span>All AI.</span></span><span class="l-line"><span class="l-gradient">One place.</span></span></h1>
           <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — in one beautifully simple app, on the web and on iPhone.</p>
           <div class="l-cta">
             <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
@@ -86,10 +87,10 @@ export function renderLanding(root, { onLogin, onSignup }) {
       </section>
 
       <section class="l-stats reveal" aria-label="Veora in numbers">
-        <div><strong>${modelCount}</strong><span>AI models</span></div>
-        <div><strong>${providers.size}</strong><span>AI labs</span></div>
-        <div><strong>4</strong><span>Modalities: text, image, video, voice</span></div>
-        <div><strong>1</strong><span>Subscription for everything</span></div>
+        <div><strong data-count="${parseInt(modelCount, 10)}" data-suffix="+">${modelCount}</strong><span>AI models</span></div>
+        <div><strong data-count="${providers.size}">${providers.size}</strong><span>AI labs</span></div>
+        <div><strong data-count="4">4</strong><span>Modalities: text, image, video, voice</span></div>
+        <div><strong data-count="1">1</strong><span>Subscription for everything</span></div>
       </section>
 
       <section class="l-section" id="features">
@@ -223,6 +224,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
     for (const entry of entries) {
       if (entry.isIntersecting) {
         entry.target.classList.add("in");
+        entry.target.querySelectorAll("[data-count]").forEach(countUp);
         io.unobserve(entry.target);
       }
     }
@@ -241,6 +243,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
     });
   });
 
+  const destroyFx = enhanceLanding(page);
   let destroyCrystal = null;
   let destroyed = false;
   mountCrystal(page.querySelector(".l-crystal")).then((destroy) => {
@@ -249,11 +252,28 @@ export function renderLanding(root, { onLogin, onSignup }) {
 
   return () => {
     destroyed = true;
+    destroyFx();
     destroyCrystal?.();
     io.disconnect();
     removeEventListener("scroll", onScroll);
     document.documentElement.classList.remove("landing-mode");
   };
+}
+
+// Numbers tick up from zero when the stats strip scrolls into view.
+function countUp(el) {
+  const target = Number(el.dataset.count);
+  const suffix = el.dataset.suffix || "";
+  if (!target || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const start = performance.now();
+  const duration = 1100 + target * 8;
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = `${Math.round(target * eased)}${t === 1 ? suffix : ""}`;
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
 function pretty(id) {

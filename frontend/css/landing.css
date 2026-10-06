@@ -285,3 +285,123 @@ html.landing-mode #app { height: auto; }
   .l-final { margin: 80px 16px 0; padding: 56px 20px; }
   .l-footer { flex-direction: column; text-align: center; padding: 40px 16px; }
 }
+
+/* hero entrance */
+/* Extra bottom room so descenders (the p in "place") aren't clipped by the reveal mask. */
+.l-line { display: block; overflow: hidden; padding-bottom: .16em; margin-bottom: -.16em; }
+.l-line > span { display: inline-block; animation: line-up .9s cubic-bezier(.2, .8, .2, 1) both; }
+.l-line:nth-child(2) > span { animation-delay: .12s; }
+@keyframes line-up { from { transform: translateY(105%); } }
+.l-hero-copy > .l-eyebrow, .l-hero-copy > .l-lead, .l-hero-copy > .l-cta, .l-hero-copy > .l-fine {
+  animation: fade-up .8s cubic-bezier(.2, .8, .2, 1) both;
+}
+.l-hero-copy > .l-eyebrow { animation-delay: 0s; }
+.l-hero-copy > .l-lead { animation-delay: .28s; }
+.l-hero-copy > .l-cta { animation-delay: .4s; }
+.l-hero-copy > .l-fine { animation-delay: .5s; }
+.l-hero-art { animation: fade-in 1.4s ease .2s both; }
+.l-nav { animation: fade-in .8s ease both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } }
+@keyframes fade-in { from { opacity: 0; } }
+/* shine sweep on the primary buttons */
+.l-btn.primary { position: relative; overflow: hidden; }
+.l-btn.primary::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .7) 50%, transparent 70%);
+  transition: transform .7s ease;
+}
+.l-btn.primary:hover::after { transform: translateX(120%); }
+.l-stats strong { font-variant-numeric: tabular-nums; }
+.l-card .l-card-icon { transition: transform .3s cubic-bezier(.2, .8, .2, 1), background .2s; }
+.l-card:hover .l-card-icon { transform: translateY(-3px) rotate(-4deg); background: rgba(139, 125, 255, .18); }
+/* Hover lift uses the separate `translate` property so it doesn't fight the scroll-reveal `transform`. */
+.l-card.reveal, .l-plan.reveal {
+  transition: opacity .7s ease var(--d, 0ms), transform .7s cubic-bezier(.2, .7, .2, 1) var(--d, 0ms),
+    translate .3s cubic-bezier(.2, .8, .2, 1), border-color .2s;
+}
+.l-card:hover, .l-plan:hover { translate: 0 -3px; }
+
+/* ---------- extra motion (landing-fx.js) ---------- */
+@property --fx-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+/* scroll parallax: background lags behind, the crystal drifts a little */
+.l-bg { transform: translate3d(0, calc(var(--sy, 0) * .25px), 0); will-change: transform; }
+.l-hero-art { transform: translate3d(0, calc(var(--sy, 0) * .12px), 0); }
+
+/* scroll progress under the sticky nav */
+.fx-progress {
+  position: absolute; left: 0; bottom: -1px; width: 100%; height: 2px; pointer-events: none;
+  transform-origin: left; transform: scaleX(var(--progress, 0));
+  background: linear-gradient(90deg, var(--l-accent), var(--l-accent-2), var(--l-accent-3));
+  opacity: 0; transition: opacity .3s;
+}
+.l-nav.scrolled .fx-progress { opacity: 1; }
+
+/* hero spotlight that follows the cursor */
+.l-hero.fx-spotlight { isolation: isolate; }
+.fx-spotlight::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .5s;
+  background: radial-gradient(520px circle at var(--hx, 50%) var(--hy, 50%), rgba(139, 125, 255, .13), transparent 60%);
+}
+.fx-spotlight.fx-lit::before { opacity: 1; }
+
+/* slow sheen across "One place." (ping-pong, so the gradient never seams) */
+.l-hero h1 .l-line > .l-gradient {
+  background-size: 220% auto;
+  animation: line-up .9s cubic-bezier(.2, .8, .2, 1) .12s both, fx-sheen 7s ease-in-out 1.2s infinite alternate;
+}
+@keyframes fx-sheen { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+
+/* 3D tilt on cards; :is(.reveal.in) keeps it above the reveal transform */
+.fx-tilt { transform-style: preserve-3d; }
+.reveal.in.fx-tilt, .fx-tilt:not(.reveal) {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform .55s cubic-bezier(.2, .8, .2, 1), opacity .7s ease var(--d, 0ms), border-color .2s;
+}
+.reveal.in.fx-tilt.fx-tilting, .fx-tilt.fx-tilting:not(.reveal) { transition: transform .12s ease-out, opacity .7s ease, border-color .2s; }
+
+/* magnetic primary buttons */
+.l-btn.fx-magnet {
+  transform: translate(var(--tx, 0px), var(--ty, 0px));
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1), background .15s, box-shadow .2s, border-color .15s;
+}
+.l-btn.fx-magnet:active { transform: translate(var(--tx, 0px), var(--ty, 0px)) scale(.97); }
+
+/* feature icons pop on hover */
+.l-card-icon { transition: transform .35s cubic-bezier(.3, 1.4, .5, 1), background .25s, color .25s, border-color .25s; }
+.l-card:hover .l-card-icon {
+  transform: translateY(-3px) rotate(-6deg) scale(1.08);
+  background: linear-gradient(135deg, var(--l-accent), var(--l-accent-2)); border-color: transparent; color: #fff;
+}
+
+/* step numbers and model chips react to hover */
+.l-steps li span { transition: transform .3s cubic-bezier(.3, 1.4, .5, 1), box-shadow .3s; }
+.l-steps li:hover span { transform: scale(1.08); box-shadow: 0 0 24px rgba(139, 125, 255, .45); }
+.l-model { transition: transform .2s, border-color .2s, background .2s; }
+.l-model:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, .22); background: var(--l-surface-2); }
+
+/* popular plan breathes */
+.l-plan.popular { animation: fx-glow 4s ease-in-out infinite; }
+@keyframes fx-glow {
+  50% { box-shadow: 0 24px 80px rgba(139, 125, 255, .42), 0 0 0 1px rgba(197, 123, 255, .25); }
+}
+
+/* FAQ answers rise in when opened */
+.l-faq details[open] p { animation: fx-rise .35s ease both; }
+@keyframes fx-rise { from { opacity: 0; transform: translateY(-6px); } }
+
+/* final CTA: rotating light along the border, floating logo */
+.l-final::after {
+  content: ""; position: absolute; inset: 0; padding: 1px; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--fx-angle), transparent 0 62%, var(--l-accent) 76%, var(--l-accent-2) 86%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: fx-spin 6s linear infinite;
+}
+@keyframes fx-spin { to { --fx-angle: 360deg; } }
+.l-final img { animation: float 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .l-bg, .l-hero-art { transform: none; }
+  .l-hero h1 .l-line > .l-gradient, .l-plan.popular, .l-final::after, .l-final img, .l-faq details[open] p { animation: none; }
+}

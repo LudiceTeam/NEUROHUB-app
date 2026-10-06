@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { createModelPicker, modelLabel, VOICE_MODELS } from "./model-picker.js";
+import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS } from "./model-picker.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
@@ -12,6 +12,12 @@ import { openLightbox } from "./lightbox.js";
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const PINNED_KEY = "veora_pinned";
+const SUGGESTIONS = [
+  ["💡", "Explain quantum computing like I'm 12"],
+  ["🐍", "Write a Python script that renames files by date"],
+  ["✈️", "Plan a 3-day trip to Tokyo on a budget"],
+  ["✍️", "Help me write a friendly follow-up email"],
+];
 const EXPANDED_KEY = "veora_open_folders";
 const DRAG_TYPE = "text/veora-chat";
 
@@ -190,6 +196,14 @@ export function renderApp(root, logout) {
     dropTarget(chatsSection, "");
 
     chatList.replaceChildren(folderSection, chatsSection);
+
+    // First real render after the skeleton: items cascade in once.
+    if (!state.listIntroDone) {
+      state.listIntroDone = true;
+      chatList.querySelectorAll(".chat-item").forEach((el, i) => el.style.setProperty("--i", String(Math.min(i, 16))));
+      chatList.classList.add("intro");
+      setTimeout(() => chatList.classList.remove("intro"), 1400);
+    }
   }
 
   function chatItem(id, name) {
@@ -283,9 +297,13 @@ export function renderApp(root, logout) {
     if (!state.messages.length) {
       const name = state.profile?.Name ? `, ${state.profile.Name}` : "";
       thread.replaceChildren(h("div", { class: "welcome" },
-        h("img", { src: "logo.png", alt: "", width: "64", height: "64" }),
+        h("div", { class: "welcome-logo" }, h("img", { src: "logo.png", alt: "", width: "64", height: "64" })),
         h("h1", {}, `How can I help${name}?`),
-        h("p", { class: "muted" }, "Pick a model at the top or leave it on Auto — Veora will choose the best one for your request.")));
+        h("p", { class: "muted" }, "Pick a model at the top or leave it on Auto — Veora will choose the best one for your request."),
+        h("div", { class: "suggestions" }, SUGGESTIONS.map(([emoji, text], i) => h("button", {
+          class: "suggestion", type: "button", style: `--i:${i}`,
+          onclick: () => { textarea.value = text; autosize(); textarea.focus(); },
+        }, h("span", { class: "suggestion-emoji", "aria-hidden": "true" }, emoji), h("span", {}, text))))));
       return;
     }
     thread.replaceChildren(...state.messages.map(renderMessage));
@@ -294,28 +312,44 @@ export function renderApp(root, logout) {
 
   function renderMessage(m) {
     if (m.role === "user") {
-      return h("div", { class: "msg user" },
-        m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, h("img", { src, alt: "Attached image", loading: "lazy" })))),
+      const el = h("div", { class: `msg user${m.fresh ? " enter" : ""}` },
+        m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, fadeImg(src, "Attached image")))),
         m.text && h("div", { class: "bubble" }, m.text));
+      m.fresh = false;
+      return el;
     }
     const body = [];
-    if (m.pending) body.push(h("div", { class: "typing", "aria-label": "Generating" }, h("span"), h("span"), h("span")));
+    if (m.pending) body.push(h("div", { class: "thinking", role: "status" },
+      h("span", { class: "thinking-text" }, m.pendingLabel || "Thinking"),
+      h("span", { class: "typing", "aria-hidden": "true" }, h("span"), h("span"), h("span"))));
     if (m.error) body.push(h("p", { class: "msg-error" }, m.error));
     if (m.text) body.push(markdown(m.showTranslated && m.translation ? m.translation.text : m.text));
-    if (m.image) body.push(h("a", { href: m.image, target: "_blank", rel: "noopener", class: "gen-image" }, h("img", { src: m.image, alt: "Generated image", loading: "lazy" })));
+    if (m.image) body.push(h("a", { href: m.image, target: "_blank", rel: "noopener", class: "gen-image" }, fadeImg(m.image, "Generated image")));
     if (m.audio) body.push(h("div", { class: "gen-audio" },
       h("audio", { src: m.audio, controls: true, preload: "metadata" }),
       h("a", { class: "btn ghost small", href: m.audio, download: "", target: "_blank", rel: "noopener" }, "Download")));
     if (m.video) body.push(h("video", { src: m.video, controls: true, playsinline: true, class: "gen-video" }));
     if (m.videoPending) body.push(h("p", { class: "muted" }, "🎬 Your video is being generated. Open this chat again in a few minutes to see it."));
-    const el = h("div", { class: "msg assistant" },
+    const el = h("div", { class: `msg assistant${m.fresh ? " enter" : ""}${m.arrived ? " arrive" : ""}` },
       h("div", { class: "avatar" }, h("img", { src: "logo.png", alt: "" })),
       h("div", { class: "msg-body" },
         m.model && h("div", { class: "msg-model" }, modelLabel(m.model)),
         body,
         m.text && !m.pending && messageActions(m)));
+    // A reply that just arrived reveals its blocks one after another.
+    if (m.arrived) {
+      el.querySelectorAll(".md > *, .gen-image, .gen-audio, .gen-video, .msg-error").forEach((block, i) => block.style.setProperty("--i", String(Math.min(i, 12))));
+    }
+    m.fresh = false;
+    m.arrived = false;
     m.el = el;
     return el;
+  }
+
+  // Images fade in once loaded instead of popping in.
+  function fadeImg(src, alt) {
+    const done = (e) => e.target.classList.add("loaded");
+    return h("img", { src, alt, loading: "lazy", class: "fade-img", onload: done, onerror: done });
   }
 
   // Re-renders one message in place (used by copy/translate state changes).
@@ -527,6 +561,10 @@ export function renderApp(root, logout) {
       toast(errorText(e));
     }
     renderThread();
+    // Replay the fade-in for the freshly opened chat.
+    thread.classList.remove("thread-in");
+    void thread.offsetWidth;
+    thread.classList.add("thread-in");
     if (VOICE_MODELS.has(state.model)) studio.setGenerations(collectGenerations());
   }
 
@@ -705,8 +743,11 @@ export function renderApp(root, logout) {
 
     setSending(true);
     const knownChats = new Set(state.chats.map(([id]) => id));
-    const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)) };
-    const reply = { role: "assistant", pending: true };
+    const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)), fresh: true };
+    const reply = {
+      role: "assistant", pending: true, fresh: true,
+      pendingLabel: files.length ? "Looking at your images" : IMAGE_MODELS.has(state.model) ? "Creating your image" : "Thinking",
+    };
     state.messages.push(userMsg, reply);
     textarea.value = "";
     autosize();
@@ -722,6 +763,7 @@ export function renderApp(root, logout) {
     } catch (e) {
       reply.error = errorText(e);
     }
+    reply.arrived = true;
     reply.pending = false;
     renderThread();
     setSending(false);
