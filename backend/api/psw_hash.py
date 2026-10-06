@@ -15,7 +15,6 @@ def make_key(password: str) -> bytes:
 
 
 def encrypt(message: str,password:str) -> str:
-    #password = os.getenv("HASH_MESSAGES_KEY")
     key = make_key(password)
     f = Fernet(key)
 
@@ -24,7 +23,6 @@ def encrypt(message: str,password:str) -> str:
 
 
 def decrypt(encrypted_message:str,password:str) -> str:
-    #password = os.getenv("HASH_MESSAGES_KEY")
     key = make_key(password)
     f = Fernet(key)
 

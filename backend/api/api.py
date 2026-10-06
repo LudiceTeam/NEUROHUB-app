@@ -3547,7 +3547,7 @@ async def stripe_webhook(request:Request,user_data:dict = Depends(get_current_us
                 raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
             else:
                 await unban_user(
-                    user_id = user_id
+                    user_id = user_id_for_check
                 )
 
         payload = await request.body()
@@ -3594,7 +3594,109 @@ async def stripe_webhook(request:Request,user_data:dict = Depends(get_current_us
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
-            
+
+
+VOICE_ENCODING_KEY = os.getenv("VOICE_ENCODING_KEY")
+
+
+class CreateVoice(BaseModel):
+    name:str
+    agree:bool
+
+@app.post("/voice/create")
+@limiter.limit("20/minute")
+async def voice_create_handler(request:Request,req:CreateVoice,user_data:dict = Depends(get_current_user),voice_file:UploadFile = File(...)):
+    try:
+        user_id_for_check = user_data["user_id"]
+                            
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+        file_data = await voice_file.read(MAX_AUDIO_SIZE + 1)
+        if len(file_data) > MAX_AUDIO_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Audio file too large"
+            )
+        if not file_data:
+            raise HTTPException(
+                status_code=400,
+                detail="Audio file is empty"
+            )
+        
+        mime = magic.from_buffer(file_data[:8192], mime=True)
+
+        if mime not in ALLOWED_AUDIO_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported audio format: {mime}"
+            )
+
+        if not req.agree:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Agree is false"
+            )
+        
+        file_format = ALLOWED_AUDIO_CONTENT_TYPES[mime]
+
+        url = await AWS_CLIENT.upload_file(
+            file_path = f"{uuid.uuid4()}.{file_format}",
+            file_data = file_data,
+            content_type = file_format
+        )
+
+        encoded_url = encrypt(url,VOICE_ENCODING_KEY)
+        encoded_name = encrypt(req.name,VOICE_ENCODING_KEY)
+        voice_id:str = await create_voice(
+            user_id = user_id_for_check,
+            name = encoded_name,
+            link = encoded_url,
+            agree = True
+        )
+        return {
+            "voice_id" : voice_id
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+class VoiceId(BaseModel):
+    voice_id:str
+
+@app.delete("/voice/delete")
+@limiter.limit("20/minute")
+async def delete_voice_handler(request:Request,req:VoiceId,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]                       
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
 
 
 # --- RUN ---
