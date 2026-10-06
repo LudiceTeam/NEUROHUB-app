@@ -3723,12 +3723,60 @@ async def delete_voice_handler(request:Request,req:VoiceId,user_data:dict = Depe
                 await unban_user(
                     user_id = user_id_for_check
                 )
+        seen:bool = False
+        user_voices = await get_user_voices(user_id = user_id_for_check)
+        for user_voice in user_voices:
+            if user_voice["voice_id"] == req.voice_id:
+                seen = True
+
+        if not seen:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Error"
+            )
+        await delete_voice(
+            voice_id = req.voice_id
+        )
+
+        return {
+            "message" : "Ok"
+        }
     except HTTPException:
         raise
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+
+@app.get("/voices/get")
+@limiter.limit("20/minute")
+async def get_user_voices_handler(request:Request,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]                       
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+        user_voices = await get_user_voices(user_id = user_id_for_check)
+        for user_voice in user_voices:
+            user_voice["link"] = decrypt(user_voice["link"],VOICE_ENCODING_KEY)
+            user_voice["name"] = decrypt(user_voice["name"],VOICE_ENCODING_KEY)
+        
+        return {
+            "result" : user_voices
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
 # --- RUN ---
