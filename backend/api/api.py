@@ -3586,6 +3586,17 @@ PLAN_COLUMNS = {data["column"]: name for name, data in SUBSCRIPTIONS.items()}
 
 _stripe_prices_cache:dict = {"at": 0.0, "data": None}
 
+
+def _plain(obj):
+    """Stripe SDK objects aren't dicts in stripe-python 13+ (no .get); turn them into plain data."""
+    if hasattr(obj, "to_dict"):
+        obj = obj.to_dict()
+    if isinstance(obj, dict):
+        return {k: _plain(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_plain(v) for v in obj]
+    return obj
+
 @app.get("/stripe/plans")
 @limiter.limit("30/minute")
 async def stripe_plans_handler(request:Request):
@@ -3594,9 +3605,9 @@ async def stripe_plans_handler(request:Request):
         plans = []
         for name, data in SUBSCRIPTIONS.items():
             try:
-                price = await asyncio.to_thread(stripe.Price.retrieve, data["price_id"])
+                price = _plain(await asyncio.to_thread(stripe.Price.retrieve, data["price_id"]))
                 amount, currency = price["unit_amount"], price["currency"]
-                interval = price["recurring"]["interval"] if price.get("recurring") else None
+                interval = (price.get("recurring") or {}).get("interval")
             except Exception:
                 logger.exception("STRIPE PRICE ERROR")
                 amount, currency, interval = None, None, None
@@ -3675,24 +3686,42 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
         
 
 
+async def _find_stripe_customer(user_id:str) -> str | None:
+    """The Stripe customer that holds this user's subscription (we don't store it in our DB yet).
+
+    1. Customers with the user's email (Checkout gets customer_email). The list API is
+       consistent right away, unlike Search, which can lag about a minute behind new objects.
+    2. Fallback: subscriptions whose metadata has this user_id (Search API).
+    """
+    email = await get_user_email_by_user_id(user_id)
+    if email:
+        customers = _plain(await asyncio.to_thread(stripe.Customer.list, email = email, limit = 10))
+        for customer in customers["data"]:
+            subscriptions = _plain(await asyncio.to_thread(stripe.Subscription.list, customer = customer["id"], status = "all", limit = 5))
+            if any(sub["status"] in ("active", "trialing", "past_due", "unpaid") for sub in subscriptions["data"]):
+                return customer["id"]
+    try:
+        found = _plain(await asyncio.to_thread(stripe.Subscription.search, query = f"metadata['user_id']:'{user_id}'", limit = 1))
+        if found["data"]:
+            return found["data"][0]["customer"]
+    except Exception:
+        logger.exception("STRIPE SUBSCRIPTION SEARCH ERROR")
+    return None
+
+
 @app.post("/stripe/portal")
 @limiter.limit("20/minute")
 async def stripe_portal_handler(request:Request,user_data:dict = Depends(get_current_user)):
     """Stripe Customer Portal: the user cancels the plan or changes the card there."""
     try:
         user_id = user_data["user_id"]
-        # The customer isn't stored in our DB yet, so find it through the subscription's metadata.
-        found = await asyncio.to_thread(
-            stripe.Subscription.search,
-            query = f"metadata['user_id']:'{user_id}'",
-            limit = 1,
-        )
-        subscriptions = found["data"]
-        if not subscriptions:
+        customer_id = await _find_stripe_customer(user_id)
+        if customer_id is None:
+            logger.warning("STRIPE PORTAL: no Stripe customer with a subscription for user %s", user_id)
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No Stripe subscription")
         portal = await asyncio.to_thread(
             stripe.billing_portal.Session.create,
-            customer = subscriptions[0]["customer"],
+            customer = customer_id,
             return_url = f"{WEB_URL}/?portal=return",
         )
         return {"portal_url": portal.url}
@@ -3714,8 +3743,8 @@ def _invoice_subscription_id(invoice:dict) -> str | None:
 
 
 async def _subscription_metadata(subscription_id:str) -> dict:
-    subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
-    return dict(subscription["metadata"] or {})
+    subscription = _plain(await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id))
+    return subscription.get("metadata") or {}
 
 
 # No rate limit and no JWT: Stripe calls this directly and the signature check authenticates it.
