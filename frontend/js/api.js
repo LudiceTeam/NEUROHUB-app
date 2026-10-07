@@ -150,7 +150,20 @@ export const api = {
   // Returns the translated text as a plain string.
   translate: (text, target_language) => post("/translate", { text, target_language }),
 
-  askText: (chat_id, text) => post("/ask_text", { chat_id, request: text }),
+  // voice_id: one of the user's own voices — the text is spoken in that voice.
+  askText: (chat_id, text, voice_id = null) => post("/ask_text", { chat_id, request: text, ...(voice_id ? { voice_id } : {}) }),
+
+  // own (cloned) voices
+  voices: () => request("/voices/get"),
+  createVoice: (file, name) => {
+    const form = new FormData();
+    form.append("voice_file", file);
+    form.append("name", name);
+    form.append("agree", "true");
+    return request("/voice/create", { method: "POST", form });
+  },
+  renameVoice: (voice_id, new_name) => post("/voice/rename", { voice_id, new_name }),
+  deleteVoice: (voice_id) => request("/voice/delete", { method: "DELETE", body: { voice_id } }),
   askPhoto: (chat_id, text, files) => {
     const form = new FormData();
     if (chat_id) form.append("chat_id_form", chat_id);

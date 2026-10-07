@@ -465,7 +465,10 @@ export function renderApp(root, logout) {
     main.classList.toggle("tts-mode", voice);
     if (voice) {
       studio.setModel(state.model);
-      if (!wasVoice) studio.setGenerations(collectGenerations());
+      if (!wasVoice) {
+        studio.setGenerations(collectGenerations());
+        studio.loadVoices();
+      }
     } else if (wasVoice) {
       studio.stop();
       renderThread();
@@ -507,6 +510,7 @@ export function renderApp(root, logout) {
     renderQuota();
     finishBoot();
     studio.setCredits(state.profile?.["Nano Requests"] ?? null);
+    if (state.profile) studio.setPlan(state.profile);
     if (!state.messages.length) renderThread();
   }
 
@@ -771,13 +775,13 @@ export function renderApp(root, logout) {
   }
 
   // Studio "Generate speech": a voice-model /ask_text call stored in the open chat.
-  async function generateSpeech(text) {
+  async function generateSpeech(text, voiceId = null) {
     const knownChats = new Set(state.chats.map(([id]) => id));
-    const res = await api.askText(state.chatId, text);
+    const res = await api.askText(state.chatId, text, voiceId);
     if (!res?.audio) {
       throw new Error(res?.message === "error" ? "This chat is not available." : "Unexpected response from server.");
     }
-    state.messages.push({ role: "user", text }, { role: "assistant", audio: res.audio, model: state.model });
+    state.messages.push({ role: "user", text }, { role: "assistant", audio: res.audio, model: voiceId ? "custom:custom" : state.model });
     afterSend(knownChats);
     return res.audio;
   }

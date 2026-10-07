@@ -1,5 +1,7 @@
+import { api } from "./api.js";
 import { MODEL_GROUPS } from "./config.js";
-import { h, toast, errorText } from "./dom.js";
+import { h, toast, errorText, promptModal, confirmModal } from "./dom.js";
+import { cloneVoiceModal } from "./voice-clone.js";
 
 const MAX_CHARS = 3000;   // backend MAX_TTS_CHARS
 const SKIP_SECONDS = 10;
@@ -19,6 +21,13 @@ function splitId(id) {
 }
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const voiceName = (id) => cap(splitId(id)[1]);
+
+// Own (cloned) voices: generated with the backend's CLONE_TTS_MODEL; messages store "<model>:custom".
+const CUSTOM_KEY = "veora_custom_voice";
+const CLONE_MODEL_NAME = "Fish Audio S2.1 Pro";
+const isCustomModel = (id) => typeof id === "string" && id.endsWith(":custom");
+// Mirrors voices_amount in SUBSCRIPTIONS (Starter and Free have none).
+const PLAN_VOICE_LIMITS = { Elite: 15, Max: 10, Premium: 5, Plus: 4, Basic: 2 };
 
 function hash(str) {
   let x = 2166136261;
@@ -61,11 +70,15 @@ const ICON = {
   chevron: () => svg("M9 6l6 6-6 6"),
   info: () => svg(["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 11v5", "M12 8h.01"]),
   wave: () => svg(["M4 10v4", "M8 7v10", "M12 4v16", "M16 7v10", "M20 10v4"]),
+  mic: () => svg(["M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z", "M5 11a7 7 0 0 0 14 0", "M12 18v3"]),
+  plus: () => svg(["M12 5v14", "M5 12h14"]),
+  edit: () => svg(["M4 20h4L19 9l-4-4L4 16z", "M13.5 6.5l4 4"]),
+  trash: () => svg(["M5 7h14", "M9 7V4h6v3", "M7 7l1 13h8l1-13"]),
 };
 
 /**
  * Text-to-speech studio shown instead of the chat when a voice model is selected.
- * onGenerate(text) -> Promise<audioUrl>; onSelectModel(id) -> Promise (rejects to revert).
+ * onGenerate(text, voiceId|null) -> Promise<audioUrl>; onSelectModel(id) -> Promise (rejects to revert).
  */
 export function createTtsStudio({ onGenerate, onSelectModel }) {
   const st = {
@@ -75,7 +88,20 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
     credits: null,
     tab: "settings",
     busy: false,
+    voices: [],          // own voices: { voice_id, name, link }
+    voicesLoaded: false,
+    customVoice: localStorage.getItem(CUSTOM_KEY) || null,
+    voiceLimit: 0,
   };
+  let samplePlayer = null;  // previews an own voice's sample
+
+  const customVoice = () => st.voices.find((v) => v.voice_id === st.customVoice) || null;
+  const genLabel = (g) => g.label || (isCustomModel(g.model) ? "Your voice" : voiceName(g.model));
+
+  function setCustomVoice(id) {
+    st.customVoice = id;
+    try { id ? localStorage.setItem(CUSTOM_KEY, id) : localStorage.removeItem(CUSTOM_KEY); } catch { /* ignore */ }
+  }
 
   // ---------- editor ----------
   const editor = h("textarea", {
@@ -190,7 +216,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
     player.hidden = !g;
     if (!g) return;
     playerTitle.textContent = g.text.length > 70 ? `${g.text.slice(0, 70)}…` : g.text;
-    playerSub.textContent = `Generation ${st.current + 1} · ${voiceName(g.model)}`;
+    playerSub.textContent = `Generation ${st.current + 1} · ${genLabel(g)}`;
     playerDownload.href = g.url;
     const playing = !audio.paused;
     playBtn.replaceChildren(playing ? ICON.pause() : ICON.play());
@@ -209,28 +235,143 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
     panelBody.replaceChildren(st.tab === "settings" ? settingsView() : historyView());
   }
 
+  // ---------- own voices ----------
+  function myVoicesField() {
+    const head = h("div", { class: "tts-field-head" }, h("span", {}, "My voices"),
+      st.voiceLimit > 0 && h("small", { class: "tts-limit" }, `${st.voices.length} / ${st.voiceLimit}`));
+
+    if (st.voiceLimit === 0) {
+      return h("div", { class: "tts-field" }, head,
+        h("div", { class: "tts-clone-locked" }, h("span", { class: "tts-clone-icon" }, ICON.mic()),
+          h("div", {}, h("strong", {}, "Clone your own voice"),
+            h("small", {}, "Included with Basic and higher plans. Subscribe in the Veora iOS app."))));
+    }
+
+    const full = st.voices.length >= st.voiceLimit;
+    const items = st.voices.map((v) => {
+      const selected = v.voice_id === st.customVoice;
+      const previewing = samplePlayer?.dataset.id === v.voice_id && !samplePlayer.paused;
+      return h("div", { class: `tts-option own${selected ? " selected" : ""}`, role: "radio", "aria-checked": String(selected), tabindex: "0",
+        onclick: () => selectCustom(v.voice_id),
+        onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectCustom(v.voice_id); } },
+      },
+        h("span", { class: "voice-avatar own-avatar" }, ICON.mic()),
+        h("span", { class: "tts-option-text" }, h("strong", {}, v.name), h("small", {}, "Your voice")),
+        h("span", { class: "own-actions" },
+          h("button", { class: "icon-btn tiny", type: "button", "aria-label": previewing ? "Stop sample" : "Play sample", title: "Play sample",
+            onclick: (e) => { e.stopPropagation(); previewSample(v); } }, previewing ? ICON.pause() : ICON.play()),
+          h("button", { class: "icon-btn tiny", type: "button", "aria-label": "Rename voice", title: "Rename",
+            onclick: (e) => { e.stopPropagation(); renameVoice(v); } }, ICON.edit()),
+          h("button", { class: "icon-btn tiny danger-hover", type: "button", "aria-label": "Delete voice", title: "Delete",
+            onclick: (e) => { e.stopPropagation(); deleteVoice(v); } }, ICON.trash())),
+        selected && h("span", { class: "tts-check" }, "✓"));
+    });
+
+    return h("div", { class: "tts-field" }, head,
+      h("div", { class: "tts-options", role: "radiogroup", "aria-label": "My voices" },
+        !st.voicesLoaded ? h("p", { class: "muted small" }, "Loading your voices…") : items,
+        h("button", { class: "tts-clone-btn", type: "button", disabled: full, onclick: openClone },
+          ICON.plus(), full ? "Voice limit reached" : "Clone a voice")));
+  }
+
+  function selectCustom(id) {
+    setCustomVoice(st.customVoice === id ? null : id);
+    renderPanel();
+  }
+
+  function selectPreset(id) {
+    setCustomVoice(null);
+    if (id === st.model) renderPanel(); else choose(id);
+  }
+
+  function previewSample(v) {
+    if (samplePlayer?.dataset.id === v.voice_id && !samplePlayer.paused) {
+      samplePlayer.pause();
+    } else {
+      samplePlayer?.pause();
+      audio.pause();
+      samplePlayer = new Audio(v.link);
+      samplePlayer.dataset.id = v.voice_id;
+      samplePlayer.addEventListener("ended", renderPanel);
+      samplePlayer.addEventListener("pause", renderPanel);
+      samplePlayer.play().catch(() => toast("Couldn't play this sample."));
+    }
+    renderPanel();
+  }
+
+  async function openClone() {
+    const created = await cloneVoiceModal();
+    if (!created) return;
+    await loadVoices();
+    if (created.voice_id) setCustomVoice(created.voice_id);
+    renderPanel();
+  }
+
+  async function renameVoice(v) {
+    const name = await promptModal("Rename voice", { value: v.name });
+    if (!name || name === v.name) return;
+    try {
+      await api.renameVoice(v.voice_id, name.slice(0, 40));
+      v.name = name.slice(0, 40);
+      renderPanel();
+    } catch (e) { toast(errorText(e)); }
+  }
+
+  async function deleteVoice(v) {
+    const ok = await confirmModal("Delete voice?", `“${v.name}” and its recording will be permanently deleted.`);
+    if (!ok) return;
+    try {
+      await api.deleteVoice(v.voice_id);
+      st.voices = st.voices.filter((x) => x.voice_id !== v.voice_id);
+      if (st.customVoice === v.voice_id) setCustomVoice(null);
+      renderPanel();
+    } catch (e) { toast(errorText(e)); }
+  }
+
+  async function loadVoices() {
+    try {
+      const res = await api.voices();
+      st.voices = res?.result || [];
+    } catch (e) {
+      st.voices = [];
+      if (e.status !== 401) toast(errorText(e));
+    }
+    st.voicesLoaded = true;
+    if (st.customVoice && !customVoice()) setCustomVoice(null);
+    renderPanel();
+  }
+
   function settingsView() {
     const [base] = splitId(st.model);
     const voices = VOICE_IDS.filter((id) => splitId(id)[0] === base);
     const bases = [...new Set(VOICE_IDS.map((id) => splitId(id)[0]))];
-    const info = BASES[base] || { name: base, mark: "?", color: "var(--muted)", note: "", format: "" };
+    const own = customVoice();
+    const info = own ? { format: "MP3" } : BASES[base] || { name: base, mark: "?", color: "var(--muted)", note: "", format: "" };
 
     return h("div", { class: "tts-settings" },
+      myVoicesField(),
       h("div", { class: "tts-field" },
         h("div", { class: "tts-field-head" }, h("span", {}, "Voice")),
         h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Voice" }, voices.map((id) => {
           const name = voiceName(id);
           const note = VOICE_NOTES[splitId(id)[1]];
+          const selected = !own && id === st.model;
           return h("button", {
-            class: `tts-option${id === st.model ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(id === st.model),
-            onclick: () => choose(id),
+            class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
+            onclick: () => selectPreset(id),
           }, voiceAvatar(id), h("span", { class: "tts-option-text" }, h("strong", {}, name), note && h("small", {}, note)),
-          id === st.model && h("span", { class: "tts-check" }, "✓"));
+          selected && h("span", { class: "tts-check" }, "✓"));
         }))),
       h("p", { class: "tts-hint" }, ICON.info(), "Write in the language you want to hear — it's detected automatically."),
       h("div", { class: "tts-field" },
         h("div", { class: "tts-field-head" }, h("span", {}, "Model")),
-        h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Model" }, bases.map((b) => {
+        own ? h("div", { class: "tts-options" },
+          h("div", { class: "tts-option selected static" },
+            h("span", { class: "model-mark sm", style: "background:#1f6feb" }, "F"),
+            h("span", { class: "tts-option-text" }, h("strong", {}, CLONE_MODEL_NAME), h("small", {}, "Voice cloning from your sample")),
+            h("span", { class: "tts-check" }, "✓")),
+          h("p", { class: "muted small" }, "Pick a preset voice above to switch back to the other models."))
+        : h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Model" }, bases.map((b) => {
           const meta = BASES[b] || { name: b, mark: "?", color: "var(--muted)", note: "" };
           const selected = b === base;
           return h("button", {
@@ -258,7 +399,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
         h("button", {
           class: "tts-history-text", type: "button", title: "Use this text",
           onclick: () => { editor.value = g.text; renderFooter(); editor.focus(); },
-        }, h("span", {}, g.text), h("small", {}, `Generation ${i + 1} · ${voiceName(g.model)}`)),
+        }, h("span", {}, g.text), h("small", {}, `Generation ${i + 1} · ${genLabel(g)}`)),
         h("a", { class: "icon-btn", href: g.url, target: "_blank", rel: "noopener", download: "", "aria-label": "Download" }, ICON.download()));
     }));
   }
@@ -285,8 +426,11 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
     renderFooter();
     renderGens();
     try {
-      const url = await onGenerate(text);
-      st.generations.push({ url, text, model: st.model });
+      const own = customVoice();
+      const url = await onGenerate(text, own?.voice_id || null);
+      st.generations.push(own
+        ? { url, text, model: "custom:custom", label: own.name }
+        : { url, text, model: st.model });
       st.busy = false;
       select(st.generations.length - 1, true);
     } catch (e) {
@@ -356,7 +500,14 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
       if (st.tab === "history") renderPanel();
     },
     setCredits(n) { st.credits = n; renderFooter(); },
-    stop() { audio.pause(); },
+    // Voice limit from the plan flags in /profile.
+    setPlan(profile) {
+      const plan = Object.keys(PLAN_VOICE_LIMITS).find((p) => profile?.[p]);
+      st.voiceLimit = plan ? PLAN_VOICE_LIMITS[plan] : 0;
+      renderPanel();
+    },
+    loadVoices,
+    stop() { audio.pause(); samplePlayer?.pause(); },
     focus() { editor.focus(); },
   };
 }

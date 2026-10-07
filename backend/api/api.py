@@ -42,7 +42,7 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_TTS_MODEL,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -1082,16 +1082,29 @@ def pcm_to_wav(pcm:bytes, sample_rate:int) -> bytes:
     return buffer.getvalue()
 
 
-async def text_to_speech(text:str, tts_model:str) -> tuple[bytes, str, str]:
-    """Returns (audio bytes, file extension, content type)."""
-    settings = tts_models[tts_model]
-    audio_format = settings.get("format", "mp3")
-    payload = {
-        "model": settings["model"],
-        "input": text,
-        "voice": settings["voice"],
-        "response_format": audio_format
-    }
+async def text_to_speech(text:str, tts_model:str, reference_url:str | None = None) -> tuple[bytes, str, str]:
+    """Returns (audio bytes, file extension, content type).
+    With reference_url the text is spoken in the cloned voice from that sample."""
+    if reference_url:
+        settings = {}
+        audio_format = "mp3"
+        payload = {
+            "model": CLONE_TTS_MODEL,
+            "input": text,
+            "response_format": audio_format,
+            "input_references": [
+                {"type": "input_audio", "input_audio": {"url": reference_url}}
+            ]
+        }
+    else:
+        settings = tts_models[tts_model]
+        audio_format = settings.get("format", "mp3")
+        payload = {
+            "model": settings["model"],
+            "input": text,
+            "voice": settings["voice"],
+            "response_format": audio_format
+        }
     headers = {
         "Authorization": f"Bearer {OPEN_AI_KEY}",
         "Content-Type": "application/json"
@@ -1118,6 +1131,7 @@ async def text_to_speech(text:str, tts_model:str) -> tuple[bytes, str, str]:
 class AskText(BaseModel):
     chat_id:Optional[str] = None
     request:Optional[str] = None
+    voice_id:Optional[str] = None   # the user's own voice from /voices/get; forces text-to-speech
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
@@ -1208,8 +1222,17 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         if user_model == "auto" and req.request == None:
             user_model = "google/gemini-3-flash-preview"
 
-        if user_model in tts_models:
+        if user_model in tts_models or req.voice_id:
             # Voice models read the user's text as is; the chat history isn't used.
+            reference_url = None
+            if req.voice_id:
+                user_voices = await get_user_voices(user_id = user_id) or []
+                own_voice = next((v for v in user_voices if v["voice_id"] == req.voice_id), None)
+                if own_voice is None:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice not found")
+                reference_url = decrypt(own_voice["link"],VOICE_ENCODING_KEY)
+                user_model = f"{CLONE_TTS_MODEL}:custom"
+
             text_to_voice = clean_text_for_speech(req.request or "")
             if not text_to_voice:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Nothing to voice")
@@ -1220,7 +1243,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
             try:
-                audio_bytes, audio_ext, audio_type = await text_to_speech(text_to_voice,user_model)
+                audio_bytes, audio_ext, audio_type = await text_to_speech(text_to_voice,user_model,reference_url)
             except Exception:
                 logger.exception("TTS ERROR")
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
@@ -3599,14 +3622,21 @@ async def stripe_webhook(request:Request,user_data:dict = Depends(get_current_us
 VOICE_ENCODING_KEY = os.getenv("VOICE_ENCODING_KEY")
 
 
-class CreateVoice(BaseModel):
-    name:str
-    agree:bool
 
+MAX_VOICE_NAME = 40
+
+# Multipart upload: with a file in the request, name/agree must be form fields
+# (a JSON body model can't be combined with File).
 @app.post("/voice/create")
 @limiter.limit("20/minute")
-async def voice_create_handler(request:Request,req:CreateVoice,user_data:dict = Depends(get_current_user),voice_file:UploadFile = File(...)):
+async def voice_create_handler(request:Request,name:str = Form(...),agree:bool = Form(...),user_data:dict = Depends(get_current_user),voice_file:UploadFile = File(...)):
     try:
+        name = name.strip()
+        if not name or len(name) > MAX_VOICE_NAME:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Invalid name"
+            )
         user_id_for_check = user_data["user_id"]
                             
         ban_info = await get_ban_info(
@@ -3640,7 +3670,7 @@ async def voice_create_handler(request:Request,req:CreateVoice,user_data:dict = 
                 detail=f"Unsupported audio format: {mime}"
             )
 
-        if not req.agree:
+        if not agree:
             raise HTTPException(
                 status_code = status.HTTP_400_BAD_REQUEST,
                 detail = "Agree is false"
@@ -3683,11 +3713,11 @@ async def voice_create_handler(request:Request,req:CreateVoice,user_data:dict = 
         url = await AWS_CLIENT.upload_file(
             file_path = f"{uuid.uuid4()}.{file_format}",
             file_data = file_data,
-            content_type = file_format
+            content_type = mime
         )
 
         encoded_url = encrypt(url,VOICE_ENCODING_KEY)
-        encoded_name = encrypt(req.name,VOICE_ENCODING_KEY)
+        encoded_name = encrypt(name,VOICE_ENCODING_KEY)
         voice_id:str = await create_voice(
             user_id = user_id_for_check,
             name = encoded_name,
@@ -3724,10 +3754,12 @@ async def delete_voice_handler(request:Request,req:VoiceId,user_data:dict = Depe
                     user_id = user_id_for_check
                 )
         seen:bool = False
-        user_voices = await get_user_voices(user_id = user_id_for_check)
+        sample_link = None
+        user_voices = await get_user_voices(user_id = user_id_for_check) or []
         for user_voice in user_voices:
             if user_voice["voice_id"] == req.voice_id:
                 seen = True
+                sample_link = user_voice["link"]
 
         if not seen:
             raise HTTPException(
@@ -3737,7 +3769,13 @@ async def delete_voice_handler(request:Request,req:VoiceId,user_data:dict = Depe
         await delete_voice(
             voice_id = req.voice_id
         )
+        if sample_link:
+            try:
+                await AWS_CLIENT.delete_file(decrypt(sample_link,VOICE_ENCODING_KEY))
+            except Exception:
+                logger.exception("VOICE SAMPLE DELETE ERROR")
 
+        
         return {
             "message" : "Ok"
         }

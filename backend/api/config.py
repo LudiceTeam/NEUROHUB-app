@@ -190,6 +190,10 @@ tts_models = {
 
 MAX_TTS_CHARS = 3000
 
+# Model used for the user's own (cloned) voices: the uploaded sample is sent as a
+# reference with every request (OpenRouter input_references), so nothing is stored at the provider.
+CLONE_TTS_MODEL = "fish-audio/s2.1-pro"
+
 
 
 

@@ -993,3 +993,82 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
   .msg-images img.fade-img, .gen-image img.fade-img { opacity: 1; filter: none; transition: none; }
 }
 
+/* ---------- own voices (studio) ---------- */
+.tts-field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tts-limit { color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tts-option.own { cursor: pointer; position: relative; }
+.tts-option.static { cursor: default; }
+.own-avatar {
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.own-avatar .icon { width: 15px; height: 15px; }
+.own-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+.tts-option.own:hover .own-actions, .tts-option.own:focus-within .own-actions, .tts-option.own.selected .own-actions { opacity: 1; }
+.own-actions .icon-btn.tiny .icon { width: 14px; height: 14px; }
+.icon-btn.danger-hover:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.tts-clone-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--accent); font-weight: 600;
+  transition: background .15s, border-color .15s, translate .2s;
+}
+.tts-clone-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 12%, transparent); border-style: solid; translate: 0 -1px; }
+.tts-clone-btn:disabled { color: var(--muted); border-color: var(--border); background: none; cursor: default; }
+.tts-clone-btn .icon { width: 16px; height: 16px; }
+.tts-clone-locked {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--bg-soft); border: 1px solid var(--border);
+}
+.tts-clone-locked div { display: flex; flex-direction: column; line-height: 1.35; }
+.tts-clone-locked small { color: var(--muted); font-size: 12px; }
+.tts-clone-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.tts-clone-icon .icon { width: 18px; height: 18px; }
+
+/* ---------- clone dialog ---------- */
+.clone { gap: 14px; }
+.clone-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--bg-soft); align-self: flex-start; }
+.clone-tab { padding: 7px 14px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-size: 14px; font-weight: 600; transition: background .15s, color .15s; }
+.clone-tab.active { background: var(--bg-elev); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
+.clone-pane { display: flex; flex-direction: column; gap: 12px; animation: fade-up-soft .25s ease both; }
+.clone-record { display: flex; flex-direction: column; gap: 14px; }
+.clone-script { padding: 14px 16px; border-radius: 14px; background: var(--bg-soft); border: 1px solid var(--border); }
+.clone-script-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.clone-script p { margin: 0; font-size: 15px; line-height: 1.6; }
+.clone-lang { display: flex; gap: 2px; }
+.clone-lang button { padding: 2px 8px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 11px; font-weight: 700; }
+.clone-lang button.active { background: var(--bg-elev); color: var(--accent); }
+.clone-controls { display: flex; align-items: center; gap: 16px; }
+.clone-rec {
+  display: grid; place-items: center; width: 64px; height: 64px; flex: none; border: 0; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform .2s cubic-bezier(.3, 1.6, .5, 1);
+}
+.clone-rec:hover { transform: scale(1.05); }
+.clone-rec .icon { width: 26px; height: 26px; }
+.clone-rec.on { background: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, .5); animation: rec-pulse 1.4s ease-out infinite; }
+.clone-stop { width: 20px; height: 20px; border-radius: 4px; background: #fff; }
+@keyframes rec-pulse { 70% { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+.clone-live { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.clone-meter { display: flex; align-items: center; gap: 3px; height: 36px; }
+.clone-meter span {
+  --v: .15;
+  flex: 1; height: calc(var(--v) * 100%); min-height: 3px; border-radius: 2px;
+  background: linear-gradient(var(--accent), var(--accent-2)); opacity: .85; transition: height .08s linear;
+}
+.clone-time { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.small.center, .clone-record .center { text-align: center; margin: 0; }
+.clone-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 28px 16px;
+  border: 1.5px dashed var(--border); border-radius: 16px; background: var(--bg-soft); color: var(--text); text-align: center;
+  transition: border-color .15s, background .15s;
+}
+.clone-drop .icon { width: 28px; height: 28px; color: var(--accent); }
+.clone-drop:hover, .clone-drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft)); }
+.clone-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); }
+.clone-preview audio { flex: 1; min-width: 0; height: 36px; }
+.clone-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--muted); line-height: 1.45; cursor: pointer; }
+.clone-consent input { margin-top: 2px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+@media (prefers-reduced-motion: reduce) { .clone-rec.on, .clone-pane { animation: none; } }
+

@@ -24,6 +24,7 @@ export const VOICE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Voice")?.[
 export function modelLabel(id) {
   if (!id) return "";
   if (id === "auto") return "Auto";
+  if (id.endsWith(":custom")) return "Your voice";   // own cloned voice
   // Voice models are "<model>:<voice>"; show the voice after the model name.
   const [base, voice] = VOICE_MODELS.has(id) ? id.split(/:(?=[^:]+$)/) : [id];
   const name = base.split("/").pop().replace(/:free$/, "")
