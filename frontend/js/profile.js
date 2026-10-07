@@ -53,12 +53,13 @@ export function openProfile(state, { logout, onChange }) {
       stat("Premium requests", p["Nano Requests"] ?? 0),
       h("div", { class: "stat" }, h("span", {}, "Streak"), streak)));
     const subscribed = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"].some((k) => p[k]);
-    const manageBtn = h("button", { class: "btn", type: "button", onclick: () => openPortal(manageBtn) }, "Manage subscription");
+    const manageBtn = h("button", { class: "pill-btn ghost", type: "button", onclick: () => openPortal(manageBtn) }, "Manage subscription");
     body.append(h("div", { class: "billing-row" },
       h("span", { class: "muted small" }, subscribed && p["Date End"]
         ? `Renews or ends on ${formatDate(p["Date End"])}.`
         : "Unlock more requests, voice cloning and custom themes."),
-      subscribed ? manageBtn : h("button", { class: "btn primary", type: "button", onclick: () => openPlans(p) }, "Upgrade plan")));
+      subscribed ? manageBtn : h("button", { class: "pill-btn glow", type: "button", onclick: () => openPlans(p) },
+        h("span", { class: "pill-spark", "aria-hidden": "true" }, "✦"), "Upgrade plan")));
 
     api.streak()
       .then((s) => { streak.textContent = s?.streak != null ? `${s.streak} 🔥` : "0"; })
