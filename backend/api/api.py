@@ -3580,6 +3580,40 @@ async def voice_to_text(request:Request,user_data:dict = Depends(get_current_use
 class PaySubStripe(BaseModel):
     sub_type:str
 
+# Where Stripe Checkout sends the user back to (the web app shows a toast and refreshes the plan).
+WEB_URL = os.getenv("WEB_URL", "https://web.nexi.center").rstrip("/")
+PLAN_COLUMNS = {data["column"]: name for name, data in SUBSCRIPTIONS.items()}
+
+_stripe_prices_cache:dict = {"at": 0.0, "data": None}
+
+@app.get("/stripe/plans")
+@limiter.limit("30/minute")
+async def stripe_plans_handler(request:Request):
+    """Plans with their live Stripe price, for the pricing UI. Cached for 10 minutes."""
+    if _stripe_prices_cache["data"] is None or time.time() - _stripe_prices_cache["at"] > 600:
+        plans = []
+        for name, data in SUBSCRIPTIONS.items():
+            try:
+                price = await asyncio.to_thread(stripe.Price.retrieve, data["price_id"])
+                amount, currency = price["unit_amount"], price["currency"]
+                interval = price["recurring"]["interval"] if price.get("recurring") else None
+            except Exception:
+                logger.exception("STRIPE PRICE ERROR")
+                amount, currency, interval = None, None, None
+            plans.append({
+                "id": name,
+                "requests": data["requests"],
+                "premium_requests": data["nano_req"],
+                "voices": data.get("voices_amount", 0),
+                "amount": amount,          # in cents
+                "currency": currency,
+                "interval": interval,
+            })
+        plans.sort(key = lambda p: p["amount"] if p["amount"] is not None else 10**9)
+        _stripe_prices_cache.update(at = time.time(), data = plans)
+    return {"result": _stripe_prices_cache["data"]}
+
+
 @app.post("/stripe/create/payment")
 @limiter.limit("20/minute")
 async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict = Depends(get_current_user)):
@@ -3605,24 +3639,30 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
             status_code=400,
             detail="Invalid subscription plan"
         )
-        session = stripe.checkout.Session.create(
-        mode="subscription",
 
-        line_items=[
-            {
-                "price": sub_data["price_id"],
-                "quantity": 1
-            }
-        ],
+        # subscribe() refuses a second plan, so paying for one would charge without upgrading.
+        user_plan = await get_user_plan(user_id = user_id) or {}
+        if any(user_plan.values()):
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Already subscribed"
+            )
 
-        metadata={
-            "user_id":user_id,
-            "plan": req.sub_type,
-        },
-
-        success_url="https://example.com/success",
-        cancel_url="https://example.com/cancel"
-    )
+        metadata = {"user_id": user_id, "plan": req.sub_type}
+        email = await get_user_email_by_user_id(user_id)
+        session = await asyncio.to_thread(
+            stripe.checkout.Session.create,
+            mode = "subscription",
+            line_items = [{"price": sub_data["price_id"], "quantity": 1}],
+            client_reference_id = user_id,
+            customer_email = email or None,
+            metadata = metadata,
+            # Copied onto the subscription, so renewals and cancellations know the user and plan.
+            subscription_data = {"metadata": metadata},
+            allow_promotion_codes = True,
+            success_url = f"{WEB_URL}/?checkout=success",
+            cancel_url = f"{WEB_URL}/?checkout=cancel",
+        )
 
         return {
             "payment_url": session.url
@@ -3635,70 +3675,106 @@ async def stripe_create_payment(req:PaySubStripe,request:Request,user_data:dict 
         
 
 
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-
-@app.post("/stripe/webhook")
+@app.post("/stripe/portal")
 @limiter.limit("20/minute")
-async def stripe_webhook(request:Request,user_data:dict = Depends(get_current_user)):
+async def stripe_portal_handler(request:Request,user_data:dict = Depends(get_current_user)):
+    """Stripe Customer Portal: the user cancels the plan or changes the card there."""
     try:
-        user_id_for_check = user_data["user_id"]
-                    
-        ban_info = await get_ban_info(
-                user_id = user_id_for_check
-            )
-        
-        if ban_info is not None:
-            if ban_info["unban_date"] > datetime.now().date():
-                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
-            else:
-                await unban_user(
-                    user_id = user_id_for_check
-                )
-
-        payload = await request.body()
-        signature = request.headers.get("stripe-signature")
-
-        if not signature:
-            raise HTTPException(status_code=400)
-
-        try:
-            event = stripe.Webhook.construct_event(
-                payload,
-                signature,
-                STRIPE_WEBHOOK_SECRET
-            )
-        except ValueError:
-            raise HTTPException(status_code=400)
-
-        except stripe.SignatureVerificationError:
-            raise HTTPException(status_code=400)
-        
-        if event["type"] == "checkout.session.completed":
-            session = event["data"]["object"]
-
-            user_id = session["metadata"]["user_id"]
-            plan = session["metadata"]["plan"]
-
-            subscription_id = session["subscription"]
-            customer_id = session["customer"]
-
-            if user_id != user_data["user_id"]:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail = "Error",
-                )
-            
-            await subscribe(
-                user_id = user_id, 
-                sub_type = plan
-            )
-
-        return {"ok": True}
+        user_id = user_data["user_id"]
+        # The customer isn't stored in our DB yet, so find it through the subscription's metadata.
+        found = await asyncio.to_thread(
+            stripe.Subscription.search,
+            query = f"metadata['user_id']:'{user_id}'",
+            limit = 1,
+        )
+        subscriptions = found["data"]
+        if not subscriptions:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No Stripe subscription")
+        portal = await asyncio.to_thread(
+            stripe.billing_portal.Session.create,
+            customer = subscriptions[0]["customer"],
+            return_url = f"{WEB_URL}/?portal=return",
+        )
+        return {"portal_url": portal.url}
     except HTTPException:
         raise
     except Exception:
-        logger.exception("ERROR")
+        logger.exception("STRIPE PORTAL ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+
+def _invoice_subscription_id(invoice:dict) -> str | None:
+    # Newer Stripe API versions moved it under parent.subscription_details.
+    return invoice.get("subscription") or (
+        ((invoice.get("parent") or {}).get("subscription_details") or {}).get("subscription")
+    )
+
+
+async def _subscription_metadata(subscription_id:str) -> dict:
+    subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
+    return dict(subscription["metadata"] or {})
+
+
+# No rate limit and no JWT: Stripe calls this directly and the signature check authenticates it.
+@app.post("/stripe/webhook")
+async def stripe_webhook(request:Request):
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature")
+
+    if not signature:
+        raise HTTPException(status_code=400)
+
+    try:
+        stripe.Webhook.construct_event(
+            payload,
+            signature,
+            STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        raise HTTPException(status_code=400)
+    except stripe.SignatureVerificationError:
+        raise HTTPException(status_code=400)
+
+    # Verified above; work with plain JSON so the shape doesn't depend on the SDK version.
+    event = json.loads(payload)
+    event_type = event["type"]
+    obj = event["data"]["object"]
+
+    try:
+        if event_type in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+            # First payment: turn the plan on (async methods confirm in the second event).
+            if obj.get("mode") == "subscription" and obj.get("payment_status") in ("paid", "no_payment_required"):
+                metadata = obj.get("metadata") or {}
+                ok = await subscribe(user_id = metadata["user_id"], sub_type = metadata["plan"])
+                if not ok:
+                    logger.warning("STRIPE: subscribe() refused for %s (%s)", metadata.get("user_id"), metadata.get("plan"))
+
+        elif event_type == "invoice.paid":
+            # Monthly renewal (the first invoice is handled by checkout.session.completed).
+            subscription_id = _invoice_subscription_id(obj)
+            if obj.get("billing_reason") == "subscription_cycle" and subscription_id:
+                metadata = await _subscription_metadata(subscription_id)
+                if metadata.get("user_id"):
+                    await renew_sub(metadata["user_id"])
+
+        elif event_type == "invoice.payment_failed":
+            # Stripe retries the card; if it keeps failing the subscription is deleted (handled below).
+            logger.warning("STRIPE: payment failed for subscription %s", _invoice_subscription_id(obj))
+
+        elif event_type == "customer.subscription.deleted":
+            # Canceled (or unpaid for too long): turn the plan off right away.
+            metadata = obj.get("metadata") or {}
+            if metadata.get("user_id") and metadata.get("plan"):
+                await unsubscribe(metadata["user_id"], metadata["plan"], force = True)
+    except Exception:
+        # A 500 makes Stripe retry the event later.
+        logger.exception("STRIPE WEBHOOK ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+    return {"ok": True}
 
 
 VOICE_ENCODING_KEY = os.getenv("VOICE_ENCODING_KEY")

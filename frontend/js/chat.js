@@ -8,6 +8,8 @@ import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
 import { openLightbox } from "./lightbox.js";
+import { audioCard } from "./audio-card.js";
+import { handleBillingReturn } from "./billing.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -325,9 +327,7 @@ export function renderApp(root, logout) {
     if (m.error) body.push(h("p", { class: "msg-error" }, m.error));
     if (m.text) body.push(markdown(m.showTranslated && m.translation ? m.translation.text : m.text));
     if (m.image) body.push(h("a", { href: m.image, target: "_blank", rel: "noopener", class: "gen-image" }, fadeImg(m.image, "Generated image")));
-    if (m.audio) body.push(h("div", { class: "gen-audio" },
-      h("audio", { src: m.audio, controls: true, preload: "metadata" }),
-      h("a", { class: "btn ghost small", href: m.audio, download: "", target: "_blank", rel: "noopener" }, "Download")));
+    if (m.audio) body.push(h("div", { class: "gen-audio" }, audioCard(m.audio, { label: voiceLabel(m.model) })));
     if (m.video) body.push(h("video", { src: m.video, controls: true, playsinline: true, class: "gen-video" }));
     if (m.videoPending) body.push(h("p", { class: "muted" }, "🎬 Your video is being generated. Open this chat again in a few minutes to see it."));
     const el = h("div", { class: `msg assistant${m.fresh ? " enter" : ""}${m.arrived ? " arrive" : ""}` },
@@ -836,6 +836,11 @@ export function renderApp(root, logout) {
   loadFolders();
   loadModel();
   textarea.focus();
+  // Back from Stripe Checkout / Customer Portal.
+  handleBillingReturn({
+    reloadProfile: loadProfile,
+    hasPlan: () => ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"].some((k) => state.profile?.[k]),
+  });
 }
 
 function fromHistory(m) {
@@ -853,6 +858,15 @@ function fromHistory(m) {
   if (!m.response && !m.image_response) reply.videoPending = true;
   out.push(reply);
   return out;
+}
+
+// "google/gemini-3.8-flash-tts:kore" -> "Kore voice"; own voices -> "Voice clone"
+// (the message header above already says "Your voice").
+function voiceLabel(model) {
+  if (!model) return "Voice";
+  if (model.endsWith(":custom")) return "Voice clone";
+  const voice = model.includes(":") ? model.split(":").pop() : "";
+  return voice ? `${voice.charAt(0).toUpperCase()}${voice.slice(1)} voice` : "Voice";
 }
 
 export function planName(p) {

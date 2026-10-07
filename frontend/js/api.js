@@ -136,6 +136,11 @@ export const api = {
   pinChat: (chat_id, pin_value) => post("/chat/pin", { chat_id, pin_value }),
   deleteChat: (chat_id) => post("/delete/chat", { chat_id }),
 
+  // billing (Stripe)
+  stripePlans: () => request("/stripe/plans", { auth: false }),
+  checkout: (sub_type) => post("/stripe/create/payment", { sub_type }),
+  portal: () => post("/stripe/portal"),
+
   // folders
   folders: () => request("/user/folders", { apiKey: true }),
   createFolder: (folder_name, folder_tags = []) => post("/folder/create", { folder_name, folder_tags }),

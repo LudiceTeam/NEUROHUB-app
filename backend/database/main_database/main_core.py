@@ -236,7 +236,8 @@ async def subscribe(user_id:str,sub_type:str) -> bool:
 
 
 
-async def unsubscribe(user_id:str,sub_type:str) -> bool:
+async def unsubscribe(user_id:str,sub_type:str,force:bool = False) -> bool:
+    """force=True ends the plan right away (e.g. Stripe canceled it) instead of only after its end date."""
     user = await get_user_state(user_id)
 
     sub_data = SUBSCRIPTIONS.get(sub_type)
@@ -256,7 +257,7 @@ async def unsubscribe(user_id:str,sub_type:str) -> bool:
     date_check_result:bool = check_date_for_sub(datetime_now_str,user["date"])
 
 
-    if not date_check_result:
+    if not date_check_result and not force:
         return False
 
 

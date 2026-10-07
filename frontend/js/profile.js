@@ -1,6 +1,7 @@
 import { api, deviceId } from "./api.js";
 import { h, modal, toast, errorText, confirmModal } from "./dom.js";
 import { planName } from "./chat.js";
+import { openPlans, openPortal } from "./billing.js";
 import { BASE_THEMES, CUSTOM_THEMES, BUBBLES, hasPerks, loadPrefs, savePrefs, applyAppearance } from "./appearance.js";
 
 export function openProfile(state, { logout, onChange }) {
@@ -51,7 +52,13 @@ export function openProfile(state, { logout, onChange }) {
       stat("Requests", p.Requests ?? 0),
       stat("Premium requests", p["Nano Requests"] ?? 0),
       h("div", { class: "stat" }, h("span", {}, "Streak"), streak)));
-    if (p["Date End"]) body.append(h("p", { class: "muted small" }, `Subscription active until ${formatDate(p["Date End"])}. Manage it in the Veora iOS app.`));
+    const subscribed = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"].some((k) => p[k]);
+    const manageBtn = h("button", { class: "btn", type: "button", onclick: () => openPortal(manageBtn) }, "Manage subscription");
+    body.append(h("div", { class: "billing-row" },
+      h("span", { class: "muted small" }, subscribed && p["Date End"]
+        ? `Renews or ends on ${formatDate(p["Date End"])}.`
+        : "Unlock more requests, voice cloning and custom themes."),
+      subscribed ? manageBtn : h("button", { class: "btn primary", type: "button", onclick: () => openPlans(p) }, "Upgrade plan")));
 
     api.streak()
       .then((s) => { streak.textContent = s?.streak != null ? `${s.streak} 🔥` : "0"; })
