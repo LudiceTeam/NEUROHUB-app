@@ -20,6 +20,9 @@ from backend.database.custom_gpt_select_db.select_core import metadata_obj as m1
 from backend.database.user_voices.voice_models import metadata_obj as m18
 from backend.database.stats_db.stats_core import write_default
 
+from backend.database.main_database.main_core import subscribe
+
+
 
 import subprocess
 import asyncio
@@ -47,6 +50,8 @@ def redis_check():
 
     else:
         print("[+] REDIS STARTED")
+
+
 
 
 
