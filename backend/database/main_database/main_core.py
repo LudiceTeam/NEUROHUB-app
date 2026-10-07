@@ -444,7 +444,7 @@ async def profile(user_id:str) -> dict:
 async def get_user_avatar_and_name(user_id:str) -> dict:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = main_table.select(main_table.c.name,main_table.c.profile_pict).where(main_table.c.user_id == user_id)
+            stmt = select(main_table.c.name,main_table.c.profile_pict).where(main_table.c.user_id == user_id)
             res = await conn.execute(stmt)
             data = res.fetchone()
             if not data:
@@ -462,7 +462,7 @@ async def get_user_avatar_and_name(user_id:str) -> dict:
 async def get_user_email_by_user_id(user_id:str) -> str:
     async with AsyncSession(async_engine) as conn:
         try:
-            stmt = main_table.select(main_table.c.email).where(main_table.c.user_id == user_id)
+            stmt = select(main_table.c.email).where(main_table.c.user_id == user_id)
             res = await conn.execute(stmt)
             data = res.scalar_one_or_none()
             return data if data is not None else ""

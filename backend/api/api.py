@@ -41,7 +41,7 @@ from backend.database.streak_db.streak_core import create_user_streak,plus_one_s
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
-from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id
+from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -94,6 +94,15 @@ stripe.api_key = os.getenv("STRIPE_API_KEY")
 
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+async def run_migrations():
+    # Adds columns that create_all can't add to existing tables. Safe to run every start (IF NOT EXISTS).
+    try:
+        await migrate_voices_table()
+    except Exception:
+        logger.exception("MIGRATION ERROR")
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -4008,7 +4017,7 @@ async def get_user_voices_handler(request:Request,user_data:dict = Depends(get_c
                 await unban_user(
                     user_id = user_id_for_check
                 )
-        user_voices = await get_user_voices(user_id = user_id_for_check)
+        user_voices = await get_user_voices(user_id = user_id_for_check) or []
         for user_voice in user_voices:
             user_voice["link"] = decrypt(user_voice["link"],VOICE_ENCODING_KEY)
             user_voice["name"] = decrypt(user_voice["name"],VOICE_ENCODING_KEY)
@@ -4061,7 +4070,7 @@ async def rename_voice_handler(request:Request,req:RenameVoice,user_data:dict = 
                 )
 
         seen:bool = False
-        user_voices = await get_user_voices(user_id = user_id_for_check)
+        user_voices = await get_user_voices(user_id = user_id_for_check) or []
         for user_voice in user_voices:
             if user_voice["voice_id"] == req.voice_id:
                 seen = True
