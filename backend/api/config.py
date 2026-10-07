@@ -190,9 +190,18 @@ tts_models = {
 
 MAX_TTS_CHARS = 3000
 
-# Model used for the user's own (cloned) voices: the uploaded sample is sent as a
-# reference with every request (OpenRouter input_references), so nothing is stored at the provider.
-CLONE_TTS_MODEL = "fish-audio/s2.1-pro"
+# Models for the user's own (cloned) voices.
+#  - "openrouter": stateless cloning, the sample (and its transcript) is sent with every request.
+#  - "elevenlabs": the sample is cloned once into an ElevenLabs Instant Voice Clone, then reused.
+#    Only available when ELEVENLABS_API_KEY is set.
+CLONE_MODELS = {
+    "eleven-v4": {"provider": "elevenlabs", "model_id": "eleven_v4", "name": "ElevenLabs Eleven v4", "note": "Most realistic"},
+    "eleven-v4-turbo": {"provider": "elevenlabs", "model_id": "eleven_v4_turbo", "name": "ElevenLabs Eleven v4 Turbo", "note": "Realistic and faster"},
+    "fish-s2.1-pro": {"provider": "openrouter", "model": "fish-audio/s2.1-pro", "name": "Fish Audio S2.1 Pro", "note": "Natural, uses your transcript"},
+    "seed-audio-1": {"provider": "openrouter", "model": "bytedance-seed/seed-audio-1-0", "name": "Seed Audio 1.0", "note": "Expressive, by ByteDance"},
+}
+# Used when the request names no (or an unavailable) model: the first available in this order.
+CLONE_MODEL_PREFERENCE = ["eleven-v4", "fish-s2.1-pro", "seed-audio-1", "eleven-v4-turbo"]
 
 
 

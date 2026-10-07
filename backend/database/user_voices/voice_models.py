@@ -10,5 +10,7 @@ voices_table = Table(
     Column("voice_id",String,unique = True,primary_key=True),
     Column("name",String),
     Column("link",String),
-    Column("agree",Boolean)
+    Column("agree",Boolean),
+    Column("transcript",String,nullable = True),       # encrypted text of the sample, improves cloning
+    Column("eleven_voice_id",String,nullable = True)   # ElevenLabs Instant Voice Clone, created on first use
 )

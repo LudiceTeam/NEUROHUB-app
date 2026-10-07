@@ -150,16 +150,21 @@ export const api = {
   // Returns the translated text as a plain string.
   translate: (text, target_language) => post("/translate", { text, target_language }),
 
-  // voice_id: one of the user's own voices — the text is spoken in that voice.
-  askText: (chat_id, text, voice_id = null) => post("/ask_text", { chat_id, request: text, ...(voice_id ? { voice_id } : {}) }),
+  // voice_id: one of the user's own voices — the text is spoken in that voice with voice_model.
+  askText: (chat_id, text, voice_id = null, voice_model = null) => post("/ask_text", {
+    chat_id, request: text, ...(voice_id ? { voice_id, voice_model } : {}),
+  }),
 
   // own (cloned) voices
   voices: () => request("/voices/get"),
-  createVoice: (file, name) => {
+  voiceModels: () => request("/voices/models"),
+  // transcript: what is said in the sample (the backend transcribes it when missing).
+  createVoice: (file, name, transcript = null) => {
     const form = new FormData();
     form.append("voice_file", file);
     form.append("name", name);
     form.append("agree", "true");
+    if (transcript) form.append("transcript", transcript);
     return request("/voice/create", { method: "POST", form });
   },
   renameVoice: (voice_id, new_name) => post("/voice/rename", { voice_id, new_name }),

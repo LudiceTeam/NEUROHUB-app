@@ -41,8 +41,8 @@ from backend.database.streak_db.streak_core import create_user_streak,plus_one_s
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
-from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_TTS_MODEL,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -1082,19 +1082,86 @@ def pcm_to_wav(pcm:bytes, sample_rate:int) -> bytes:
     return buffer.getvalue()
 
 
-async def text_to_speech(text:str, tts_model:str, reference_url:str | None = None) -> tuple[bytes, str, str]:
+# ----- own voices: model choice + ElevenLabs -----
+
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+ELEVENLABS_URL = "https://api.elevenlabs.io/v1"
+
+
+def clone_model_available(key:str) -> bool:
+    model = CLONE_MODELS.get(key)
+    if model is None:
+        return False
+    return model["provider"] != "elevenlabs" or bool(ELEVENLABS_API_KEY)
+
+
+def pick_clone_model(requested:str | None) -> str:
+    if requested and clone_model_available(requested):
+        return requested
+    return next(k for k in CLONE_MODEL_PREFERENCE if clone_model_available(k))
+
+
+async def eleven_create_voice(label:str, sample_url:str) -> str:
+    """Clones the sample into an ElevenLabs Instant Voice Clone and returns its voice_id."""
+    timeout = aiohttp.ClientTimeout(total=120)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(sample_url) as response:
+            if response.status != 200:
+                raise Exception(f"Voice sample download failed: {response.status}")
+            sample = await response.read()
+            content_type = response.headers.get("Content-Type", "audio/mpeg")
+        form = aiohttp.FormData()
+        form.add_field("name", label)
+        form.add_field("remove_background_noise", "true")
+        form.add_field("files", sample, filename = "sample." + sample_url.rsplit(".", 1)[-1], content_type = content_type)
+        async with session.post(f"{ELEVENLABS_URL}/voices/add", data = form, headers = {"xi-api-key": ELEVENLABS_API_KEY}) as response:
+            if response.status != 200:
+                raise Exception(f"ElevenLabs voice clone error: {await response.text()}")
+            return (await response.json())["voice_id"]
+
+
+async def eleven_text_to_speech(text:str, eleven_voice_id:str, model_id:str) -> bytes:
+    timeout = aiohttp.ClientTimeout(total=120)
+    payload = {
+        "text": text,
+        "model_id": model_id,
+        # High similarity keeps the clone close to the sample; a little style adds life.
+        "voice_settings": {"stability": 0.45, "similarity_boost": 0.9, "style": 0.15, "use_speaker_boost": True}
+    }
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(
+            f"{ELEVENLABS_URL}/text-to-speech/{eleven_voice_id}?output_format=mp3_44100_128",
+            json = payload,
+            headers = {"xi-api-key": ELEVENLABS_API_KEY}
+        ) as response:
+            if response.status != 200:
+                raise Exception(f"ElevenLabs TTS error: {await response.text()}")
+            return await response.read()
+
+
+async def eleven_delete_voice(eleven_voice_id:str) -> None:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+        async with session.delete(f"{ELEVENLABS_URL}/voices/{eleven_voice_id}", headers = {"xi-api-key": ELEVENLABS_API_KEY}) as response:
+            if response.status not in (200, 404):
+                raise Exception(f"ElevenLabs delete error: {await response.text()}")
+
+
+async def text_to_speech(text:str, tts_model:str, reference_url:str | None = None,
+                         transcript:str | None = None, clone_model:str | None = None) -> tuple[bytes, str, str]:
     """Returns (audio bytes, file extension, content type).
-    With reference_url the text is spoken in the cloned voice from that sample."""
+    With reference_url the text is spoken in the cloned voice from that sample (OpenRouter models)."""
     if reference_url:
         settings = {}
         audio_format = "mp3"
+        references = [{"type": "input_audio", "input_audio": {"url": reference_url}}]
+        # Fish Audio uses the sample's transcript to clone much more accurately (Seed ignores it).
+        if transcript:
+            references.append({"type": "text", "text": transcript})
         payload = {
-            "model": CLONE_TTS_MODEL,
+            "model": CLONE_MODELS[clone_model]["model"],
             "input": text,
             "response_format": audio_format,
-            "input_references": [
-                {"type": "input_audio", "input_audio": {"url": reference_url}}
-            ]
+            "input_references": references
         }
     else:
         settings = tts_models[tts_model]
@@ -1131,7 +1198,8 @@ async def text_to_speech(text:str, tts_model:str, reference_url:str | None = Non
 class AskText(BaseModel):
     chat_id:Optional[str] = None
     request:Optional[str] = None
-    voice_id:Optional[str] = None   # the user's own voice from /voices/get; forces text-to-speech
+    voice_id:Optional[str] = None      # the user's own voice from /voices/get; forces text-to-speech
+    voice_model:Optional[str] = None   # key of CLONE_MODELS for voice_id (see /voices/models)
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
@@ -1225,13 +1293,17 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         if user_model in tts_models or req.voice_id:
             # Voice models read the user's text as is; the chat history isn't used.
             reference_url = None
+            own_voice = None
+            clone_key = None
             if req.voice_id:
                 user_voices = await get_user_voices(user_id = user_id) or []
                 own_voice = next((v for v in user_voices if v["voice_id"] == req.voice_id), None)
                 if own_voice is None:
                     raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice not found")
                 reference_url = decrypt(own_voice["link"],VOICE_ENCODING_KEY)
-                user_model = f"{CLONE_TTS_MODEL}:custom"
+                clone_key = pick_clone_model(req.voice_model)
+                clone = CLONE_MODELS[clone_key]
+                user_model = f"{clone.get('model') or 'elevenlabs/' + clone['model_id']}:custom"
 
             text_to_voice = clean_text_for_speech(req.request or "")
             if not text_to_voice:
@@ -1243,7 +1315,17 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
             try:
-                audio_bytes, audio_ext, audio_type = await text_to_speech(text_to_voice,user_model,reference_url)
+                if clone_key and CLONE_MODELS[clone_key]["provider"] == "elevenlabs":
+                    # The ElevenLabs clone is created on first use and kept for next time.
+                    eleven_voice_id = own_voice.get("eleven_voice_id")
+                    if not eleven_voice_id:
+                        eleven_voice_id = await eleven_create_voice(f"veora-{own_voice['voice_id']}", reference_url)
+                        await set_eleven_voice_id(own_voice["voice_id"], eleven_voice_id)
+                    audio_bytes = await eleven_text_to_speech(text_to_voice, eleven_voice_id, CLONE_MODELS[clone_key]["model_id"])
+                    audio_ext, audio_type = "mp3", "audio/mpeg"
+                else:
+                    transcript = decrypt(own_voice["transcript"],VOICE_ENCODING_KEY) if own_voice and own_voice.get("transcript") else None
+                    audio_bytes, audio_ext, audio_type = await text_to_speech(text_to_voice,user_model,reference_url,transcript,clone_key)
             except Exception:
                 logger.exception("TTS ERROR")
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
@@ -3629,7 +3711,7 @@ MAX_VOICE_NAME = 40
 # (a JSON body model can't be combined with File).
 @app.post("/voice/create")
 @limiter.limit("20/minute")
-async def voice_create_handler(request:Request,name:str = Form(...),agree:bool = Form(...),user_data:dict = Depends(get_current_user),voice_file:UploadFile = File(...)):
+async def voice_create_handler(request:Request,name:str = Form(...),agree:bool = Form(...),transcript:Optional[str] = Form(None),user_data:dict = Depends(get_current_user),voice_file:UploadFile = File(...)):
     try:
         name = name.strip()
         if not name or len(name) > MAX_VOICE_NAME:
@@ -3716,14 +3798,26 @@ async def voice_create_handler(request:Request,name:str = Form(...),agree:bool =
             content_type = mime
         )
 
+        # The transcript makes clones much closer to the original. The site sends the script that
+        # was read aloud; for uploaded files we transcribe the sample with Whisper.
+        transcript = (transcript or "").strip()[:2000] or None
+        if transcript is None:
+            try:
+                transcript = (await transcribe_voice_to_text(file_data, file_format)).strip()[:2000] or None
+            except Exception:
+                logger.exception("VOICE TRANSCRIBE ERROR")
+
         encoded_url = encrypt(url,VOICE_ENCODING_KEY)
         encoded_name = encrypt(name,VOICE_ENCODING_KEY)
-        voice_id:str = await create_voice(
+        voice_id = await create_voice(
             user_id = user_id_for_check,
             name = encoded_name,
             link = encoded_url,
-            agree = True
+            agree = True,
+            transcript = encrypt(transcript,VOICE_ENCODING_KEY) if transcript else None
         )
+        if voice_id is None:
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
         return {
             "voice_id" : voice_id
         }
@@ -3755,11 +3849,13 @@ async def delete_voice_handler(request:Request,req:VoiceId,user_data:dict = Depe
                 )
         seen:bool = False
         sample_link = None
+        eleven_voice_id = None
         user_voices = await get_user_voices(user_id = user_id_for_check) or []
         for user_voice in user_voices:
             if user_voice["voice_id"] == req.voice_id:
                 seen = True
                 sample_link = user_voice["link"]
+                eleven_voice_id = user_voice.get("eleven_voice_id")
 
         if not seen:
             raise HTTPException(
@@ -3774,6 +3870,11 @@ async def delete_voice_handler(request:Request,req:VoiceId,user_data:dict = Depe
                 await AWS_CLIENT.delete_file(decrypt(sample_link,VOICE_ENCODING_KEY))
             except Exception:
                 logger.exception("VOICE SAMPLE DELETE ERROR")
+        if eleven_voice_id and ELEVENLABS_API_KEY:
+            try:
+                await eleven_delete_voice(eleven_voice_id)
+            except Exception:
+                logger.exception("ELEVENLABS VOICE DELETE ERROR")
 
         
         return {
@@ -3806,6 +3907,9 @@ async def get_user_voices_handler(request:Request,user_data:dict = Depends(get_c
         for user_voice in user_voices:
             user_voice["link"] = decrypt(user_voice["link"],VOICE_ENCODING_KEY)
             user_voice["name"] = decrypt(user_voice["name"],VOICE_ENCODING_KEY)
+            # internal: the transcript and the ElevenLabs id stay on the server
+            user_voice.pop("transcript", None)
+            user_voice.pop("eleven_voice_id", None)
         
         return {
             "result" : user_voices
@@ -3815,6 +3919,19 @@ async def get_user_voices_handler(request:Request,user_data:dict = Depends(get_c
     except Exception:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+@app.get("/voices/models")
+@limiter.limit("20/minute")
+async def get_voice_models_handler(request:Request,user_data:dict = Depends(get_current_user)):
+    """Models the user can pick for their own voices, in preference order."""
+    default = pick_clone_model(None)
+    return {
+        "result": [
+            {"id": key, "name": CLONE_MODELS[key]["name"], "note": CLONE_MODELS[key]["note"], "default": key == default}
+            for key in CLONE_MODEL_PREFERENCE if clone_model_available(key)
+        ]
+    }
 
 
 class RenameVoice(BaseModel):

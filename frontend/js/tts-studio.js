@@ -24,7 +24,8 @@ const voiceName = (id) => cap(splitId(id)[1]);
 
 // Own (cloned) voices: generated with the backend's CLONE_TTS_MODEL; messages store "<model>:custom".
 const CUSTOM_KEY = "veora_custom_voice";
-const CLONE_MODEL_NAME = "Fish Audio S2.1 Pro";
+const CLONE_MODEL_KEY = "veora_clone_model";
+const CLONE_MARKS = { eleven: ["E", "#111111"], fish: ["F", "#1f6feb"], seed: ["S", "#325ab4"] };
 const isCustomModel = (id) => typeof id === "string" && id.endsWith(":custom");
 // Mirrors voices_amount in SUBSCRIPTIONS (Starter and Free have none).
 const PLAN_VOICE_LIMITS = { Elite: 15, Max: 10, Premium: 5, Plus: 4, Basic: 2 };
@@ -92,7 +93,11 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
     voicesLoaded: false,
     customVoice: localStorage.getItem(CUSTOM_KEY) || null,
     voiceLimit: 0,
+    cloneModels: [],     // [{ id, name, note, default }] from /voices/models
+    cloneModel: localStorage.getItem(CLONE_MODEL_KEY) || null,
   };
+  const activeCloneModel = () => st.cloneModels.find((m) => m.id === st.cloneModel)
+    || st.cloneModels.find((m) => m.default) || st.cloneModels[0] || null;
   let samplePlayer = null;  // previews an own voice's sample
 
   const customVoice = () => st.voices.find((v) => v.voice_id === st.customVoice) || null;
@@ -330,8 +335,9 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
 
   async function loadVoices() {
     try {
-      const res = await api.voices();
+      const [res, models] = await Promise.all([api.voices(), api.voiceModels().catch(() => null)]);
       st.voices = res?.result || [];
+      st.cloneModels = models?.result || [];
     } catch (e) {
       st.voices = [];
       if (e.status !== 401) toast(errorText(e));
@@ -365,11 +371,22 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
       h("p", { class: "tts-hint" }, ICON.info(), "Write in the language you want to hear — it's detected automatically."),
       h("div", { class: "tts-field" },
         h("div", { class: "tts-field-head" }, h("span", {}, "Model")),
-        own ? h("div", { class: "tts-options" },
-          h("div", { class: "tts-option selected static" },
-            h("span", { class: "model-mark sm", style: "background:#1f6feb" }, "F"),
-            h("span", { class: "tts-option-text" }, h("strong", {}, CLONE_MODEL_NAME), h("small", {}, "Voice cloning from your sample")),
-            h("span", { class: "tts-check" }, "✓")),
+        own ? h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Cloning model" },
+          st.cloneModels.map((m) => {
+            const selected = activeCloneModel()?.id === m.id;
+            const [mark, color] = CLONE_MARKS[m.id.split("-")[0]] || ["?", "var(--muted)"];
+            return h("button", {
+              class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
+              onclick: () => {
+                st.cloneModel = m.id;
+                try { localStorage.setItem(CLONE_MODEL_KEY, m.id); } catch { /* ignore */ }
+                renderPanel();
+              },
+            }, h("span", { class: "model-mark sm", style: `background:${color}` }, mark),
+            h("span", { class: "tts-option-text" }, h("strong", {}, m.name), h("small", {}, m.note)),
+            m.default && !selected && h("span", { class: "tts-badge" }, "Best"),
+            selected && h("span", { class: "tts-check" }, "✓"));
+          }),
           h("p", { class: "muted small" }, "Pick a preset voice above to switch back to the other models."))
         : h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Model" }, bases.map((b) => {
           const meta = BASES[b] || { name: b, mark: "?", color: "var(--muted)", note: "" };
@@ -427,9 +444,9 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
     renderGens();
     try {
       const own = customVoice();
-      const url = await onGenerate(text, own?.voice_id || null);
+      const url = await onGenerate(text, own?.voice_id || null, own ? activeCloneModel()?.id || null : null);
       st.generations.push(own
-        ? { url, text, model: "custom:custom", label: own.name }
+        ? { url, text, model: "custom:custom", label: `${own.name}${activeCloneModel() ? ` · ${activeCloneModel().name.replace("ElevenLabs ", "")}` : ""}` }
         : { url, text, model: st.model });
       st.busy = false;
       select(st.generations.length - 1, true);

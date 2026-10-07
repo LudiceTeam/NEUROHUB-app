@@ -5,6 +5,7 @@ const MIN_SECONDS = 8;
 const MAX_SECONDS = 45;          // longer samples are trimmed; 10–30 s works best
 const MAX_UPLOAD = 50 * 1024 * 1024;
 const MAX_NAME = 40;             // backend MAX_VOICE_NAME
+const FULL_READ_SECONDS = 15;    // reading the whole script takes ~20–30 s
 
 const SCRIPTS = {
   en: "Hi! This is my voice for Veora. I'm reading this short passage in a calm, natural tone, the way I usually speak. The morning sun rises slowly over the quiet city, and the smell of fresh coffee drifts through the open window. Sometimes the simplest moments are the ones we remember most.",
@@ -32,7 +33,8 @@ const formatTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).pa
 export function cloneVoiceModal() {
   return modal("Clone your voice", (close) => {
     let mode = "record";
-    let sample = null;             // { blob: WAV Blob, duration }
+    let sample = null;             // { blob: WAV Blob, duration, transcript? }
+    let recordedScript = null;     // the text shown while recording = the sample's transcript
     let recorder = null;
     let stream = null;
     let audioCtx = null;
@@ -128,8 +130,9 @@ export function cloneVoiceModal() {
         cleanupStream();
         if (recorder?.cancelled) { recorder = null; return; }
         recorder = null;
-        await useBlob(raw);
+        await useBlob(raw, recordedScript);
       };
+      recordedScript = SCRIPTS[scriptLang];
       recorder.start();
       startedAt = performance.now();
       startMeter();
@@ -193,10 +196,14 @@ export function cloneVoiceModal() {
 
     // Every sample becomes a mono 16-bit WAV of at most MAX_SECONDS: the backend accepts WAV
     // (browsers record webm/ogg/mp4 depending on the engine) and the upload stays small.
-    async function useBlob(blob) {
+    async function useBlob(blob, transcript = null) {
       status.textContent = "Preparing audio…";
       try {
         const prepared = await toWav(blob);
+        // Only a full read of the script matches the shown text. A short (stopped early) or
+        // trimmed recording would mislead the model, so the backend transcribes those with Whisper.
+        const fullRead = prepared.duration >= FULL_READ_SECONDS && prepared.duration < MAX_SECONDS - 0.5;
+        prepared.transcript = transcript && fullRead ? transcript : null;
         if (prepared.duration < MIN_SECONDS) {
           status.textContent = `That's only ${Math.round(prepared.duration)} s — we need at least ${MIN_SECONDS} s of speech.`;
           sample = null;
@@ -225,7 +232,7 @@ export function cloneVoiceModal() {
       try {
         const name = nameInput.value.trim();
         const file = new File([sample.blob], "voice.wav", { type: "audio/wav" });
-        const res = await api.createVoice(file, name);
+        const res = await api.createVoice(file, name, sample.transcript);
         toast("Your voice is ready", "ok");
         teardown();
         close({ voice_id: res?.voice_id, name });

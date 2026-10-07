@@ -775,9 +775,9 @@ export function renderApp(root, logout) {
   }
 
   // Studio "Generate speech": a voice-model /ask_text call stored in the open chat.
-  async function generateSpeech(text, voiceId = null) {
+  async function generateSpeech(text, voiceId = null, voiceModel = null) {
     const knownChats = new Set(state.chats.map(([id]) => id));
-    const res = await api.askText(state.chatId, text, voiceId);
+    const res = await api.askText(state.chatId, text, voiceId, voiceModel);
     if (!res?.audio) {
       throw new Error(res?.message === "error" ? "This chat is not available." : "Unexpected response from server.");
     }

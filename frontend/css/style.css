@@ -1071,4 +1071,5 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 .clone-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--muted); line-height: 1.45; cursor: pointer; }
 .clone-consent input { margin-top: 2px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
 @media (prefers-reduced-motion: reduce) { .clone-rec.on, .clone-pane { animation: none; } }
+.tts-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
