@@ -3779,6 +3779,58 @@ async def get_user_voices_handler(request:Request,user_data:dict = Depends(get_c
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+class RenameVoice(BaseModel):
+    voice_id:str
+    new_name:str
+
+@app.post("/voice/rename")
+@limiter.limit("20/minute")
+async def rename_voice_handler(request:Request,req:RenameVoice,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]                       
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+
+        seen:bool = False
+        user_voices = await get_user_voices(user_id = user_id_for_check)
+        for user_voice in user_voices:
+            if user_voice["voice_id"] == req.voice_id:
+                seen = True
+
+        if not seen:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Error"
+            )
+        encoded_new_name = encrypt(req.new_name,VOICE_ENCODING_KEY)
+
+        await rename_voice(
+            voice_id = req.voice_id,
+            new_name = encoded_new_name
+        )
+        return {
+            "message" : "Ok"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+
+
+
 # --- RUN ---
 
 if __name__ == "__main__":
