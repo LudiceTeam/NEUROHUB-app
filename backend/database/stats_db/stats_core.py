@@ -77,36 +77,26 @@ models_default = {
     "mistralai/mistral-large": 0,
     "google/gemini-3-pro-image-preview": 0,
 
-    "google/gemini-2.0-flash-001": 0,
-    "google/gemini-2.0-flash-lite-001": 0,
     "google/gemini-2.5-flash-lite": 0,
-    "google/gemini-2.5-flash-lite-preview-09-2025": 0,
     "google/gemini-2.5-flash-image-preview": 0,
     "google/gemini-3.1-flash-lite-preview": 0,
     "google/gemini-3.1-flash-image-preview": 0,
 
     "google/gemma-3-4b-it": 0,
-    "google/gemma-3-4b-it:free": 0,
     "google/gemma-3-12b-it": 0,
-    "google/gemma-3-12b-it:free": 0,
     "google/gemma-3-27b-it": 0,
-    "google/gemma-3-27b-it:free": 0,
     "google/gemma-4-31b-it": 0,
     "google/gemma-4-31b-it:free": 0,
 
-    "qwen/qwen2.5-vl-7b-instruct": 0,
     "qwen/qwen2.5-vl-72b-instruct": 0,
     "qwen/qwen3-vl-8b-instruct": 0,
     "qwen/qwen3-vl-8b-thinking": 0,
     "qwen/qwen3-vl-30b-a3b-instruct": 0,
     "qwen/qwen3-vl-30b-a3b-thinking": 0,
 
-    "meta-llama/llama-3.2-11b-vision-instruct": 0,
-    "meta-llama/llama-3.2-90b-vision-instruct": 0,
     "meta-llama/llama-4-maverick": 0,
     "meta-llama/llama-4-scout": 0,
 
-    "mistralai/pixtral-12b": 0,
     "mistralai/mistral-small-2603": 0,
 
     "rekaai/reka-edge": 0,
@@ -114,7 +104,6 @@ models_default = {
     "bytedance/ui-tars-1.5-7b": 0,
     "z-ai/glm-4.6v": 0,
     "moonshotai/kimi-k2.5": 0,
-    "nvidia/nemotron-nano-12b-vl": 0,
 }
 
 

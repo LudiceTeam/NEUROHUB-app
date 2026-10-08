@@ -36,59 +36,77 @@ AsyncSessionLocal = sessionmaker(
 
 
 
+# Limits per plan:
+#   requests      regular requests, refilled every day
+#   nano_req      premium requests (top models, images, voice), refilled every 30 days
+#   video         video generations, refilled every 30 days
+#   voices_amount own (cloned) voices
+# Sized so that even a user who spends everything with long chats stays profitable.
+FREE_PLAN = {"requests": 5, "nano_req": 3, "video": 0}
+
+# Cost caps that the limits above are calculated with.
+MAX_OUTPUT_TOKENS = 1500
+MAX_HISTORY_CHARS = 24000   # ~6k tokens of chat history in the prompt
+
 SUBSCRIPTIONS = {
     "basic": {
         "days": 30,
-        "requests": 25,
-        "nano_req": 10,
+        "requests": 12,
+        "nano_req": 20,
         "column": "basic_sub",
         "price_id" : "price_1UNyNk09Iu3h8elKIY8aiV1R",
-        "voices_amount" : 2
+        "voices_amount" : 2,
+        "video" : 0
     },
 
     "premium" : {
         "days" : 30,
-        "requests" : 100,
-        "nano_req" : 30,
+        "requests" : 45,
+        "nano_req" : 70,
         "column" : "premium_sub",
         "price_id" : "price_1UNyOd09Iu3h8elKFjVksdgq",
-        "voices_amount" : 5
+        "voices_amount" : 5,
+        "video" : 2
     },
 
     "starter": {
         "days": 30,
-        "requests": 20,
-        "nano_req": 5,
+        "requests": 8,
+        "nano_req": 10,
         "column": "starter_sub",
         "price_id" : "price_1UNyNK09Iu3h8elKeRemRDeO",
-        "voices_amount" : 0
+        "voices_amount" : 0,
+        "video" : 0
     },
 
     "plus": {
         "days": 30,
-        "requests": 70,
-        "nano_req": 20,
+        "requests": 25,
+        "nano_req": 40,
         "column": "plus_sub",
         "price_id" : "price_1UNyOC09Iu3h8elKr559huKI",
-        "voices_amount" : 4
+        "voices_amount" : 4,
+        "video" : 1
     },
     
     "max" : {
         "days" : 30,
-        "requests" : 200,
-        "nano_req" : 60,
+        "requests" : 90,
+        "nano_req" : 140,
         "column" : "max_sub",
         "price_id" : "price_1UNyPJ09Iu3h8elKBAZoItva",
-        "voices_amount" : 10
+        "voices_amount" : 10,
+        "video" : 4
     },
 
     "elite" : {
         "days" : 30,
-        "requests" : 500,
-        "nano_req" : 150,
+        "requests" : 190,
+        "nano_req" : 300,
         "column" : "elite_sub",
         "price_id" : "price_1UNyPe09Iu3h8elK65JJMUkc",
-        "voices_amount" : 15
+        "voices_amount" : 15,
+        "video" : 10
     }
 }
 
@@ -108,25 +126,18 @@ models = [
     # ===== GOOGLE GEMINI =====
     "google/gemini-3-flash-preview",
     "google/gemini-2.5-flash",
-    "google/gemini-2.0-flash-001",
-    "google/gemini-2.0-flash-lite-001",
     "google/gemini-2.5-flash-lite",
-    "google/gemini-2.5-flash-lite-preview-09-2025",
     "google/gemini-3.1-flash-lite-preview",
 
     # ===== GOOGLE GEMMA =====
     "google/gemma-3-4b-it",
-    "google/gemma-3-4b-it:free",
     "google/gemma-3-12b-it",
-    "google/gemma-3-12b-it:free",
     "google/gemma-3-27b-it",
-    "google/gemma-3-27b-it:free",
     "google/gemma-4-26b-a4b-it",
     "google/gemma-4-31b-it",
     "google/gemma-4-31b-it:free",
 
     # ===== QWEN =====
-    "qwen/qwen2.5-vl-7b-instruct",
     "qwen/qwen2.5-vl-72b-instruct",
     "qwen/qwen3-vl-8b-instruct",
     "qwen/qwen3-vl-8b-thinking",
@@ -134,14 +145,11 @@ models = [
     "qwen/qwen3-vl-30b-a3b-thinking",
 
     # ===== META =====
-    "meta-llama/llama-3.2-11b-vision-instruct",
-    "meta-llama/llama-3.2-90b-vision-instruct",
     "meta-llama/llama-4-maverick",
     "meta-llama/llama-4-scout",
 
     # ===== MISTRAL =====
     "mistralai/mistral-large",
-    "mistralai/pixtral-12b",
     "mistralai/mistral-small-2603",
 
     # ===== OTHER =====
@@ -150,7 +158,6 @@ models = [
     "bytedance/ui-tars-1.5-7b",
     "z-ai/glm-4.6v",
     "moonshotai/kimi-k2.5",
-    "nvidia/nemotron-nano-12b-vl",
 ]
 
 

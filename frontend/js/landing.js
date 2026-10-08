@@ -2,15 +2,16 @@ import { MODEL_GROUPS } from "./config.js";
 import { mountCrystal } from "./crystal.js";
 import { enhanceLanding } from "./landing-fx.js";
 
-// Mirrors SUBSCRIPTIONS in backend/api/config.py (requests / premium requests).
-const FREE_PLAN = { requests: 10, premium: 1 };
+// Mirrors FREE_PLAN / SUBSCRIPTIONS in backend/api/config.py:
+// requests per day, premium requests and videos per month.
+const FREE_PLAN = { requests: 5, premium: 3 };
 const PLANS = [
-  { name: "Starter", requests: 20, premium: 5, note: "To get going" },
-  { name: "Basic", requests: 25, premium: 10, note: "For light use" },
-  { name: "Plus", requests: 70, premium: 20, note: "For everyday work" },
-  { name: "Premium", requests: 100, premium: 30, note: "For power users", popular: true },
-  { name: "Max", requests: 200, premium: 60, note: "For heavy creators" },
-  { name: "Elite", requests: 500, premium: 150, note: "No compromises" },
+  { name: "Starter", requests: 8, premium: 10, videos: 0, note: "To get going" },
+  { name: "Basic", requests: 12, premium: 20, videos: 0, note: "For light use" },
+  { name: "Plus", requests: 25, premium: 40, videos: 1, note: "For everyday work" },
+  { name: "Premium", requests: 45, premium: 70, videos: 2, note: "For power users", popular: true },
+  { name: "Max", requests: 90, premium: 140, videos: 4, note: "For heavy creators" },
+  { name: "Elite", requests: 190, premium: 300, videos: 10, note: "No compromises" },
 ];
 
 const FEATURES = [
@@ -29,8 +30,8 @@ const FEATURES = [
 ];
 
 const FAQ = [
-  ["Is there a free plan?", "Yes. Every account gets 10 requests and 1 premium request every day, with access to all models."],
-  ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image, video and voice generation — use premium requests. Everything else uses regular requests."],
+  ["Is there a free plan?", "Yes. Every account gets 5 requests a day and 3 premium requests a month, with access to all models."],
+  ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use premium requests. Videos have their own monthly credits. Everything else uses regular requests."],
   ["When do requests refill?", "Every day. Your quota is topped back up to your plan's limit automatically."],
   ["Where do I subscribe?", "Plans are purchased in the Veora iOS app through the App Store. Your subscription works on the web too — just sign in with the same account."],
   ["Is my chat history private?", "Messages are encrypted before they're saved to our database, and you can delete any chat — including its images — at any time."],
@@ -75,7 +76,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
             <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
             <button class="l-btn ghost lg" type="button" data-action="login">I have an account</button>
           </div>
-          <p class="l-fine">No credit card. 10 free requests every day.</p>
+          <p class="l-fine">No credit card. 5 free requests every day.</p>
         </div>
         <div class="l-hero-art">
           <div class="l-halo" aria-hidden="true"></div>
@@ -144,10 +145,10 @@ export function renderLanding(root, { onLogin, onSignup }) {
         <div class="l-head reveal">
           <span class="l-kicker">Plans</span>
           <h2>Start free. Upgrade when you're ready.</h2>
-          <p>Requests refill every day. Premium requests cover top-tier models and image, video and voice generation.</p>
+          <p>Regular requests refill every day; premium requests and videos refill every month. Premium requests cover top-tier models, images and voice.</p>
         </div>
         <div class="l-free reveal">
-          <div><strong>Free</strong><span>${FREE_PLAN.requests} requests and ${FREE_PLAN.premium} premium request every day, all models included.</span></div>
+          <div><strong>Free</strong><span>${FREE_PLAN.requests} requests a day and ${FREE_PLAN.premium} premium requests a month, all models included.</span></div>
           <button class="l-btn ghost" type="button" data-action="signup">Start free</button>
         </div>
         <div class="l-plans">
@@ -157,11 +158,11 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <h3>${p.name}</h3>
               <p class="l-plan-note">${p.note}</p>
               <div class="l-plan-num"><strong>${p.requests}</strong><span>requests / day</span></div>
-              <div class="l-plan-num small"><strong>${p.premium}</strong><span>premium / day</span></div>
+              <div class="l-plan-num small"><strong>${p.premium}</strong><span>premium / month</span></div>
               <ul>
                 <li>All ${modelCount} models</li>
                 <li>Vision & encrypted history</li>
-                <li>Images, video & voice</li>
+                <li>${p.videos ? `${p.videos} video${p.videos === 1 ? "" : "s"} / month` : "Images & voice"}</li>
               </ul>
               <button class="l-btn ${p.popular ? "primary" : "ghost"} block" type="button" data-action="signup">Get ${p.name}</button>
             </article>`).join("")}
@@ -182,7 +183,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
       <section class="l-final reveal">
         <img src="logo.png" alt="" width="72" height="72">
         <h2>Your AI, all in one place.</h2>
-        <p>Join Veora and get 10 free requests every day.</p>
+        <p>Join Veora and get 5 free requests every day.</p>
         <div class="l-cta center">
           <button class="l-btn primary lg" type="button" data-action="signup">Create free account ${ARROW}</button>
           <button class="l-btn ghost lg" type="button" data-action="login">Log in</button>

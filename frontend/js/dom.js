@@ -50,6 +50,7 @@ const ERRORS = {
   "Access denied": "Your account is temporarily restricted.",
   "Invalid google token": "Google sign-in failed. Try again or use email.",
   "Email is not verified": "Your Google account email isn't verified.",
+  "No video credits": "You've used this month's video generations. They refill monthly — or upgrade for more.",
   "Already subscribed": "You already have a plan. Cancel it in “Manage subscription” before switching.",
   "No Stripe subscription": "This plan wasn't bought on the web — manage it in the Veora iOS app.",
   "Invalid subscription plan": "This plan isn't available.",

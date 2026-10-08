@@ -23,5 +23,7 @@ main_table = Table(
     Column("date",String),
     Column("last_refil_date",String),
     Column("requests",Integer),
-    Column("nano_req",Integer)
+    Column("nano_req",Integer),
+    Column("video_credits",Integer),         # monthly video generations
+    Column("last_premium_refil",String)      # date premium requests + video credits were last refilled
 )

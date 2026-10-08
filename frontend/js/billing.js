@@ -46,7 +46,8 @@ export function openPlans(profile) {
           h("div", { class: "plan-price" }, h("strong", {}, price(plan)), plan.interval && h("span", {}, `/ ${plan.interval}`)),
           h("ul", {},
             h("li", {}, `${plan.requests} requests / day`),
-            h("li", {}, `${plan.premium_requests} premium requests / day`),
+            h("li", {}, `${plan.premium_requests} premium requests / month`),
+            h("li", {}, plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : "No video generation"),
             h("li", {}, plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : "No voice cloning"),
             h("li", {}, plan.voices ? "Custom themes & message colors" : "All 40+ models")),
           btn);

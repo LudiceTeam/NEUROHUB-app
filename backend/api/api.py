@@ -19,7 +19,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,migrate_table as migrate_main_table
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
@@ -42,7 +42,7 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -99,10 +99,11 @@ app = FastAPI()
 @app.on_event("startup")
 async def run_migrations():
     # Adds columns that create_all can't add to existing tables. Safe to run every start (IF NOT EXISTS).
-    try:
-        await migrate_voices_table()
-    except Exception:
-        logger.exception("MIGRATION ERROR")
+    for migrate in (migrate_main_table, migrate_voices_table):
+        try:
+            await migrate()
+        except Exception:
+            logger.exception("MIGRATION ERROR")
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -1031,7 +1032,10 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
             model=user_model,  # <-- ПРАВИЛЬНОЕ имя модели
             messages=[
                 {"role": "user", "content": content}
-            ]
+            ],
+            # Caps the cost of one answer (plan limits are calculated with it).
+            # Thinking models spend part of it on reasoning, so they get more room.
+            max_tokens = MAX_OUTPUT_TOKENS * 2 if "thinking" in user_model else MAX_OUTPUT_TOKENS
         )
 
 
@@ -1283,6 +1287,9 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         
 
         user_model = await get_user_model_name(user_id)
+        # A model removed from the catalog (or by OpenRouter) falls back to Auto instead of failing.
+        if user_model != "auto" and user_model not in (models + expensive_models + image_generation_models + video_generation_models) and user_model not in tts_models:
+            user_model = "auto"
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
             all_models = expensive_models + models + image_generation_models + video_generation_models
@@ -1372,9 +1379,9 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             }
 
         if user_model in video_generation_models:
-            user_nano_req = user_data["nano_req"]
-            if user_nano_req <= 0:
-               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+            # Videos have their own monthly credits (one video costs as much as ~30 premium answers).
+            if (user_data.get("video_credits") or 0) <= 0:
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No video credits")
 
             encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
 
@@ -1405,7 +1412,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)
+            await minus_one_video(user_id)
             await update_chat_last_message_date(chat_id)
             
             
@@ -1593,6 +1600,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
         user_model = await get_user_model_name(user_id)
+        # A model removed from the catalog (or by OpenRouter) falls back to Auto instead of failing.
+        if user_model != "auto" and user_model not in (models + expensive_models + image_generation_models + video_generation_models) and user_model not in tts_models:
+            user_model = "auto"
         if user_model == "auto":
             user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
             all_models = expensive_models + models + image_generation_models + video_generation_models
@@ -1614,7 +1624,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if user_model in tts_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice models don't accept images")
 
-        if (user_model in image_generation_models or user_model in expensive_models or user_model in video_generation_models) and user_data["nano_req"] <= 0:
+        if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
         if user_data["requests"] <= 0 and user_model not in expensive_full_models:
@@ -1740,9 +1750,9 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             } #  либо текст, либо url картинки
 
         if user_model in video_generation_models:
-            user_nano_req = user_data["nano_req"]
-            if user_nano_req <= 0:
-               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
+            # Videos have their own monthly credits (one video costs as much as ~30 premium answers).
+            if (user_data.get("video_credits") or 0) <= 0:
+               raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No video credits")
 
             encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
 
@@ -1776,7 +1786,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 model_name = user_model
             )
 
-            await minus_one_req_nano(user_id)
+            await minus_one_video(user_id)
             await update_chat_last_message_date(chat_id)
             
             
@@ -3549,6 +3559,13 @@ MAX_AUDIO_SIZE = 15 * 1024 * 1024
 @limiter.limit("20/minute")
 async def voice_to_text(request:Request,user_data:dict = Depends(get_current_user),audio: UploadFile = File(...)):
     try:
+        # Transcription is paid (Whisper), so it costs one regular request.
+        user_id = user_data["user_id"]
+        await refil_all_requests(user_id)
+        user_state = await get_user_state(user_id)
+        if not user_state or (user_state.get("requests") or 0) <= 0:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+
         file_data = await audio.read(MAX_AUDIO_SIZE + 1)
         if len(file_data) > MAX_AUDIO_SIZE:
             raise HTTPException(
@@ -3576,6 +3593,7 @@ async def voice_to_text(request:Request,user_data:dict = Depends(get_current_use
             file_data = file_data,
             file_format = file_format
         )
+        await minus_one_req(user_id)
         return {
             "result" : result_text
         }
@@ -3624,6 +3642,7 @@ async def stripe_plans_handler(request:Request):
                 "id": name,
                 "requests": data["requests"],
                 "premium_requests": data["nano_req"],
+                "videos": data.get("video", 0),
                 "voices": data.get("voices_amount", 0),
                 "amount": amount,          # in cents
                 "currency": currency,

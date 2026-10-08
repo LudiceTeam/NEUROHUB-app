@@ -49,8 +49,9 @@ export function openProfile(state, { logout, onChange }) {
     const streak = h("strong", {}, "—");
     body.append(h("div", { class: "stats" },
       stat("Plan", planName(p).replace(" plan", "")),
-      stat("Requests", p.Requests ?? 0),
-      stat("Premium requests", p["Nano Requests"] ?? 0),
+      stat("Requests today", p.Requests ?? 0),
+      stat("Premium / month", p["Nano Requests"] ?? 0),
+      stat("Videos / month", p["Video Credits"] ?? 0),
       h("div", { class: "stat" }, h("span", {}, "Streak"), streak)));
     const subscribed = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"].some((k) => p[k]);
     const manageBtn = h("button", { class: "pill-btn ghost", type: "button", onclick: () => openPortal(manageBtn) }, "Manage subscription");

@@ -10,7 +10,7 @@ from typing import List,Optional,Dict
 from sqlalchemy import select,func
 from datetime import datetime,timezone,timedelta
 from backend.api.psw_hash import decrypt,encrypt
-from backend.api.config import database_url,async_engine
+from backend.api.config import database_url,async_engine,MAX_HISTORY_CHARS
 
 
 logger = logging.getLogger(__name__)
@@ -113,6 +113,12 @@ async def get_chat_messages_2(chat_id:str) -> List[dict]:
                     "message_text" : decrypt(message_block["message_text"],os.getenv("HASH_MESSAGES_KEY")),
                     "response" : decrypt(message_block["response"],os.getenv("HASH_MESSAGES_KEY"))
                 })
+
+            # Keep the prompt bounded (~6k tokens): drop the oldest messages until the history fits.
+            def size(block):
+                return len(str(block["message_text"] or "")) + len(str(block["response"] or ""))
+            while len(result) > 1 and sum(size(b) for b in result) > MAX_HISTORY_CHARS:
+                result.pop(0)
             return result
         except Exception:
             logger.exception("MESSAGES SQL ERROR")

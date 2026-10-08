@@ -441,7 +441,8 @@ export function renderApp(root, logout) {
   function renderQuota() {
     const p = state.profile;
     if (!p) { quota.textContent = ""; return; }
-    quota.textContent = `${p.Requests ?? 0} requests · ${p["Nano Requests"] ?? 0} premium requests left`;
+    const videos = p["Video Credits"] ? ` · ${p["Video Credits"]} video${p["Video Credits"] === 1 ? "" : "s"}` : "";
+    quota.textContent = `${p.Requests ?? 0} requests today · ${p["Nano Requests"] ?? 0} premium this month${videos} left`;
   }
 
   function renderProfileBtn() {

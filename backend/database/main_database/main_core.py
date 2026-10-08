@@ -12,7 +12,7 @@ import atexit
 from sqlalchemy import func
 import logging
 import uuid
-from backend.api.config import database_url,async_engine,SUBSCRIPTIONS
+from backend.api.config import database_url,async_engine,SUBSCRIPTIONS,FREE_PLAN
 #backend.database.
 
 
@@ -30,6 +30,12 @@ async def drop_table():
 async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
+
+# For the existing table: create_all doesn't add new columns.
+async def migrate_table():
+    async with async_engine.begin() as conn:
+        await conn.execute(text("ALTER TABLE main_app_table ADD COLUMN IF NOT EXISTS video_credits INTEGER DEFAULT 0"))
+        await conn.execute(text("ALTER TABLE main_app_table ADD COLUMN IF NOT EXISTS last_premium_refil VARCHAR DEFAULT ''"))
         
 
 async def get_user_id_by_provider(provider_id:str,provider:str) -> str:
@@ -77,8 +83,10 @@ async def create_user(user_id:str,name:str,email:str,provider_id:str = None, pro
                     elite_sub = False,
                     date = "",
                     last_refil_date = str(datetime.now().date()),
-                    requests = 10,
-                    nano_req = 1
+                    requests = FREE_PLAN["requests"],
+                    nano_req = FREE_PLAN["nano_req"],
+                    video_credits = FREE_PLAN["video"],
+                    last_premium_refil = str(datetime.now().date())
                 ).on_conflict_do_nothing(
                     index_elements=[main_table.c.provider_id]
                 )
@@ -121,7 +129,9 @@ async def get_user_state(user_id: str) -> dict:
                 main_table.c.date,
                 main_table.c.last_refil_date,
                 main_table.c.requests,
-                main_table.c.nano_req
+                main_table.c.nano_req,
+                main_table.c.video_credits,
+                main_table.c.last_premium_refil
             ).where(main_table.c.user_id == user_id)
 
             res = await conn.execute(stmt)
@@ -218,6 +228,8 @@ async def subscribe(user_id:str,sub_type:str) -> bool:
                     "last_refil_date" : str(datetime.now().date()),
                     "nano_req" : sub_data["nano_req"],
                     "requests" : sub_data["requests"],
+                    "video_credits" : sub_data.get("video", 0),
+                    "last_premium_refil" : str(datetime.now().date()),
                     sub_data["column"] : True
                 }
 
@@ -267,8 +279,10 @@ async def unsubscribe(user_id:str,sub_type:str,force:bool = False) -> bool:
                 values = {
                     "date": "",
                     "last_refil_date" : str(datetime.now().date()),
-                    "nano_req" : 1,
-                    "requests" : 10,
+                    "nano_req" : FREE_PLAN["nano_req"],
+                    "requests" : FREE_PLAN["requests"],
+                    "video_credits" : FREE_PLAN["video"],
+                    "last_premium_refil" : str(datetime.now().date()),
                     sub_data["column"] : False
                 }
 
@@ -305,58 +319,49 @@ async def renew_sub(user_id:str):
 
 
 async def refil_all_requests(user_id:str) -> bool:
+    """Every day: regular requests back to the plan's daily amount.
+    Every 30 days: premium requests and video credits back to the plan's monthly amount."""
     user = await get_user_state(user_id)
 
     if not user:
         return False
-    
-    amount_nano = 1
 
-    amount_requests = 10
-
-    plans = {
-        "premium_sub": (15, 100),
-        "basic_sub": (5, 25),
-        "starter_sub": (5, 20),
-        "plus_sub": (20, 70),
-        "max_sub": (60, 200),
-        "elite_sub" : (150, 500),
-    }
-
-    for sub_name,values in plans.items():
-        if user.get(sub_name):
-            amount_nano,amount_requests = values
+    plan = FREE_PLAN
+    for sub_data in SUBSCRIPTIONS.values():
+        if user.get(sub_data["column"]):
+            plan = sub_data
             break
 
+    today = datetime.now().date()
+    values = {}
 
+    if check_date_for_refil(str(today), user["last_refil_date"]):
+        values["requests"] = plan["requests"]
+        values["last_refil_date"] = str(today)
 
-    datetime_now = datetime.now().date()
+    last_premium = user.get("last_premium_refil") or ""
+    try:
+        premium_due = not last_premium or (today - datetime.strptime(last_premium, "%Y-%m-%d").date()).days >= 30
+    except ValueError:
+        premium_due = True
+    if premium_due:
+        values["nano_req"] = plan["nano_req"]
+        values["video_credits"] = plan.get("video", 0)
+        values["last_premium_refil"] = str(today)
 
-    datetime_now_str = str(datetime_now)
-
-    result_date:bool = check_date_for_refil(datetime_now_str,user["last_refil_date"])
-
-    if not result_date:
+    if not values:
         return False
 
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
             try:
-                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
-                    nano_req = amount_nano,
-                    requests = amount_requests,
-                    last_refil_date = str(datetime.now().date())
-                )
+                stmt = main_table.update().where(main_table.c.user_id == user_id).values(**values)
                 result = await conn.execute(stmt)
-                if result.rowcount == 0:
-                    return False
-                return True
-            except Exception as e:
-                logger.exception(f"MAIN SQL Error")
+                return result.rowcount > 0
+            except Exception:
+                logger.exception("MAIN SQL Error")
                 return False
-            
 
-        
 
 async def minus_one_req(user_id:str):
     user = await get_user_state(user_id)
@@ -394,6 +399,18 @@ async def minus_one_req_nano(user_id: str):
     
 
 
+async def minus_one_video(user_id: str):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
+                    video_credits = main_table.c.video_credits - 1
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MAIN SQL Error")
+
+
 async def profile(user_id:str) -> dict:
     
     async with AsyncSession(async_engine) as conn:
@@ -409,7 +426,8 @@ async def profile(user_id:str) -> dict:
                           main_table.c.date,
                           main_table.c.requests,
                           main_table.c.nano_req,
-                          main_table.c.email).where(main_table.c.user_id == user_id)
+                          main_table.c.email,
+                          main_table.c.video_credits).where(main_table.c.user_id == user_id)
 
             res = await conn.execute(stmt)
 
@@ -418,7 +436,7 @@ async def profile(user_id:str) -> dict:
             if data is None:
                 return {}
 
-            avatar,name,premium_sub,basic_sub,starter_sub,plus_sub,max_sub,elite_sub,date,requests,nano_req,email = data
+            avatar,name,premium_sub,basic_sub,starter_sub,plus_sub,max_sub,elite_sub,date,requests,nano_req,email,video_credits = data
 
 
             return {
@@ -433,7 +451,8 @@ async def profile(user_id:str) -> dict:
                 "Basic":basic_sub,
                 "Date End": date,
                 "Requests":requests,
-                "Nano Requests":nano_req
+                "Nano Requests":nano_req,
+                "Video Credits":video_credits or 0
 
             }
 

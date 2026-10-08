@@ -44,7 +44,7 @@ export function renderLogin(root, onSuccess, { mode = "login", onBack } = {}) {
       h("div", { class: "brand" }, h("img", { src: "logo.png", alt: "", width: "56", height: "56" }), h("span", {}, "Veora")),
       h("h1", {}, signup ? "Create your account" : "Welcome back"),
       h("p", { class: "muted" }, signup
-        ? "Get 10 free requests every day across 40+ models from OpenAI, Anthropic, Google, Meta and more."
+        ? "Get 5 free requests every day across 40+ models from OpenAI, Anthropic, Google, Meta and more."
         : "Sign in to continue to your chats."),
       providerButtons(),
       h("div", { class: "divider" }, h("span", {}, "or")),
