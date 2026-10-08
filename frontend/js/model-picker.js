@@ -1,5 +1,6 @@
 import { MODEL_GROUPS, PREMIUM_MODELS, modelCredits } from "./config.js";
 import { h, icon } from "./dom.js";
+import { gptAvatar } from "./gpts.js";
 
 const PROVIDERS = {
   auto: { name: "Veora", color: "linear-gradient(135deg, var(--accent), var(--accent-2))", mark: "✦" },
@@ -60,8 +61,12 @@ function mark(id, size = "") {
 
 // A custom dropdown for choosing the model. onSelect(id) may be async; throwing reverts the choice.
 // isLocked(id): PLUS model the user can't pick yet; onLocked(id) runs instead of selecting it.
-export function createModelPicker({ value = "auto", onSelect, isLocked = () => false, onLocked = () => {} }) {
+// gpt: { onSelect(g), onCreate(), onEdit(g), onDelete(g) } — the user's custom GPTs shown on top.
+export function createModelPicker({ value = "auto", onSelect, isLocked = () => false, onLocked = () => {}, gpt = null }) {
   let current = value;
+  let gpts = [];           // [{ gpt_id, gpt_name, gpt_promt }]
+  let activeGpt = null;    // gpt_id when a custom GPT is on
+  const activeGptObj = () => gpts.find((g) => g.gpt_id === activeGpt) || null;
   let open = false;
   let activeIndex = -1;
   let items = [];   // rendered option buttons currently visible
@@ -87,13 +92,57 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   const el = h("div", { class: "model-picker" }, trigger, scrim, panel);
 
   function renderTrigger() {
+    const g = activeGptObj();
+    if (g) {
+      triggerMark.replaceChildren(gptAvatar(g, "sm"));
+      label.textContent = g.gpt_name;
+      trigger.title = `${g.gpt_name} · ${modelLabel(current)}`;
+      return;
+    }
     triggerMark.replaceChildren(mark(current, "sm"));
     label.textContent = modelLabel(current);
     trigger.title = current === "auto" ? "Auto" : current;
   }
 
+  // ---- custom GPTs ----
+  function gptOption(g) {
+    const selected = g.gpt_id === activeGpt;
+    const preview = (g.gpt_promt || "").replace(/\s+/g, " ").slice(0, 80);
+    const row = h("div", {
+      class: `model-option gpt-option${selected ? " selected" : ""}`, role: "option", tabindex: "-1",
+      "aria-selected": String(selected), "data-gpt": g.gpt_id,
+      onclick: () => { close(); gpt.onSelect?.(g); },
+      onmousemove: () => setActive(items.indexOf(row)),
+    },
+      gptAvatar(g, "pick"),
+      h("span", { class: "model-option-text" },
+        h("span", { class: "model-option-name gpt-name" }, g.gpt_name),
+        h("span", { class: "model-option-desc gpt-desc" }, preview)),
+      h("span", { class: "gpt-actions" },
+        h("button", { class: "icon-btn tiny", type: "button", "aria-label": "Edit GPT", title: "Edit",
+          onclick: (e) => { e.stopPropagation(); close(); gpt.onEdit?.(g); } }, icon("edit")),
+        h("button", { class: "icon-btn tiny danger-hover", type: "button", "aria-label": "Delete GPT", title: "Delete",
+          onclick: (e) => { e.stopPropagation(); close(); gpt.onDelete?.(g); } }, icon("trash"))),
+      h("span", { class: "model-check", "aria-hidden": "true" }, selected ? "✓" : ""));
+    return row;
+  }
+
+  function gptGroup(q) {
+    if (!gpt) return null;
+    const matches = gpts.filter((g) => !q || g.gpt_name.toLowerCase().includes(q) || "gpt".includes(q));
+    if (q && !matches.length) return null;
+    return h("div", { class: "model-group gpt-group", role: "group", "aria-label": "My GPTs" },
+      h("div", { class: "model-group-title" }, "My GPTs"),
+      matches.map(gptOption),
+      h("button", { class: "gpt-create", type: "button", onclick: () => { close(); gpt.onCreate?.(); } },
+        h("span", { class: "gpt-create-icon", "aria-hidden": "true" }, icon("plus")),
+        h("span", { class: "model-option-text" },
+          h("span", { class: "model-option-name" }, "Create a GPT"),
+          h("span", { class: "model-option-desc" }, "Your own assistant with custom instructions"))));
+  }
+
   function option(id, desc) {
-    const selected = id === current;
+    const selected = id === current && !activeGpt;
     const locked = isLocked(id);
     const btn = h("button", {
       class: `model-option${selected ? " selected" : ""}${locked ? " locked" : ""}`, type: "button", role: "option",
@@ -115,6 +164,8 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   function renderList() {
     const q = search.value.trim().toLowerCase();
     const sections = [];
+    const mine = gptGroup(q);
+    if (mine) sections.push(mine);
     for (const [group, ids] of MODEL_GROUPS) {
       const matches = ids.filter((id) => !q || id.toLowerCase().includes(q) || modelLabel(id).toLowerCase().includes(q)
         || provider(id).name.toLowerCase().includes(q) || group.toLowerCase().includes(q));
@@ -128,7 +179,7 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
     list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
     items = [...list.querySelectorAll(".model-option")];
     items.forEach((b, i) => b.style.setProperty("--i", String(Math.min(i, 14))));
-    setActive(Math.max(0, items.findIndex((b) => b.dataset.id === current)), false);
+    setActive(Math.max(0, items.findIndex((b) => (activeGpt ? b.dataset.gpt === activeGpt : b.dataset.id === current))), false);
   }
 
   function setActive(i, scroll = true) {
@@ -143,7 +194,12 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   function onKey(e) {
     if (e.key === "ArrowDown") { e.preventDefault(); setActive(Math.min(items.length - 1, activeIndex + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive(Math.max(0, activeIndex - 1)); }
-    else if (e.key === "Enter") { e.preventDefault(); if (items[activeIndex]) choose(items[activeIndex].dataset.id); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = items[activeIndex];
+      if (item?.dataset.gpt) item.click();
+      else if (item) choose(item.dataset.id);
+    }
     else if (e.key === "Escape") { e.preventDefault(); close(); trigger.focus(); }
   }
 
@@ -176,7 +232,8 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   async function choose(id) {
     close();
     if (isLocked(id)) { onLocked(id); return; }
-    if (id === current) return;
+    // Picking the current model while a GPT is on still matters: it turns the GPT off.
+    if (id === current && !activeGpt) return;
     const prev = current;
     current = id;
     renderTrigger();
@@ -197,5 +254,6 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
     get value() { return current; },
     setValue(id) { current = id; renderTrigger(); },
     refresh() { renderTrigger(); if (open) renderList(); },
+    setGpts(list, active) { gpts = list; activeGpt = active; renderTrigger(); if (open) renderList(); },
   };
 }

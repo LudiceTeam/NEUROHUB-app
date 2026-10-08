@@ -274,7 +274,7 @@ const RU = {
   "Close image viewer": "Закрыть просмотр",
 
   // ---------- custom GPTs ----------
-  "My GPTs": "Мои GPT", "Create a GPT": "Создать GPT", "Edit GPT": "Изменить GPT", "GPT options": "Действия с GPT", "Edit": "Изменить",
+  "My GPTs": "Мои GPT", "Edit GPT": "Изменить GPT", "Delete GPT": "Удалить GPT", "Your own assistant with custom instructions": "Свой ассистент со своими инструкциями", "Create a GPT": "Создать GPT", "GPT options": "Действия с GPT", "Edit": "Изменить",
   "Create your own assistant with custom instructions": "Создайте своего ассистента со своими инструкциями",
   "Use this GPT": "Включить этот GPT", "Turn off": "Выключить", "Turn off the custom GPT": "Выключить свой GPT", "ON": "ВКЛ",
   "Custom GPT turned off": "Свой GPT выключен", "Delete GPT?": "Удалить GPT?",
@@ -356,7 +356,7 @@ export function t(text) {
 // User content and data that must stay as is.
 const SKIP = ".md, .bubble, .chat-link > span, .tts-editor, .tts-history-text > span, .model-trigger-label, .msg-model, "
   + "pre, code, textarea, input, select, .tag-chip, .profile-meta strong, .tts-player-info strong, .clone-script p, .l-model, .l-group li, "
-  + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong, .gpt-chip > span, .gpt-name";
+  + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong, .gpt-chip > span, .gpt-name, .gpt-desc";
 // Our own sample texts that sit inside otherwise-skipped elements.
 const UNSKIP = ".appearance-preview";
 const ATTRS = ["placeholder", "title", "aria-label"];

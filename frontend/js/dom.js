@@ -34,6 +34,8 @@ export function icon(name) {
     folder: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z",
     folderPlus: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5zM12 10.5v5M9.5 13h5",
     chevron: "M9 6l6 6-6 6",
+    edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
+    trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");

@@ -71,16 +71,21 @@ export function renderApp(root, logout) {
       toast("This model is included with every paid plan.", "info");
       openPlans(state.profile);
     },
+    // Custom GPTs live at the top of the model menu.
+    gpt: {
+      onSelect: (g) => selectGpt(g),
+      onCreate: () => createGpt(),
+      onEdit: (g) => editGpt(g),
+      onDelete: (g) => removeGpt(g),
+    },
   });
 
   const title = h("div", { class: "chat-title" });
-  const gptChip = h("div", { class: "gpt-chip", hidden: true });
   const header = h("header", { class: "topbar" },
     h("button", { class: "icon-btn only-mobile", type: "button", "aria-label": "Open menu", onclick: () => toggleSidebar(true) }, icon("menu")),
     h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "Open sidebar", title: "Open sidebar (⌘⇧S)", onclick: () => sidebarCtl.expand() }, icon("sidebar")),
     h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "New chat", title: "New chat", onclick: newChat }, icon("plus")),
     title,
-    gptChip,
     picker.el);
 
   const thread = h("div", { class: "thread", "aria-live": "polite" });
@@ -233,7 +238,7 @@ export function renderApp(root, logout) {
     // Dropping a chat on the "Chats" section takes it out of its folder.
     dropTarget(chatsSection, "");
 
-    chatList.replaceChildren(gptSection(), folderSection, chatsSection);
+    chatList.replaceChildren(folderSection, chatsSection);
 
     // First real render after the skeleton: items cascade in once.
     if (!state.listIntroDone) {
@@ -303,36 +308,8 @@ export function renderApp(root, logout) {
   // ---------- custom GPTs ----------
   const activeGpt = () => state.gpts.find((g) => g.gpt_id === state.activeGpt) || null;
 
-  function gptSection() {
-    const items = state.gpts.map((g) => {
-      const active = g.gpt_id === state.activeGpt;
-      const item = h("div", { class: `chat-item gpt-item${active ? " active" : ""}` },
-        h("button", {
-          class: "chat-link gpt-link", type: "button", "aria-pressed": String(active),
-          title: active ? "Turn off" : "Use this GPT",
-          onclick: () => toggleGpt(g),
-        }, gptAvatar(g, "sm"), h("span", {}, g.gpt_name), active && h("small", { class: "gpt-on" }, "ON")),
-        h("button", { class: "icon-btn chat-more", type: "button", "aria-label": "GPT options", onclick: (e) => { e.stopPropagation(); showMenu(item, [
-          ["Edit", () => editGpt(g)],
-          ["Delete", () => removeGpt(g), true],
-        ]); } }, icon("dots")));
-      return item;
-    });
-    return h("div", { class: "side-section" },
-      h("div", { class: "side-head" },
-        h("span", {}, "My GPTs"),
-        h("button", { class: "icon-btn tiny", type: "button", "aria-label": "Create a GPT", title: "Create a GPT", onclick: () => createGpt() }, icon("plus"))),
-      items.length ? items : h("button", { class: "gpt-empty", type: "button", onclick: () => createGpt() },
-        "Create your own assistant with custom instructions"));
-  }
-
   function renderGptState() {
-    const g = activeGpt();
-    gptChip.hidden = !g;
-    if (g) {
-      gptChip.replaceChildren(gptAvatar(g, "xs"), h("span", {}, g.gpt_name),
-        h("button", { type: "button", "aria-label": "Turn off the custom GPT", title: "Turn off", onclick: () => toggleGpt(g) }, icon("close")));
-    }
+    picker.setGpts(state.gpts, state.activeGpt);
     updateMode();
     if (!state.messages.length) renderThread();
   }
@@ -342,19 +319,17 @@ export function renderApp(root, logout) {
       const res = await api.gpts();
       state.gpts = res?.result || [];
       state.activeGpt = res?.selected || null;
-    } catch { /* the section just stays empty */ }
-    if (!state.loading.chats && !state.loading.folders) renderChats();
+    } catch { /* the GPT group just stays empty */ }
     renderGptState();
   }
 
-  async function toggleGpt(g) {
-    const turnOn = state.activeGpt !== g.gpt_id;
+  async function selectGpt(g) {
+    if (state.activeGpt === g.gpt_id) return;
     try {
-      if (turnOn) await api.selectGpt(g.gpt_id); else await api.unselectGpt();
-      state.activeGpt = turnOn ? g.gpt_id : null;
-      toast(turnOn ? `${g.gpt_name} is on` : "Custom GPT turned off", "info");
+      await api.selectGpt(g.gpt_id);
+      state.activeGpt = g.gpt_id;
+      toast(`${g.gpt_name} is on`, "info");
     } catch (e) { toast(errorText(e)); }
-    renderChats();
     renderGptState();
   }
 
@@ -679,6 +654,12 @@ export function renderApp(root, logout) {
 
   async function onModelChange(id) {
     try {
+      // Picking a regular model turns the custom GPT off.
+      if (state.activeGpt) {
+        await api.unselectGpt();
+        state.activeGpt = null;
+        renderGptState();
+      }
       await api.changeModel(id);
       state.model = id;
       updateMode();

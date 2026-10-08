@@ -1294,3 +1294,22 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 .gpt-template:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); translate: 0 -1px; }
 @media (max-width: 640px) { .gpt-chip { max-width: 140px; } }
 
+/* custom GPTs inside the model menu */
+.gpt-avatar.pick { width: 32px; height: 32px; border-radius: 9px; font-size: 14px; }
+.gpt-option { cursor: pointer; }
+.gpt-actions { display: flex; gap: 2px; flex: none; opacity: 0; transition: opacity .15s; }
+.gpt-option:hover .gpt-actions, .gpt-option.active .gpt-actions, .gpt-option:focus-within .gpt-actions { opacity: 1; }
+.gpt-actions .icon { width: 14px; height: 14px; }
+.gpt-create {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 2px; padding: 8px 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent); text-align: left; transition: background .15s, border-color .15s;
+}
+.gpt-create:hover { background: color-mix(in srgb, var(--accent) 11%, transparent); border-style: solid; }
+.gpt-create-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+}
+.gpt-create-icon .icon { width: 16px; height: 16px; }
+@media (hover: none) { .gpt-actions { opacity: 1; } }
+
