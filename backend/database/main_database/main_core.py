@@ -363,6 +363,19 @@ async def refil_all_requests(user_id:str) -> bool:
                 return False
 
 
+async def minus_requests(user_id:str, amount:int):
+    """Spends `amount` daily credits (a model's credit cost)."""
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
+                    requests = main_table.c.requests - amount
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MAIN SQL Error")
+
+
 async def minus_one_req(user_id:str):
     user = await get_user_state(user_id)
 

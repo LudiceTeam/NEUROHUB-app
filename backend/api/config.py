@@ -42,19 +42,27 @@ AsyncSessionLocal = sessionmaker(
 #   video         video generations, refilled every 30 days
 #   voices_amount own (cloned) voices
 # Sized so that even a user who spends everything with long chats stays profitable.
-FREE_PLAN = {"requests": 25, "nano_req": 0, "video": 0}
+FREE_PLAN = {"requests": 25, "nano_req": 0, "video": 0, "photos": 1}
 
-# The free plan only gets fast, cheap models (that's what makes 25 requests/day affordable).
-# Every other model, plus image/video/voice generation, is "PLUS": any paid plan unlocks it.
-FREE_MODELS = [
-    "openai/gpt-4o-mini",
-    "google/gemini-2.5-flash-lite",
-    "google/gemma-4-31b-it",
-    "meta-llama/llama-4-scout",
-    "meta-llama/llama-4-maverick",
-    "mistralai/mistral-small-2603",
-    "qwen/qwen3-vl-8b-instruct",
-]
+# Daily limits are counted in credits: every request costs what the model really costs.
+# 1 credit = the worst-case cost of a fast model (~$0.0024 with the caps below). Models not listed
+# here cost 1 credit. Top models (expensive_models), images and voice use monthly premium requests;
+# video uses monthly video credits.
+MODEL_CREDITS = {
+    "openai/gpt-5.4-mini": 5,
+    "google/gemini-3-flash-preview": 4,
+    "qwen/qwen3-vl-8b-thinking": 4,
+    "qwen/qwen3-vl-30b-a3b-thinking": 4,
+    "google/gemini-2.5-flash": 3,
+    "moonshotai/kimi-k2.5": 3,
+    "qwen/qwen2.5-vl-72b-instruct": 3,
+    "google/gemini-3.1-flash-lite-preview": 2,
+    "z-ai/glm-4.6v": 2,
+}
+
+def model_credits(model:str) -> int:
+    return MODEL_CREDITS.get(model, 1)
+
 FREE_DEFAULT_MODEL = "openai/gpt-4o-mini"
 PAID_DEFAULT_MODEL = "google/gemini-3-flash-preview"
 
@@ -65,62 +73,68 @@ MAX_HISTORY_CHARS = 24000   # ~6k tokens of chat history in the prompt
 SUBSCRIPTIONS = {
     "basic": {
         "days": 30,
-        "requests": 12,
-        "nano_req": 20,
+        "requests": 80,
+        "nano_req": 18,
         "column": "basic_sub",
         "price_id" : "price_1UNyNk09Iu3h8elKIY8aiV1R",
-        "voices_amount" : 2,
-        "video" : 0
+        "voices_amount" : 1,
+        "video" : 0,
+        "photos" : 5
     },
 
     "premium" : {
         "days" : 30,
-        "requests" : 45,
-        "nano_req" : 70,
+        "requests" : 260,
+        "nano_req" : 75,
         "column" : "premium_sub",
         "price_id" : "price_1UNyOd09Iu3h8elKFjVksdgq",
         "voices_amount" : 5,
-        "video" : 2
+        "video" : 4,
+        "photos" : 5
     },
 
     "starter": {
         "days": 30,
-        "requests": 8,
-        "nano_req": 10,
+        "requests": 40,
+        "nano_req": 8,
         "column": "starter_sub",
         "price_id" : "price_1UNyNK09Iu3h8elKeRemRDeO",
         "voices_amount" : 0,
-        "video" : 0
+        "video" : 0,
+        "photos" : 3
     },
 
     "plus": {
         "days": 30,
-        "requests": 25,
+        "requests": 150,
         "nano_req": 40,
         "column": "plus_sub",
         "price_id" : "price_1UNyOC09Iu3h8elKr559huKI",
-        "voices_amount" : 4,
-        "video" : 1
+        "voices_amount" : 3,
+        "video" : 2,
+        "photos" : 5
     },
     
     "max" : {
         "days" : 30,
-        "requests" : 90,
-        "nano_req" : 140,
+        "requests" : 520,
+        "nano_req" : 150,
         "column" : "max_sub",
         "price_id" : "price_1UNyPJ09Iu3h8elKBAZoItva",
         "voices_amount" : 10,
-        "video" : 4
+        "video" : 8,
+        "photos" : 5
     },
 
     "elite" : {
         "days" : 30,
-        "requests" : 190,
-        "nano_req" : 300,
+        "requests" : 1100,
+        "nano_req" : 330,
         "column" : "elite_sub",
         "price_id" : "price_1UNyPe09Iu3h8elK65JJMUkc",
         "voices_amount" : 15,
-        "video" : 10
+        "video" : 18,
+        "photos" : 5
     }
 }
 
@@ -183,6 +197,10 @@ expensive_models = [
 ]
 
 
+# The free plan gets every 1-credit model (fast and cheap); everything else is PLUS.
+FREE_MODELS = [m for m in models if m != "auto" and m not in expensive_models and model_credits(m) == 1]
+
+
 image_generation_models = [
     "google/gemini-3-pro-image-preview",
     "google/gemini-3.1-flash-image-preview",
@@ -219,10 +237,9 @@ CLONE_MODELS = {
     "eleven-v4": {"provider": "elevenlabs", "model_id": "eleven_v4", "name": "ElevenLabs Eleven v4", "note": "Most realistic"},
     "eleven-v4-turbo": {"provider": "elevenlabs", "model_id": "eleven_v4_turbo", "name": "ElevenLabs Eleven v4 Turbo", "note": "Realistic and faster"},
     "fish-s2.1-pro": {"provider": "openrouter", "model": "fish-audio/s2.1-pro", "name": "Fish Audio S2.1 Pro", "note": "Natural, uses your transcript"},
-    "seed-audio-1": {"provider": "openrouter", "model": "bytedance-seed/seed-audio-1-0", "name": "Seed Audio 1.0", "note": "Expressive, by ByteDance"},
 }
 # Used when the request names no (or an unavailable) model: the first available in this order.
-CLONE_MODEL_PREFERENCE = ["eleven-v4", "fish-s2.1-pro", "seed-audio-1", "eleven-v4-turbo"]
+CLONE_MODEL_PREFERENCE = ["eleven-v4", "fish-s2.1-pro", "eleven-v4-turbo"]
 
 
 

@@ -28,7 +28,7 @@ const CLONE_MODEL_KEY = "veora_clone_model";
 const CLONE_MARKS = { eleven: ["E", "#111111"], fish: ["F", "#1f6feb"], seed: ["S", "#325ab4"] };
 const isCustomModel = (id) => typeof id === "string" && id.endsWith(":custom");
 // Mirrors voices_amount in SUBSCRIPTIONS (Starter and Free have none).
-const PLAN_VOICE_LIMITS = { Elite: 15, Max: 10, Premium: 5, Plus: 4, Basic: 2 };
+const PLAN_VOICE_LIMITS = { Elite: 15, Max: 10, Premium: 5, Plus: 3, Basic: 1 };
 
 function hash(str) {
   let x = 2166136261;

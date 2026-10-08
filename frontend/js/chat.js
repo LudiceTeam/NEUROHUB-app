@@ -13,7 +13,8 @@ import { audioCard } from "./audio-card.js";
 import { handleBillingReturn, openPlans } from "./billing.js";
 import { createVoiceInput } from "./voice-input.js";
 
-const MAX_IMAGES = 5;
+// Photos per message by plan (mirrors "photos" in SUBSCRIPTIONS / FREE_PLAN).
+const PLAN_PHOTOS = { Starter: 3, Basic: 5, Plus: 5, Premium: 5, Max: 5, Elite: 5 };
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const PINNED_KEY = "veora_pinned";
 const SUGGESTIONS = [
@@ -472,7 +473,8 @@ export function renderApp(root, logout) {
     const p = state.profile;
     if (!p) { quota.textContent = ""; return; }
     const videos = p["Video Credits"] ? ` · ${p["Video Credits"]} video${p["Video Credits"] === 1 ? "" : "s"}` : "";
-    quota.textContent = `${p.Requests ?? 0} requests today · ${p["Nano Requests"] ?? 0} premium this month${videos} left`;
+    const premium = p["Nano Requests"] ? ` · ${p["Nano Requests"]} premium` : "";
+    quota.textContent = `${p.Requests ?? 0} credits today${premium}${videos} left`;
   }
 
   function renderProfileBtn() {
@@ -836,7 +838,11 @@ export function renderApp(root, logout) {
     for (const f of files) {
       if (!f.type.startsWith("image/")) continue;
       if (f.size > MAX_IMAGE_SIZE) { toast(`${f.name} is larger than 5 MB`); continue; }
-      if (state.attachments.length >= MAX_IMAGES) { toast("You can attach up to 5 images"); break; }
+      const maxImages = Object.entries(PLAN_PHOTOS).find(([plan]) => state.profile?.[plan])?.[1] ?? 1;
+      if (state.attachments.length >= maxImages) {
+        toast(maxImages === 1 ? "Free plan: 1 photo per message. Upgrade to send up to 5." : `You can attach up to ${maxImages} photos.`, "info");
+        break;
+      }
       state.attachments.push(f);
     }
     renderPreviews();

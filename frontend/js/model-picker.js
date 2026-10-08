@@ -1,4 +1,4 @@
-import { MODEL_GROUPS, PREMIUM_MODELS } from "./config.js";
+import { MODEL_GROUPS, PREMIUM_MODELS, modelCredits } from "./config.js";
 import { h, icon } from "./dom.js";
 
 const PROVIDERS = {
@@ -47,6 +47,7 @@ function tags(id) {
   else if (VOICE_MODELS.has(id)) out.push(["Voice", "voice"]);
   else if (VIDEO_MODELS.has(id)) out.push(["Video", "video"]);
   else if (PREMIUM_MODELS.has(id)) out.push(["Premium", "premium"]);
+  else if (id !== "auto" && modelCredits(id) > 1) out.push([`×${modelCredits(id)} credits`, "credits"]);
   if (id.endsWith(":free")) out.push(["Free", "free"]);
   if (/thinking/.test(id)) out.push(["Reasoning", "reasoning"]);
   return out;

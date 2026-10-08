@@ -1,17 +1,18 @@
 import { MODEL_GROUPS } from "./config.js";
 import { mountCrystal } from "./crystal.js";
 import { enhanceLanding } from "./landing-fx.js";
+import { languageSwitch } from "./i18n.js";
 
 // Mirrors FREE_PLAN / SUBSCRIPTIONS in backend/api/config.py:
-// requests per day, premium requests and videos per month.
+// credits per day, premium requests / videos per month, own voices.
 const FREE_PLAN = { requests: 25 };
 const PLANS = [
-  { name: "Starter", requests: 8, premium: 10, videos: 0, note: "To get going" },
-  { name: "Basic", requests: 12, premium: 20, videos: 0, note: "For light use" },
-  { name: "Plus", requests: 25, premium: 40, videos: 1, note: "For everyday work" },
-  { name: "Premium", requests: 45, premium: 70, videos: 2, note: "For power users", popular: true },
-  { name: "Max", requests: 90, premium: 140, videos: 4, note: "For heavy creators" },
-  { name: "Elite", requests: 190, premium: 300, videos: 10, note: "No compromises" },
+  { name: "Starter", requests: 40, premium: 8, videos: 0, voices: 0, note: "Unlock every model" },
+  { name: "Basic", requests: 80, premium: 18, videos: 0, voices: 1, note: "For everyday chats" },
+  { name: "Plus", requests: 150, premium: 40, videos: 2, voices: 3, note: "Add video & voices", popular: true },
+  { name: "Premium", requests: 260, premium: 75, videos: 4, voices: 5, note: "For power users" },
+  { name: "Max", requests: 520, premium: 150, videos: 8, voices: 10, note: "For heavy creators" },
+  { name: "Elite", requests: 1100, premium: 330, videos: 18, voices: 15, note: "No compromises" },
 ];
 
 const FEATURES = [
@@ -30,9 +31,10 @@ const FEATURES = [
 ];
 
 const FAQ = [
-  ["Is there a free plan?", "Yes. Every account gets 25 requests a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 40+ models, images, video and voice."],
-  ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use premium requests. Videos have their own monthly credits. Everything else uses regular requests."],
-  ["When do requests refill?", "Every day. Your quota is topped back up to your plan's limit automatically."],
+  ["Is there a free plan?", "Yes. Every account gets 25 credits a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 40+ models, images, video and voice."],
+  ["What are credits?", "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model."],
+  ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use monthly premium requests. Videos have their own monthly credits."],
+  ["When do they refill?", "Credits refill every day; premium requests and videos every month — automatically, up to your plan's limit."],
   ["Where do I subscribe?", "Plans are purchased in the Veora iOS app through the App Store. Your subscription works on the web too — just sign in with the same account."],
   ["Is my chat history private?", "Messages are encrypted before they're saved to our database, and you can delete any chat — including its images — at any time."],
   ["Do I need a password?", "No. Sign in with Google or with a one-time code sent to your email. Sign in with Apple is coming to the web soon."],
@@ -76,7 +78,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
             <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
             <button class="l-btn ghost lg" type="button" data-action="login">I have an account</button>
           </div>
-          <p class="l-fine">No credit card. 25 free requests every day.</p>
+          <p class="l-fine">No credit card. 25 free credits every day.</p>
         </div>
         <div class="l-hero-art">
           <div class="l-halo" aria-hidden="true"></div>
@@ -145,10 +147,10 @@ export function renderLanding(root, { onLogin, onSignup }) {
         <div class="l-head reveal">
           <span class="l-kicker">Plans</span>
           <h2>Start free. Upgrade when you're ready.</h2>
-          <p>Regular requests refill every day; premium requests and videos refill every month. Premium requests cover top-tier models, images and voice.</p>
+          <p>Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 40+ models.</p>
         </div>
         <div class="l-free reveal">
-          <div><strong>Free</strong><span>${FREE_PLAN.requests} requests a day with fast models (GPT-4o mini, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>
+          <div><strong>Free</strong><span>${FREE_PLAN.requests} credits a day with fast models (GPT-4o mini, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>
           <button class="l-btn ghost" type="button" data-action="signup">Start free</button>
         </div>
         <div class="l-plans">
@@ -157,11 +159,11 @@ export function renderLanding(root, { onLogin, onSignup }) {
               ${p.popular ? '<span class="l-badge">Most popular</span>' : ""}
               <h3>${p.name}</h3>
               <p class="l-plan-note">${p.note}</p>
-              <div class="l-plan-num"><strong>${p.requests}</strong><span>requests / day</span></div>
+              <div class="l-plan-num"><strong>${p.requests}</strong><span>credits / day</span></div>
               <div class="l-plan-num small"><strong>${p.premium}</strong><span>premium / month</span></div>
               <ul>
                 <li>All ${modelCount} models</li>
-                <li>Vision & encrypted history</li>
+                <li>${p.voices ? `${p.voices} cloned voice${p.voices === 1 ? "" : "s"} & custom themes` : "Vision & encrypted history"}</li>
                 <li>${p.videos ? `${p.videos} video${p.videos === 1 ? "" : "s"} / month` : "Images & voice"}</li>
               </ul>
               <button class="l-btn ${p.popular ? "primary" : "ghost"} block" type="button" data-action="signup">Get ${p.name}</button>
@@ -183,7 +185,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
       <section class="l-final reveal">
         <img src="logo.png" alt="" width="72" height="72">
         <h2>Your AI, all in one place.</h2>
-        <p>Join Veora and get 25 free requests every day.</p>
+        <p>Join Veora and get 25 free credits every day.</p>
         <div class="l-cta center">
           <button class="l-btn primary lg" type="button" data-action="signup">Create free account ${ARROW}</button>
           <button class="l-btn ghost lg" type="button" data-action="login">Log in</button>
@@ -198,6 +200,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
     </footer>`;
 
   root.replaceChildren(page);
+  page.querySelector(".l-actions").prepend(languageSwitch("l-lang"));
   document.documentElement.classList.add("landing-mode");
 
   // Buttons → auth screens.

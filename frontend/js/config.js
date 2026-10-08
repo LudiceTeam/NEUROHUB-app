@@ -64,16 +64,19 @@ export const MODEL_GROUPS = [
   ]],
 ];
 
-// Mirrors FREE_MODELS in backend/api/config.py: everything else is PLUS (any paid plan).
-export const FREE_MODELS = new Set([
-  "openai/gpt-4o-mini",
-  "google/gemini-2.5-flash-lite",
-  "google/gemma-4-31b-it",
-  "meta-llama/llama-4-scout",
-  "meta-llama/llama-4-maverick",
-  "mistralai/mistral-small-2603",
-  "qwen/qwen3-vl-8b-instruct",
-]);
+// Mirrors MODEL_CREDITS in backend/api/config.py: daily credits a request costs (default 1).
+export const MODEL_CREDITS = {
+  "openai/gpt-5.4-mini": 5,
+  "google/gemini-3-flash-preview": 4,
+  "qwen/qwen3-vl-8b-thinking": 4,
+  "qwen/qwen3-vl-30b-a3b-thinking": 4,
+  "google/gemini-2.5-flash": 3,
+  "moonshotai/kimi-k2.5": 3,
+  "qwen/qwen2.5-vl-72b-instruct": 3,
+  "google/gemini-3.1-flash-lite-preview": 2,
+  "z-ai/glm-4.6v": 2,
+};
+export const modelCredits = (id) => MODEL_CREDITS[id] || 1;
 
 export const PREMIUM_MODELS = new Set([
   "anthropic/claude-opus-4.6",
@@ -83,3 +86,11 @@ export const PREMIUM_MODELS = new Set([
   "google/gemini-3-pro-image-preview",
   "google/gemini-3.1-flash-image-preview",
 ]);
+
+// The free plan gets every 1-credit text model; everything else is PLUS (any paid plan).
+const NON_CHAT_GROUPS = new Set(["Smart", "Image generation", "Video", "Voice"]);
+export const FREE_MODELS = new Set(MODEL_GROUPS
+  .filter(([group]) => !NON_CHAT_GROUPS.has(group))
+  .flatMap(([, ids]) => ids)
+  .filter((id) => !PREMIUM_MODELS.has(id) && modelCredits(id) === 1));
+

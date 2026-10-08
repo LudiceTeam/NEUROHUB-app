@@ -413,3 +413,7 @@ html.landing-mode #app { height: auto; }
   .l-bg, .l-hero-art { transform: none; }
   .l-hero h1 .l-line > .l-gradient, .l-plan.popular, .l-final::after, .l-final img, .l-faq details[open] p { animation: none; }
 }
+.lang-switch.l-lang { border-color: var(--l-border); background: var(--l-surface); align-self: center; }
+.lang-switch.l-lang button { color: var(--l-muted); }
+.lang-switch.l-lang button.active { background: rgba(255, 255, 255, .12); color: var(--l-text); }
+

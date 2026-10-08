@@ -50,6 +50,8 @@ const ERRORS = {
   "Access denied": "Your account is temporarily restricted.",
   "Invalid google token": "Google sign-in failed. Try again or use email.",
   "Email is not verified": "Your Google account email isn't verified.",
+  "Not enough credits": "Not enough credits left today for this model. Pick a cheaper model or upgrade your plan.",
+  "Too many photos for your plan": "Your plan allows fewer photos per message. Upgrade to send up to 5.",
   "Upgrade required": "This model is included with every paid plan.",
   "No video credits": "You've used this month's video generations. They refill monthly — or upgrade for more.",
   "Already subscribed": "You already have a plan. Cancel it in “Manage subscription” before switching.",

@@ -3,6 +3,7 @@ import { h, modal, toast, errorText, confirmModal } from "./dom.js";
 import { planName } from "./chat.js";
 import { openPlans, openPortal } from "./billing.js";
 import { BASE_THEMES, CUSTOM_THEMES, BUBBLES, hasPerks, loadPrefs, savePrefs, applyAppearance } from "./appearance.js";
+import { languageSwitch } from "./i18n.js";
 
 export function openProfile(state, { logout, onChange }) {
   return modal("Account", (close) => {
@@ -49,7 +50,7 @@ export function openProfile(state, { logout, onChange }) {
     const streak = h("strong", {}, "—");
     body.append(h("div", { class: "stats" },
       stat("Plan", planName(p).replace(" plan", "")),
-      stat("Requests today", p.Requests ?? 0),
+      stat("Credits today", p.Requests ?? 0),
       stat("Premium / month", p["Nano Requests"] ?? 0),
       stat("Videos / month", p["Video Credits"] ?? 0),
       h("div", { class: "stat" }, h("span", {}, "Streak"), streak)));
@@ -126,6 +127,7 @@ function appearanceSection(state) {
   function render() {
     // replaceChildren would print `false`, so conditional parts are filtered out.
     wrap.replaceChildren(...[
+      h("div", { class: "appearance-row" }, h("h4", {}, "Language"), languageSwitch()),
       h("div", { class: "appearance-head" },
         h("h3", {}, "Appearance"),
         h("span", { class: `badge${perks ? "" : " muted-badge"}` }, perks ? "Basic+ unlocked" : "Custom looks: Basic+")),

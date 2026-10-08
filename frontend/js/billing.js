@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { h, modal, toast, errorText } from "./dom.js";
 
 const PLAN_NAMES = { starter: "Starter", basic: "Basic", plus: "Plus", premium: "Premium", max: "Max", elite: "Elite" };
-const POPULAR = "premium";
+const POPULAR = "plus";
 
 function price(plan) {
   if (plan.amount == null) return "—";
@@ -45,11 +45,12 @@ export function openPlans(profile) {
             plan.id === POPULAR && h("span", { class: "plan-badge" }, "Popular")),
           h("div", { class: "plan-price" }, h("strong", {}, price(plan)), plan.interval && h("span", {}, `/ ${plan.interval}`)),
           h("ul", {},
-            h("li", {}, `${plan.requests} requests / day`),
+            h("li", {}, `${plan.requests} credits / day · all models`),
             h("li", {}, `${plan.premium_requests} premium requests / month`),
             h("li", {}, plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : "No video generation"),
             h("li", {}, plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : "No voice cloning"),
-            h("li", {}, plan.voices ? "Custom themes & message colors" : "All 40+ models")),
+            h("li", {}, `${plan.photos ?? 5} photos per message`),
+            plan.voices ? h("li", {}, "Custom themes & message colors") : null),
           btn);
       }));
     }).catch((e) => grid.replaceChildren(h("p", { class: "muted" }, errorText(e))));

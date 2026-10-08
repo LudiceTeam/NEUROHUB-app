@@ -19,7 +19,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,migrate_table as migrate_main_table
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,minus_requests,migrate_table as migrate_main_table
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
@@ -42,7 +42,7 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -773,6 +773,13 @@ async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_u
 
 
 
+def plan_of(user_state:dict) -> dict:
+    for plan in SUBSCRIPTIONS.values():
+        if user_state.get(plan["column"]):
+            return plan
+    return FREE_PLAN
+
+
 def has_paid_plan(user_state:dict) -> bool:
     return any(user_state.get(plan["column"]) for plan in SUBSCRIPTIONS.values())
 
@@ -1493,8 +1500,10 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 "image": url
             } #  либо текст, либо url картинки
         expensive_models_full = expensive_models + image_generation_models + video_generation_models
-        if user_data["requests"] <= 0 and user_model not in expensive_models_full:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
+        # Daily credits: every model costs its weight (MODEL_CREDITS).
+        credits = model_credits(user_model)
+        if user_model not in expensive_models_full and (user_data["requests"] or 0) < credits:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests" if (user_data["requests"] or 0) <= 0 else "Not enough credits")
 
 
         if user_model in expensive_models_full:
@@ -1513,7 +1522,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             await minus_one_req_nano(user_id)
 
         else:
-            await minus_one_req(user_id)
+            await minus_requests(user_id, credits)
 
         encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
         encrypted_response = encrypt(response,os.getenv("HASH_MESSAGES_KEY"))
@@ -1630,7 +1639,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-        if user_data["requests"] <= 0 and user_model not in expensive_full_models:
+        credits = model_credits(user_model)
+        if len(image_list) > plan_of(user_data).get("photos", 5):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Too many photos for your plan")
+        if (user_data["requests"] or 0) < credits and user_model not in expensive_full_models:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
 
@@ -1812,7 +1824,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if user_model in expensive_models:
             await minus_one_req_nano(user_id)
         else:
-            await minus_one_req(user_id)
+            await minus_requests(user_id, credits)
 
 
         encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
@@ -3645,6 +3657,7 @@ async def stripe_plans_handler(request:Request):
                 "requests": data["requests"],
                 "premium_requests": data["nano_req"],
                 "videos": data.get("video", 0),
+                "photos": data.get("photos", 5),
                 "voices": data.get("voices_amount", 0),
                 "amount": amount,          # in cents
                 "currency": currency,

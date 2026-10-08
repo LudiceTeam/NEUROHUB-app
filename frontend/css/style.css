@@ -1241,4 +1241,17 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
   color: #fff; letter-spacing: .04em;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
 }
+.model-tag.credits { color: var(--muted); background: var(--bg-soft); font-variant-numeric: tabular-nums; }
+
+/* ---------- language switch ---------- */
+.lang-switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-soft); }
+.lang-switch button {
+  padding: 4px 10px; border: 0; border-radius: 999px; background: none; color: var(--muted);
+  font-size: 12px; font-weight: 700; letter-spacing: .04em; transition: background .15s, color .15s;
+}
+.lang-switch button:hover { color: var(--text); }
+.lang-switch button.active { background: var(--bg-elev); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
+.auth-lang { position: absolute; top: 20px; right: 20px; }
+.appearance-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.appearance-row h4 { margin: 0; }
 

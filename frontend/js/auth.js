@@ -1,6 +1,7 @@
 import { api, tokens } from "./api.js";
 import { config } from "./config.js";
 import { h, errorText } from "./dom.js";
+import { languageSwitch } from "./i18n.js";
 
 // mode: "login" | "signup" (same email-code flow; only the copy differs). onBack returns to the landing page.
 export function renderLogin(root, onSuccess, { mode = "login", onBack } = {}) {
@@ -44,7 +45,7 @@ export function renderLogin(root, onSuccess, { mode = "login", onBack } = {}) {
       h("div", { class: "brand" }, h("img", { src: "logo.png", alt: "", width: "56", height: "56" }), h("span", {}, "Veora")),
       h("h1", {}, signup ? "Create your account" : "Welcome back"),
       h("p", { class: "muted" }, signup
-        ? "Get 25 free requests every day with fast models — upgrade anytime for all 40+ models from OpenAI, Anthropic, Google and more."
+        ? "Get 25 free credits every day with fast models — upgrade anytime for all 40+ models from OpenAI, Anthropic, Google and more."
         : "Sign in to continue to your chats."),
       providerButtons(),
       h("div", { class: "divider" }, h("span", {}, "or")),
@@ -152,7 +153,7 @@ export function renderLogin(root, onSuccess, { mode = "login", onBack } = {}) {
   }
 
   const back = onBack && h("button", { class: "auth-back", type: "button", onclick: onBack }, "← Back to home");
-  root.replaceChildren(h("main", { class: "auth" }, back || null, card));
+  root.replaceChildren(h("main", { class: "auth" }, back || null, languageSwitch("auth-lang"), card));
   emailStep();
 }
 

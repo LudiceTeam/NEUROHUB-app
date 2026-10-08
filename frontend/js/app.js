@@ -1,3 +1,4 @@
+import { startI18n } from "./i18n.js";
 import { tokens, setOnLogout } from "./api.js";
 import { renderLogin } from "./auth.js";
 import { renderApp } from "./chat.js";
@@ -44,4 +45,5 @@ addEventListener("hashchange", () => {
 });
 
 setOnLogout(logout);
+startI18n();   // before the first render, so nothing flashes in English
 start();
