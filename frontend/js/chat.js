@@ -12,6 +12,7 @@ import { openLightbox } from "./lightbox.js";
 import { audioCard } from "./audio-card.js";
 import { handleBillingReturn, openPlans } from "./billing.js";
 import { createVoiceInput } from "./voice-input.js";
+import { gptEditor, gptAvatar } from "./gpts.js";
 
 // Photos per message by plan (mirrors "photos" in SUBSCRIPTIONS / FREE_PLAN).
 const PLAN_PHOTOS = { Starter: 3, Basic: 5, Plus: 5, Premium: 5, Max: 5, Elite: 5 };
@@ -40,6 +41,8 @@ export function renderApp(root, logout) {
     folderOf: new Map(),  // chat_id -> folder_id
     expanded: new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]")),
     loading: { chats: true, folders: true, profile: true },
+    gpts: [],             // custom GPTs: [{ gpt_id, gpt_name, gpt_promt }]
+    activeGpt: null,      // gpt_id the next messages are answered with
   };
 
   // ---------- layout ----------
@@ -71,11 +74,13 @@ export function renderApp(root, logout) {
   });
 
   const title = h("div", { class: "chat-title" });
+  const gptChip = h("div", { class: "gpt-chip", hidden: true });
   const header = h("header", { class: "topbar" },
     h("button", { class: "icon-btn only-mobile", type: "button", "aria-label": "Open menu", onclick: () => toggleSidebar(true) }, icon("menu")),
     h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "Open sidebar", title: "Open sidebar (⌘⇧S)", onclick: () => sidebarCtl.expand() }, icon("sidebar")),
     h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "New chat", title: "New chat", onclick: newChat }, icon("plus")),
     title,
+    gptChip,
     picker.el);
 
   const thread = h("div", { class: "thread", "aria-live": "polite" });
@@ -228,7 +233,7 @@ export function renderApp(root, logout) {
     // Dropping a chat on the "Chats" section takes it out of its folder.
     dropTarget(chatsSection, "");
 
-    chatList.replaceChildren(folderSection, chatsSection);
+    chatList.replaceChildren(gptSection(), folderSection, chatsSection);
 
     // First real render after the skeleton: items cascade in once.
     if (!state.listIntroDone) {
@@ -295,6 +300,92 @@ export function renderApp(root, logout) {
     });
   }
 
+  // ---------- custom GPTs ----------
+  const activeGpt = () => state.gpts.find((g) => g.gpt_id === state.activeGpt) || null;
+
+  function gptSection() {
+    const items = state.gpts.map((g) => {
+      const active = g.gpt_id === state.activeGpt;
+      const item = h("div", { class: `chat-item gpt-item${active ? " active" : ""}` },
+        h("button", {
+          class: "chat-link gpt-link", type: "button", "aria-pressed": String(active),
+          title: active ? "Turn off" : "Use this GPT",
+          onclick: () => toggleGpt(g),
+        }, gptAvatar(g, "sm"), h("span", {}, g.gpt_name), active && h("small", { class: "gpt-on" }, "ON")),
+        h("button", { class: "icon-btn chat-more", type: "button", "aria-label": "GPT options", onclick: (e) => { e.stopPropagation(); showMenu(item, [
+          ["Edit", () => editGpt(g)],
+          ["Delete", () => removeGpt(g), true],
+        ]); } }, icon("dots")));
+      return item;
+    });
+    return h("div", { class: "side-section" },
+      h("div", { class: "side-head" },
+        h("span", {}, "My GPTs"),
+        h("button", { class: "icon-btn tiny", type: "button", "aria-label": "Create a GPT", title: "Create a GPT", onclick: () => createGpt() }, icon("plus"))),
+      items.length ? items : h("button", { class: "gpt-empty", type: "button", onclick: () => createGpt() },
+        "Create your own assistant with custom instructions"));
+  }
+
+  function renderGptState() {
+    const g = activeGpt();
+    gptChip.hidden = !g;
+    if (g) {
+      gptChip.replaceChildren(gptAvatar(g, "xs"), h("span", {}, g.gpt_name),
+        h("button", { type: "button", "aria-label": "Turn off the custom GPT", title: "Turn off", onclick: () => toggleGpt(g) }, icon("close")));
+    }
+    updateMode();
+    if (!state.messages.length) renderThread();
+  }
+
+  async function loadGpts() {
+    try {
+      const res = await api.gpts();
+      state.gpts = res?.result || [];
+      state.activeGpt = res?.selected || null;
+    } catch { /* the section just stays empty */ }
+    if (!state.loading.chats && !state.loading.folders) renderChats();
+    renderGptState();
+  }
+
+  async function toggleGpt(g) {
+    const turnOn = state.activeGpt !== g.gpt_id;
+    try {
+      if (turnOn) await api.selectGpt(g.gpt_id); else await api.unselectGpt();
+      state.activeGpt = turnOn ? g.gpt_id : null;
+      toast(turnOn ? `${g.gpt_name} is on` : "Custom GPT turned off", "info");
+    } catch (e) { toast(errorText(e)); }
+    renderChats();
+    renderGptState();
+  }
+
+  async function createGpt() {
+    const data = await gptEditor();
+    if (!data) return;
+    try {
+      const res = await api.createGpt(data.name, data.prompt);
+      if (res?.custom_gpt_id) await api.selectGpt(res.custom_gpt_id);
+      await loadGpts();
+      toast(`${data.name} is on`, "ok");
+    } catch (e) { toast(errorText(e)); }
+  }
+
+  async function editGpt(g) {
+    const data = await gptEditor(g);
+    if (!data) return;
+    try {
+      await api.updateGpt(g.gpt_id, data.name, data.prompt);
+      await loadGpts();
+    } catch (e) { toast(errorText(e)); }
+  }
+
+  async function removeGpt(g) {
+    if (!(await confirmModal("Delete GPT?", `“${g.gpt_name}” will be deleted. Your chats stay.`))) return;
+    try {
+      await api.deleteGpt(g.gpt_id);
+      await loadGpts();
+    } catch (e) { toast(errorText(e)); }
+  }
+
   function showMenu(item, entries) {
     document.querySelector(".menu")?.remove();
     const menu = h("div", { class: "menu", role: "menu" },
@@ -331,7 +422,10 @@ export function renderApp(root, logout) {
       const name = state.profile?.Name ? `, ${state.profile.Name}` : "";
       thread.replaceChildren(h("div", { class: "welcome" },
         h("div", { class: "welcome-logo" }, h("img", { src: "logo.png", alt: "", width: "64", height: "64" })),
-        h("h1", {}, `How can I help${name}?`),
+        activeGpt()
+          ? h("h1", { class: "gpt-name" }, activeGpt().gpt_name)
+          : h("h1", {}, `How can I help${name}?`),
+        activeGpt() && h("p", { class: "gpt-welcome-note" }, "Your custom GPT is on. Its instructions apply to every message."),
         h("p", { class: "muted" }, "Pick a model at the top or leave it on Auto — Veora will choose the best one for your request."),
         h("div", { class: "suggestions" }, SUGGESTIONS.map(([emoji, text], i) => h("button", {
           class: "suggestion", type: "button", style: `--i:${i}`,
@@ -508,6 +602,7 @@ export function renderApp(root, logout) {
     }
     textarea.placeholder = voice ? "Text to read aloud…"
       : VIDEO_MODELS.has(state.model) ? "Describe the video you want — attach a photo to animate it…"
+      : activeGpt() ? `Message ${activeGpt().gpt_name}…`
       : "Message Veora…";
     attachBtn.disabled = voice;
     attachBtn.title = voice ? "Voice models don't accept images" : "";
@@ -948,6 +1043,7 @@ export function renderApp(root, logout) {
   loadProfile();
   loadChats();
   loadFolders();
+  loadGpts();
   loadModel();
   textarea.focus();
   // Back from Stripe Checkout / Customer Portal.

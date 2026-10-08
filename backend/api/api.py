@@ -40,7 +40,7 @@ from backend.api.redis_lock import check_login_limit,register_failed_login,reset
 from backend.database.streak_db.streak_core import create_user_streak,plus_one_streak_day,reset_streak,get_user_streak_data
 from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
-from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
+from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt,unselect_user_custom_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1080,18 +1080,28 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
 
 
 
+def decrypt_gpt_field(value:str) -> str:
+    # Older edits were stored unencrypted; show those as they are instead of failing.
+    try:
+        return decrypt(value, CUSTOM_GPT_ENCODE_KEY)
+    except Exception:
+        return value
+
+
 async def get_user_custom_model_promt(user_id:str) -> str | None:
     user_gpt_id = await get_user_gpt(
         user_id = user_id
     )
-    if user_gpt_id is not None:
-        gpt_details = await get_gpt_settings(
-            gpt_id = user_gpt_id
-        )
-        decoded_promt = decrypt(gpt_details["gpt_promt"],CUSTOM_GPT_ENCODE_KEY)
-        return decoded_promt
-    else:
+    if user_gpt_id is None:
         return None
+    gpt_details = await get_gpt_settings(
+        gpt_id = user_gpt_id
+    )
+    if not gpt_details:
+        # The selected GPT was deleted: fall back to the regular assistant.
+        await unselect_user_custom_gpt(user_id)
+        return None
+    return decrypt_gpt_field(gpt_details["gpt_promt"])
 
 
 def clean_text_for_speech(text:str) -> str:
@@ -3307,6 +3317,17 @@ class CreateCustomGPT(BaseModel):
     gpt_name:str
     gpt_promt:str
 
+MAX_GPT_NAME = 60
+MAX_GPT_PROMPT = 4000   # sent with every message, so it also bounds the cost per request
+MAX_GPTS_PER_USER = 20
+
+
+def check_gpt_fields(name:str | None, prompt:str | None):
+    if name is not None and not (0 < len(name.strip()) <= MAX_GPT_NAME):
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid GPT name")
+    if prompt is not None and not (0 < len(prompt.strip()) <= MAX_GPT_PROMPT):
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid GPT instructions")
+
 @app.post("/custom_gpt/create")
 @limiter.limit("20/minute")
 async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_data:dict = Depends(get_current_user)):
@@ -3324,6 +3345,9 @@ async def create_custom_gpt_handler(request:Request,req:CreateCustomGPT,user_dat
                 await unban_user(
                     user_id = user_id
                 )
+        check_gpt_fields(req.gpt_name, req.gpt_promt)
+        if len(await get_custom_gpts_ids(user_id = user_id)) >= MAX_GPTS_PER_USER:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "GPT limit")
         gpt_id = await create_custom_gpt(
             user_id = user_id,
             gpt_name = req.gpt_name,
@@ -3368,13 +3392,15 @@ async def get_user_custom_gpts_handler(request:Request,user_data:dict = Depends(
         for gpt in user_gpts:
             result.append({
                 "gpt_id": gpt["gpt_id"],
-                "gpt_promt": decrypt(gpt["gpt_promt"], CUSTOM_GPT_ENCODE_KEY),
-                "gpt_name": decrypt(gpt["gpt_name"], CUSTOM_GPT_ENCODE_KEY),
+                "gpt_promt": decrypt_gpt_field(gpt["gpt_promt"]),
+                "gpt_name": decrypt_gpt_field(gpt["gpt_name"]),
             })
 
-
+        selected = await get_user_gpt(user_id = user_id)
         return {
-            "result" : result
+            "result" : result,
+            # the GPT the next messages are answered with (None = regular assistant)
+            "selected" : selected if any(g["gpt_id"] == selected for g in result) else None
         }
     except HTTPException:
         raise
@@ -3417,6 +3443,7 @@ async def change_custom_gpt_setting(request:Request,req:ChangeGptSettings,user_d
                 detail="GPT not found"
             )
 
+        check_gpt_fields(req.gpt_name, req.gpt_promt)
         if req.gpt_name:
             await change_gpt_name(
                 gpt_id = req.gpt_id,
@@ -3472,6 +3499,8 @@ async def delete_custom_gpt_handler(request:Request,req:GptID,user_data:dict = D
         await delete_gpt(
             gpt_id = req.gpt_id
         )
+        if await get_user_gpt(user_id = user_id) == req.gpt_id:
+            await unselect_user_custom_gpt(user_id)
         return {
             "message" : "ok"
         }
@@ -3514,6 +3543,31 @@ async def select_user_custom_gpt_handler(request:Request,req:GptID,user_data:dic
         return {
             "message" : "ok"
         }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+@app.post("/custom_gpt/unselect")
+@limiter.limit("20/minute")
+async def unselect_user_custom_gpt_handler(request:Request,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+        await unselect_user_custom_gpt(user_id = user_data["user_id"])
+        return {"message" : "ok"}
     except HTTPException:
         raise
     except Exception:

@@ -80,7 +80,7 @@ export function openProfile(state, { logout, onChange }) {
   }, { wide: true });
 }
 
-const LOCKED_MESSAGE = "Custom themes and message colors come with Basic and above. Subscribe in the Veora iOS app.";
+const LOCKED_MESSAGE = "Custom themes and message colors come with Basic and above.";
 
 function appearanceSection(state) {
   const perks = hasPerks(state.profile);
@@ -139,7 +139,7 @@ function appearanceSection(state) {
       h("div", { class: "appearance-preview", "aria-hidden": "true" },
         h("div", { class: "msg user" }, h("div", { class: "bubble" }, "Make my messages pop ✨")),
         h("div", { class: "preview-reply" }, h("img", { src: "logo.png", alt: "" }), h("span", {}, "Done — your new look is saved on this device."))),
-      !perks && h("p", { class: "muted small" }, "Custom themes and message colors are included with Basic, Plus, Premium, Max and Elite. Subscribe in the Veora iOS app."),
+      !perks && h("p", { class: "muted small" }, "Custom themes and message colors are included with Basic, Plus, Premium, Max and Elite."),
     ].filter(Boolean));
   }
 

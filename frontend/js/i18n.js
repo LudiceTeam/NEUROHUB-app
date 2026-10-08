@@ -35,14 +35,14 @@ const RU = {
   "Features": "Возможности", "Models": "Модели", "Plans": "Тарифы", "FAQ": "Вопросы",
   "Log in": "Войти", "Sign up": "Регистрация",
   "All AI.": "Весь ИИ.", "One place.": "В одном месте.",
-  "Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — in one beautifully simple app, on the web and on iPhone.":
-    "Общайтесь с GPT, Claude, Gemini, Llama и десятками других моделей. Создавайте картинки, видео и живую речь — в одном простом и красивом приложении, в браузере и на iPhone.",
+  "Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.":
+    "Общайтесь с GPT, Claude, Gemini, Llama и десятками других моделей. Создавайте картинки, видео и живую речь — всё в одном простом и красивом месте.",
   "Get started — it's free": "Начать бесплатно", "I have an account": "У меня есть аккаунт",
   "No credit card. 25 free credits every day.": "Без карты. 25 бесплатных кредитов каждый день.",
   "AI models": "ИИ-моделей", "AI labs": "ИИ-лабораторий",
   "Modalities: text, image, video, voice": "Форматы: текст, картинки, видео, голос",
   "Subscription for everything": "Подписка на всё",
-  "Everything you'd want from AI.": "Всё, что нужно от ИИ.", "Nothing you'd have to juggle.": "Без лишней суеты.",
+  "Everything you'd want from AI.": "Всё, что нужно от ИИ.", "Nothing you'd have to juggle.": "И ничего лишнего.",
   "The world's best models,": "Лучшие модели мира —", "side by side.": "в одном месте.",
   "New models land in Veora as soon as they're out. Pick one yourself or let Auto decide.":
     "Новые модели появляются в Veora сразу после выхода. Выбирайте сами или доверьтесь режиму Auto.",
@@ -57,8 +57,7 @@ const RU = {
     "Кредиты пополняются каждый день, премиум-запросы и видео — каждый месяц. Любой платный тариф открывает все 30+ моделей.",
   "Start free": "Начать бесплатно", "credits / day": "кредитов в день", "premium / month": "премиум в месяц",
   "Vision & encrypted history": "Распознавание фото и шифрование истории", "Images & voice": "Картинки и озвучка",
-  "Subscriptions are purchased in the Veora iOS app and work on the web with the same account.":
-    "Подписка оформляется на сайте или в iOS-приложении Veora и работает везде с одним аккаунтом.",
+  "Billed monthly through Stripe. Cancel anytime.": "Оплата ежемесячно через Stripe. Отменить можно в любой момент.",
   "Questions, answered.": "Ответы на вопросы.",
   "Your AI, all in one place.": "Весь ваш ИИ — в одном месте.",
   "Join Veora and get 25 free credits every day.": "Присоединяйтесь к Veora и получайте 25 бесплатных кредитов каждый день.",
@@ -84,7 +83,7 @@ const RU = {
   "Messages are encrypted before they're stored. Delete any chat — with its images — whenever you want.":
     "Сообщения шифруются перед сохранением. Удаляйте любой чат вместе с картинками в любой момент.",
   "Share chats": "Делитесь чатами", "Send a link to any conversation in one click.": "Отправьте ссылку на любой диалог в один клик.",
-  "Web + iPhone": "Веб + iPhone", "Start on your phone, continue on the web. Everything stays in sync.": "Начните на телефоне, продолжите в браузере. Всё синхронизируется.",
+  "Any device": "Любое устройство", "Works in any browser — on your laptop, tablet or phone. Your chats follow you.": "Работает в любом браузере — на ноутбуке, планшете или телефоне. Чаты всегда с вами.",
   "Is there a free plan?": "Есть ли бесплатный тариф?",
   "Yes. Every account gets 25 credits a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 30+ models, images, video and voice.":
     "Да. Каждый аккаунт получает 25 кредитов в день на быстрые модели — GPT-4o mini, Llama 4, Gemma и Mistral. Любой платный тариф открывает все 30+ моделей, картинки, видео и голос.",
@@ -98,8 +97,8 @@ const RU = {
   "Credits refill every day; premium requests and videos every month — automatically, up to your plan's limit.":
     "Кредиты — каждый день, премиум-запросы и видео — каждый месяц, автоматически до лимита вашего тарифа.",
   "Where do I subscribe?": "Где оформить подписку?",
-  "Plans are purchased in the Veora iOS app through the App Store. Your subscription works on the web too — just sign in with the same account.":
-    "Прямо на сайте или в iOS-приложении Veora. Подписка работает везде — просто войдите в тот же аккаунт.",
+  "Right here on the site: open your account and pick a plan. Payments go through Stripe, and you can cancel anytime.":
+    "Прямо на сайте: откройте аккаунт и выберите тариф. Оплата через Stripe, отменить можно в любой момент.",
   "Is my chat history private?": "Моя история переписки защищена?",
   "Messages are encrypted before they're saved to our database, and you can delete any chat — including its images — at any time.":
     "Сообщения шифруются перед сохранением в базу, и вы можете удалить любой чат вместе с картинками в любой момент.",
@@ -178,9 +177,9 @@ const RU = {
   "Custom looks: Basic+": "Свой стиль: с Basic", "Theme default": "Как в теме",
   "System": "Системная", "Light": "Светлая", "Dark": "Тёмная",
   "Make my messages pop ✨": "Пусть мои сообщения выделяются ✨", "Done — your new look is saved on this device.": "Готово — новый стиль сохранён на этом устройстве.",
-  "Custom themes and message colors are included with Basic, Plus, Premium, Max and Elite. Subscribe in the Veora iOS app.":
+  "Custom themes and message colors are included with Basic, Plus, Premium, Max and Elite.":
     "Свои темы и цвета сообщений доступны с тарифами Basic, Plus, Premium, Max и Elite.",
-  "Custom themes and message colors come with Basic and above. Subscribe in the Veora iOS app.": "Свои темы и цвета сообщений доступны с тарифа Basic.",
+  "Custom themes and message colors come with Basic and above.": "Свои темы и цвета сообщений доступны с тарифа Basic.",
   "Basic plan or higher": "Тариф Basic или выше",
   "Upgrade plan": "Улучшить тариф", "Manage subscription": "Управление подпиской", "Opening…": "Открываем…",
   "Unlock more requests, voice cloning and custom themes.": "Больше кредитов, все модели, свои голоса и темы.",
@@ -198,7 +197,7 @@ const RU = {
   // ---------- voice studio & cloning ----------
   "Settings": "Настройки", "History": "История", "My voices": "Мои голоса", "Clone a voice": "Клонировать голос",
   "Clone your own voice": "Клонируйте свой голос", "Voice limit reached": "Лимит голосов исчерпан",
-  "Included with Basic and higher plans. Subscribe in the Veora iOS app.": "Доступно с тарифа Basic.",
+  "Included with Basic and higher plans.": "Доступно с тарифа Basic.",
   "Loading your voices…": "Загружаем голоса…", "Your voice": "Ваш голос", "Play sample": "Прослушать образец", "Stop sample": "Остановить",
   "Rename voice": "Переименовать голос", "Delete voice": "Удалить голос", "Delete voice?": "Удалить голос?",
   "Write in the language you want to hear — it's detected automatically.": "Пишите на нужном языке — он определяется автоматически.",
@@ -235,7 +234,7 @@ const RU = {
   "Previous image": "Предыдущее фото", "Next image": "Следующее фото", "Couldn't load this image.": "Не удалось загрузить фото.",
 
   // ---------- errors (dom.js) ----------
-  "You're out of requests for this model. They refill automatically, or upgrade your plan in the app.": "Лимит на эту модель исчерпан. Он пополнится автоматически — или улучшите тариф.",
+  "You're out of requests for this model. They refill automatically, or upgrade your plan.": "Лимит на эту модель исчерпан. Он пополнится автоматически — или улучшите тариф.",
   "Your account is temporarily restricted.": "Ваш аккаунт временно ограничен.",
   "That code isn't right. Check your email and try again.": "Неверный код. Проверьте письмо и попробуйте снова.",
   "A code was already sent. Check your inbox (and spam).": "Код уже отправлен. Проверьте входящие (и спам).",
@@ -250,7 +249,7 @@ const RU = {
   "That's too long to read aloud. Voice models take up to 3000 characters.": "Слишком длинный текст. Для озвучки — до 3000 символов.",
   "Type some text to read aloud.": "Введите текст для озвучки.",
   "Voice models don't accept images. Pick another model to send photos.": "Голосовые модели не принимают фото. Выберите другую модель.",
-  "Cloning your voice is included with Basic and higher plans. Subscribe in the Veora iOS app.": "Клонирование голоса доступно с тарифа Basic.",
+  "Cloning your voice is included with Basic and higher plans.": "Клонирование голоса доступно с тарифа Basic.",
   "You've reached your plan's voice limit. Delete a voice or upgrade your plan.": "Достигнут лимит голосов тарифа. Удалите голос или улучшите тариф.",
   "That recording is too large. Use a shorter clip.": "Запись слишком большая. Возьмите короче.",
   "This audio format isn't supported. Try MP3 or WAV.": "Этот формат не поддерживается. Попробуйте MP3 или WAV.",
@@ -258,7 +257,7 @@ const RU = {
   "This voice no longer exists. Pick another one.": "Этого голоса больше нет. Выберите другой.",
   "Give the voice a name up to 40 characters.": "Дайте голосу название до 40 символов.",
   "You already have a plan. Cancel it in “Manage subscription” before switching.": "У вас уже есть тариф. Отмените его в «Управлении подпиской», чтобы сменить.",
-  "This plan wasn't bought on the web — manage it in the Veora iOS app.": "Этот тариф оформлен не на сайте — управляйте им в iOS-приложении Veora.",
+  "We couldn't find a subscription bought on this site for your account.": "Мы не нашли подписку, оформленную на этом сайте для вашего аккаунта.",
   "This plan isn't available.": "Этот тариф недоступен.",
   "You've used this month's video generations. They refill monthly — or upgrade for more.": "Видео на этот месяц закончились. Они пополнятся в следующем месяце — или улучшите тариф.",
   "Not enough credits left today for this model. Pick a cheaper model or upgrade your plan.": "На эту модель сегодня не хватает кредитов. Выберите модель дешевле или улучшите тариф.",
@@ -273,6 +272,20 @@ const RU = {
   "Footer": "Подвал", "Sections": "Разделы", "Veora crystal, drag to spin": "Кристалл Veora — потяните, чтобы покрутить", "Veora in numbers": "Veora в цифрах",
   "Violet": "Фиолетовый", "Ocean": "Океан", "Emerald": "Изумрудный", "Rose": "Розовый", "Gold": "Золотой", "Graphite": "Графит", "Mint": "Мятный",
   "Close image viewer": "Закрыть просмотр",
+
+  // ---------- custom GPTs ----------
+  "My GPTs": "Мои GPT", "Create a GPT": "Создать GPT", "Edit GPT": "Изменить GPT", "GPT options": "Действия с GPT", "Edit": "Изменить",
+  "Create your own assistant with custom instructions": "Создайте своего ассистента со своими инструкциями",
+  "Use this GPT": "Включить этот GPT", "Turn off": "Выключить", "Turn off the custom GPT": "Выключить свой GPT", "ON": "ВКЛ",
+  "Custom GPT turned off": "Свой GPT выключен", "Delete GPT?": "Удалить GPT?",
+  "Your custom GPT is on. Its instructions apply to every message.": "Ваш GPT включён — его инструкции применяются к каждому сообщению.",
+  "Start from a template": "Начните с шаблона", "Name, e.g. Travel planner": "Название, например «Планировщик поездок»",
+  "Instructions": "Инструкции", "GPT name": "Название", "Instructions: who the assistant is, how it should answer, what to focus on…": "Инструкции: кто этот ассистент, как отвечать, на чём фокусироваться…",
+  "These instructions are added to every message while the GPT is on.": "Эти инструкции добавляются к каждому сообщению, пока GPT включён.",
+  "Give the GPT a name up to 60 characters.": "Дайте GPT название до 60 символов.", "Add instructions — up to 4000 characters.": "Добавьте инструкции — до 4000 символов.",
+  "You can have up to 20 custom GPTs. Delete one to add another.": "Можно создать до 20 своих GPT. Удалите один, чтобы добавить новый.",
+  "This GPT no longer exists.": "Этого GPT больше нет.",
+  "Translator": "Переводчик", "Code reviewer": "Ревьюер кода", "English tutor": "Репетитор английского", "Copywriter": "Копирайтер",
 };
 
 const tr = (s) => RU[s] || s;
@@ -324,6 +337,9 @@ const PATTERNS = [
   [/^Voice models take up to (.+) characters\.$/, (m) => `Для озвучки — до ${m[1]} символов.`],
   [/^(Back|Forward) (\d+) seconds$/, (m) => `${m[1] === "Back" ? "Назад" : "Вперёд"} на ${m[2]} с`],
   [/^Remove (.+)$/, (m) => `Удалить ${m[1]}`],
+  [/^(.+) is on$/, (m) => `${m[1]} включён`],
+  [/^Message (.+)…$/, (m) => `Сообщение для ${m[1]}…`],
+  [/^“(.+)” will be deleted\. Your chats stay\.$/, (m) => `«${m[1]}» будет удалён. Ваши чаты останутся.`],
 ];
 
 export function t(text) {
@@ -340,7 +356,7 @@ export function t(text) {
 // User content and data that must stay as is.
 const SKIP = ".md, .bubble, .chat-link > span, .tts-editor, .tts-history-text > span, .model-trigger-label, .msg-model, "
   + "pre, code, textarea, input, select, .tag-chip, .profile-meta strong, .tts-player-info strong, .clone-script p, .l-model, .l-group li, "
-  + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong";
+  + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong, .gpt-chip > span, .gpt-name";
 // Our own sample texts that sit inside otherwise-skipped elements.
 const UNSKIP = ".appearance-preview";
 const ATTRS = ["placeholder", "title", "aria-label"];
@@ -363,7 +379,7 @@ function translateAttrs(el) {
     const v = el.getAttribute(name);
     if (!v) continue;
     // Chat and folder names show up as titles; leave those alone.
-    if (name === "title" && el.matches(".chat-link")) continue;
+    if (name === "title" && el.matches(".chat-link:not(.gpt-link)")) continue;
     const out = t(v);
     if (out) el.setAttribute(name, out);
   }

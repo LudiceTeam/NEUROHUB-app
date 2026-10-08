@@ -249,7 +249,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
       return h("div", { class: "tts-field" }, head,
         h("div", { class: "tts-clone-locked" }, h("span", { class: "tts-clone-icon" }, ICON.mic()),
           h("div", {}, h("strong", {}, "Clone your own voice"),
-            h("small", {}, "Included with Basic and higher plans. Subscribe in the Veora iOS app."))));
+            h("small", {}, "Included with Basic and higher plans."))));
     }
 
     const full = st.voices.length >= st.voiceLimit;

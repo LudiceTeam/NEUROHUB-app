@@ -27,7 +27,7 @@ const FEATURES = [
   { icon: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z", title: "Folders & pins", text: "Keep chats organized with folders, tags and pinned threads — drag and drop included.", wide: true },
   { icon: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z", title: "Encrypted history", text: "Messages are encrypted before they're stored. Delete any chat — with its images — whenever you want.", wide: true },
   { icon: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1", title: "Share chats", text: "Send a link to any conversation in one click." },
-  { icon: "M5 4h9v16H5zM9 17h1M16 8h3v12h-6", title: "Web + iPhone", text: "Start on your phone, continue on the web. Everything stays in sync." },
+  { icon: "M5 4h9v16H5zM9 17h1M16 8h3v12h-6", title: "Any device", text: "Works in any browser — on your laptop, tablet or phone. Your chats follow you." },
 ];
 
 const FAQ = [
@@ -35,7 +35,7 @@ const FAQ = [
   ["What are credits?", "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model."],
   ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use monthly premium requests. Videos have their own monthly credits."],
   ["When do they refill?", "Credits refill every day; premium requests and videos every month — automatically, up to your plan's limit."],
-  ["Where do I subscribe?", "Plans are purchased in the Veora iOS app through the App Store. Your subscription works on the web too — just sign in with the same account."],
+  ["Where do I subscribe?", "Right here on the site: open your account and pick a plan. Payments go through Stripe, and you can cancel anytime."],
   ["Is my chat history private?", "Messages are encrypted before they're saved to our database, and you can delete any chat — including its images — at any time."],
   ["Do I need a password?", "No. Sign in with Google or with a one-time code sent to your email. Sign in with Apple is coming to the web soon."],
 ];
@@ -73,7 +73,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
         <div class="l-hero-copy">
           <span class="l-eyebrow"><span class="l-dot"></span>${modelCount} models · images · video · voice</span>
           <h1><span class="l-line"><span>All AI.</span></span><span class="l-line"><span class="l-gradient">One place.</span></span></h1>
-          <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — in one beautifully simple app, on the web and on iPhone.</p>
+          <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.</p>
           <div class="l-cta">
             <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
             <button class="l-btn ghost lg" type="button" data-action="login">I have an account</button>
@@ -169,7 +169,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <button class="l-btn ${p.popular ? "primary" : "ghost"} block" type="button" data-action="signup">Get ${p.name}</button>
             </article>`).join("")}
         </div>
-        <p class="l-plans-more reveal">Subscriptions are purchased in the Veora iOS app and work on the web with the same account.</p>
+        <p class="l-plans-more reveal">Billed monthly through Stripe. Cancel anytime.</p>
       </section>
 
       <section class="l-section" id="faq">

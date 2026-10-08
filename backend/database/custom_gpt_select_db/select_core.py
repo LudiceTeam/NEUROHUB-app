@@ -57,3 +57,14 @@ async def get_user_gpt(user_id:str) -> str | None:
             logger.exception("SELECT CUSTOM GPT ERROR")
             return None
 
+
+async def unselect_user_custom_gpt(user_id:str):
+    """Back to the regular assistant (no custom GPT)."""
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = select_table.delete().where(select_table.c.user_id == user_id)
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("SELECT CUSTOM GPT ERROR")
+

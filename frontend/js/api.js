@@ -151,6 +151,14 @@ export const api = {
   checkout: (sub_type) => post("/stripe/create/payment", { sub_type }),
   portal: () => post("/stripe/portal"),
 
+  // custom GPTs: get -> { result: [{ gpt_id, gpt_name, gpt_promt }], selected }
+  gpts: () => request("/custom_gpt/get"),
+  createGpt: (gpt_name, gpt_promt) => post("/custom_gpt/create", { gpt_name, gpt_promt }),
+  updateGpt: (gpt_id, gpt_name, gpt_promt) => post("/custom_gpt/settings/change", { gpt_id, gpt_name, gpt_promt }),
+  deleteGpt: (gpt_id) => request("/custom_gpt/delete", { method: "DELETE", body: { gpt_id } }),
+  selectGpt: (gpt_id) => post("/custom_gpt/select", { gpt_id }),
+  unselectGpt: () => post("/custom_gpt/unselect"),
+
   // folders
   folders: () => request("/user/folders", { apiKey: true }),
   createFolder: (folder_name, folder_tags = []) => post("/folder/create", { folder_name, folder_tags }),

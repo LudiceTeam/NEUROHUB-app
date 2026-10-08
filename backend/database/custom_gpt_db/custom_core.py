@@ -65,7 +65,7 @@ async def change_gpt_name(gpt_id:str,new_name:str):
                 stmt = custom_table.update().where(
                     custom_table.c.gpt_id == gpt_id
                 ).values(
-                    gpt_name = new_name
+                    gpt_name = encrypt(new_name,CUSTOM_GPT_ENCODE_KEY)   # stored encrypted like on create
                 )
                 await conn.execute(stmt)
                 return
@@ -80,7 +80,7 @@ async def change_gpt_promt(gpt_id:str,new_promt:str):
                 stmt = custom_table.update().where(
                     custom_table.c.gpt_id == gpt_id
                 ).values(
-                    gpt_promt = new_promt
+                    gpt_promt = encrypt(new_promt,CUSTOM_GPT_ENCODE_KEY)   # stored encrypted like on create
                 )
                 await conn.execute(stmt)
                 return
@@ -89,15 +89,16 @@ async def change_gpt_promt(gpt_id:str,new_promt:str):
                 return
 async def delete_gpt(gpt_id:str):
     async with AsyncSession(async_engine) as conn:
-        try:
-            stmt = custom_table.delete().where(
-                custom_table.c.gpt_id == gpt_id
-            )
-            await conn.execute(stmt)
-            return
-        except Exception:
-            logger.exception("CUSTOM GPT SQL ERROR")
-            return
+        async with conn.begin():  
+            try:
+                stmt = custom_table.delete().where(
+                    custom_table.c.gpt_id == gpt_id
+                )
+                await conn.execute(stmt)
+                return
+            except Exception:
+                logger.exception("CUSTOM GPT SQL ERROR")
+                return
 
 async def get_custom_gpts_ids(user_id:str) -> List[str]:
     async with AsyncSession(async_engine) as conn:
@@ -110,7 +111,7 @@ async def get_custom_gpts_ids(user_id:str) -> List[str]:
             return data
         except Exception:
             logger.exception("CUSTOM GPT SQL ERROR")
-            return
+            return []
 
 async def get_gpt_settings(gpt_id:str) -> Dict | None:
     async with AsyncSession(async_engine) as conn:
