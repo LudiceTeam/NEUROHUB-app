@@ -19,12 +19,12 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,migrate_table as migrate_main_table
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,migrate_table as migrate_main_table
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2,update_image_response_url
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2,update_image_response_url,set_message_response
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
@@ -820,8 +820,10 @@ class VideoStatus(BaseModel):
     message_id:str
 
 
+# GET (with a JSON body) is what the iOS app sends; browsers can't put a body on GET, so POST works too.
 @app.get("/videos/task/status")
-@limiter.limit("20/minute")
+@app.post("/videos/task/status")
+@limiter.limit("30/minute")
 async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:dict = Depends(get_current_user)):
 
     try:
@@ -840,11 +842,10 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
                     user_id = user_id
                 )
             
-            
         user_tasks = await get_user_tasks(
             user_id = user_data["user_id"]
         )
-        if req.task_id not in user_tasks:
+        if req.task_id not in {str(task["id"]) for task in user_tasks}:
             return {
                 "message" : "error"
             }
@@ -852,18 +853,11 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
         task_status = await get_video_status(
             video_id = req.task_id
         )
-        
+        result = {"status": task_status}
+        # The background job already saved the URL into the message; this lets the client show it right away.
         if task_status == "completed":
-            url = f"https://{cloud_front_domain}/{req.task_id}.mp4"
-            await update_image_response_url(
-                message_id = req.message_id,
-                new_url = url
-            )
-            
-            
-        return {
-            "status" : task_status
-        }
+            result["url"] = f"https://{cloud_front_domain}/{req.task_id}.mp4"
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -871,92 +865,87 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
-async def process_video_task(task_id: str,prompt: str | List, model:str) -> str:
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+VIDEO_TIMEOUT_SECONDS = 15 * 60
+_video_jobs:set = set()   # references to running jobs so asyncio doesn't garbage-collect them
 
+
+def start_video_task(**kwargs) -> None:
+    job = asyncio.create_task(process_video_task(**kwargs))
+    _video_jobs.add(job)
+    job.add_done_callback(_video_jobs.discard)
+
+
+async def process_video_task(task_id:str, prompt:str | List, model:str, message_id:str, user_id:str) -> str:
+    """Generates a video with OpenRouter (POST /videos, poll, download), stores it in S3 and writes the
+    URL into the chat message. On failure the message gets an error text and the video credit is refunded."""
+    headers = {"Authorization": f"Bearer {OPEN_AI_KEY}"}
     try:
-        images_list = None
-        request  = None
-
-        if isinstance(prompt,list):
-            request = prompt[0]
-            images_list = prompt[1]
+        if isinstance(prompt, list):
+            request, images_list = prompt[0], prompt[1]
         else:
-            request = prompt
+            request, images_list = prompt, None
 
+        await update_video_status(video_id = task_id, status = "processing")
 
-
-        # status = processing
-        await update_video_status(
-            video_id = task_id,
-            status = "processing"
-        )
-
-        images = []
+        body = {
+            "model": model,
+            "prompt": request,
+            "duration": 8,
+            "aspect_ratio": "9:16",
+            "resolution": "720p",
+        }
+        # Image-to-video: the first attached photo becomes the first frame.
         if images_list:
-            for image in images_list:
-                images.append(
-                    {
-                        "image_url" : f"data:image/jpeg;base64,{image}"
-                    }
-                )
+            body["frame_images"] = [{
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{images_list[0]}"},
+                "frame_type": "first_frame",
+            }]
 
-        # generate video
-        response = await client.post(
-            "/videos",
-            body={
-                "model": model,
-                "prompt": request,
-                "duration": 8,
-                "aspect_ratio": "9:16",
-                "images" : images
-            }
-        )
+        async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = 120)) as session:
+            async with session.post(f"{OPENROUTER_URL}/videos", json = body, headers = headers) as response:
+                if response.status >= 300:
+                    raise Exception(f"Video job create error {response.status}: {await response.text()}")
+                job = await response.json()
 
-        job_id = response["id"]
+            polling_url = job.get("polling_url") or f"{OPENROUTER_URL}/videos/{job['id']}"
+            deadline = time.monotonic() + VIDEO_TIMEOUT_SECONDS
+            while True:
+                await asyncio.sleep(5)
+                async with session.get(polling_url, headers = headers) as response:
+                    job = await response.json()
+                job_status = job.get("status")
+                if job_status == "completed":
+                    break
+                if job_status in ("failed", "cancelled", "expired"):
+                    raise Exception(f"Video job {job_status}: {job.get('error')}")
+                if time.monotonic() > deadline:
+                    raise Exception("Video job timed out")
 
-        # polling
-        while True:
-
-            status = await client.get(
-                f"/videos/{job_id}"
-            )
-
-            if status["status"] == "completed":
-                break
-
-            if status["status"] == "failed":
-                raise Exception("Generation failed")
-
-            await asyncio.sleep(2)
-
-        video_url = status["output"][0]["url"]
-
-        # download video
-        async with aiohttp.ClientSession() as session:
-            async with session.get(video_url) as resp:
-
-                video_bytes = await resp.read()
+            # The content URLs aren't presigned: download with the API key.
+            content_url = (job.get("unsigned_urls") or [f"{OPENROUTER_URL}/videos/{job['id']}/content?index=0"])[0]
+            async with session.get(content_url, headers = headers, timeout = aiohttp.ClientTimeout(total = 300)) as response:
+                if response.status != 200:
+                    raise Exception(f"Video download error {response.status}")
+                video_bytes = await response.read()
 
         url = await AWS_CLIENT.upload_file(
             file_path = f"{task_id}.mp4",
             file_data = video_bytes,
+            content_type = "video/mp4"
         )
-
         del video_bytes
 
-        await update_video_status(
-            video_id = task_id,
-            status = "completed"
-        )
-        
-
+        await update_image_response_url(message_id = message_id, new_url = url)
+        await update_video_status(video_id = task_id, status = "completed")
         return url
 
-    except Exception as e:
-        await update_video_status(
-            video_id = task_id,
-            status = "failed"
-        )
+    except Exception:
+        logger.exception("VIDEO GENERATION ERROR")
+        await update_video_status(video_id = task_id, status = "failed")
+        await plus_one_video(user_id)
+        await set_message_response(message_id, "⚠️ The video couldn't be generated. Your video credit was refunded — please try again.")
         return ""
 
 
@@ -1392,17 +1381,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
             task_id = str(uuid.uuid4())
 
-            asyncio.create_task(
-                process_video_task(
-                    task_id=task_id,
-                    prompt=promt_for_video_model,
-                    model = user_model
-                )
-            )
-
-            
-
-
+            # The message is created first; the background job fills in the video URL (or an error) itself.
             message_id = await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
@@ -1411,8 +1390,16 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 image_response = None,
                 model_name = user_model
             )
-
+            await create_video_task(id = task_id, user_id = user_id, prompt = str(req.request)[:2000])
             await minus_one_video(user_id)
+
+            start_video_task(
+                task_id = task_id,
+                prompt = promt_for_video_model,
+                model = user_model,
+                message_id = message_id,
+                user_id = user_id
+            )
             await update_chat_last_message_date(chat_id)
             
             
@@ -1764,29 +1751,26 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             task_id = str(uuid.uuid4())
 
-            asyncio.create_task(
-                process_video_task(
-                    task_id=task_id,
-                    prompt=[promt_for_video_model,image_base64_list],
-                    model = user_model
-                )
-            )
-
-
-            url = f"https://{cloud_front_domain}/{task_id}.mp4"
-
-
+            # The message is created first; the background job fills in the video URL (or an error) itself.
             message_id = await create_message(
                 user_id = user_id,
                 chat_id = chat_id,
                 message = encrypted_message,
                 response = None,
                 image = url_list,
-                image_response = url,
+                image_response = None,
                 model_name = user_model
             )
-
+            await create_video_task(id = task_id, user_id = user_id, prompt = str(true_request)[:2000])
             await minus_one_video(user_id)
+
+            start_video_task(
+                task_id = task_id,
+                prompt = [promt_for_video_model,image_base64_list],
+                model = user_model,
+                message_id = message_id,
+                user_id = user_id
+            )
             await update_chat_last_message_date(chat_id)
             
             
@@ -2136,7 +2120,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
                 )
                 
                 
-        total_models = models + expensive_models + image_generation_models + list(tts_models)
+        total_models = models + expensive_models + image_generation_models + video_generation_models + list(tts_models)
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
 

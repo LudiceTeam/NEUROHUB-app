@@ -233,10 +233,27 @@ async def update_image_response_url(message_id:str,new_url:str):
                 stmt = messages_table.update().where(
                     messages_table.c.message_id == message_id
                 ).values(
-                    image_response = new_url # new video url thet was generated
+                    # encrypted like every other image_response (the history endpoint decrypts it)
+                    image_response = encrypt(new_url,os.getenv("HASH_MESSAGES_KEY"))
                 )
                 await conn.execute(stmt)
             except Exception:
                 logger.exception("MESSAGES SQL ERROR")
                 return 0
 #
+
+
+async def set_message_response(message_id:str,text:str):
+    """Sets the (encrypted) text answer of a message, e.g. when a video job fails."""
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = messages_table.update().where(
+                    messages_table.c.message_id == message_id
+                ).values(
+                    response = encrypt(text,os.getenv("HASH_MESSAGES_KEY"))
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MESSAGES SQL ERROR")
+

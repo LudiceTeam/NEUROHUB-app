@@ -19,6 +19,7 @@ const PROVIDERS = {
 };
 
 export const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
+export const VIDEO_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Video")?.[1] || []);
 export const VOICE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Voice")?.[1] || []);
 
 export function modelLabel(id) {
@@ -44,6 +45,7 @@ function tags(id) {
   const out = [];
   if (IMAGE_MODELS.has(id)) out.push(["Image", "image"]);
   else if (VOICE_MODELS.has(id)) out.push(["Voice", "voice"]);
+  else if (VIDEO_MODELS.has(id)) out.push(["Video", "video"]);
   else if (PREMIUM_MODELS.has(id)) out.push(["Premium", "premium"]);
   if (id.endsWith(":free")) out.push(["Free", "free"]);
   if (/thinking/.test(id)) out.push(["Reasoning", "reasoning"]);
@@ -115,7 +117,8 @@ export function createModelPicker({ value = "auto", onSelect }) {
       sections.push(h("div", { class: "model-group", role: "group", "aria-label": group },
         h("div", { class: "model-group-title" }, group === "Smart" ? "Recommended" : group),
         matches.map((id) => option(id, id === "auto" ? "Picks the best model for each request"
-          : VOICE_MODELS.has(id) ? "Reads your text aloud" : id))));
+          : VOICE_MODELS.has(id) ? "Reads your text aloud"
+          : VIDEO_MODELS.has(id) ? "8-second clips with sound · uses video credits" : id))));
     }
     list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
     items = [...list.querySelectorAll(".model-option")];

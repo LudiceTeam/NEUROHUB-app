@@ -71,7 +71,7 @@ async def get_video_status(video_id:str) -> str:
             data = res.scalar_one_or_none()
             return data if data is not None else ""
         except Exception:
-            logger.exceptio("VIDEOS SQL ERORR")
+            logger.exception("VIDEOS SQL ERROR")
             return ""
 
 async def get_user_tasks(user_id:str) -> List:
@@ -84,7 +84,7 @@ async def get_user_tasks(user_id:str) -> List:
             data = res.mappings().all()
             return data
         except Exception:
-            logger.exceptio("VIDEOS SQL ERORR")
+            logger.exception("VIDEOS SQL ERROR")
             return []
 
 

@@ -136,6 +136,9 @@ export const api = {
   pinChat: (chat_id, pin_value) => post("/chat/pin", { chat_id, pin_value }),
   deleteChat: (chat_id) => post("/delete/chat", { chat_id }),
 
+  // video jobs: status is "pending" | "processing" | "completed" (+ url) | "failed"
+  videoStatus: (task_id, message_id) => post("/videos/task/status", { task_id, message_id }),
+
   // billing (Stripe)
   stripePlans: () => request("/stripe/plans", { auth: false }),
   checkout: (sub_type) => post("/stripe/create/payment", { sub_type }),

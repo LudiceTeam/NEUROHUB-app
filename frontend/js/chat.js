@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS } from "./model-picker.js";
+import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS } from "./model-picker.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
@@ -329,7 +329,7 @@ export function renderApp(root, logout) {
     if (m.image) body.push(h("a", { href: m.image, target: "_blank", rel: "noopener", class: "gen-image" }, fadeImg(m.image, "Generated image")));
     if (m.audio) body.push(h("div", { class: "gen-audio" }, audioCard(m.audio, { label: voiceLabel(m.model) })));
     if (m.video) body.push(h("video", { src: m.video, controls: true, playsinline: true, class: "gen-video" }));
-    if (m.videoPending) body.push(h("p", { class: "muted" }, "🎬 Your video is being generated. Open this chat again in a few minutes to see it."));
+    if (m.videoTask || m.videoPending) body.push(videoGeneratingCard(m));
     const el = h("div", { class: `msg assistant${m.fresh ? " enter" : ""}${m.arrived ? " arrive" : ""}` },
       h("div", { class: "avatar" }, h("img", { src: "logo.png", alt: "" })),
       h("div", { class: "msg-body" },
@@ -474,7 +474,9 @@ export function renderApp(root, logout) {
       studio.stop();
       renderThread();
     }
-    textarea.placeholder = voice ? "Text to read aloud…" : "Message Veora…";
+    textarea.placeholder = voice ? "Text to read aloud…"
+      : VIDEO_MODELS.has(state.model) ? "Describe the video you want — attach a photo to animate it…"
+      : "Message Veora…";
     attachBtn.disabled = voice;
     attachBtn.title = voice ? "Voice models don't accept images" : "";
     if (voice && state.attachments.length) {
@@ -571,6 +573,67 @@ export function renderApp(root, logout) {
     void thread.offsetWidth;
     thread.classList.add("thread-in");
     if (VOICE_MODELS.has(state.model)) studio.setGenerations(collectGenerations());
+    watchPendingVideos(id);
+  }
+
+  // ---------- video ----------
+  // Placeholder while a video renders: a 9:16 frame with a shimmer and an elapsed-time counter.
+  function videoGeneratingCard(m) {
+    const time = h("span", { class: "vg-time" });
+    const tick = () => {
+      if (!m.videoTask) { time.textContent = ""; return; }
+      const sec = Math.floor((Date.now() - m.videoTask.started) / 1000);
+      time.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+    };
+    tick();
+    const timer = setInterval(() => (time.isConnected ? tick() : clearInterval(timer)), 1000);
+    return h("div", { class: "video-gen", role: "status" },
+      h("div", { class: "vg-frame", "aria-hidden": "true" }, h("span", { class: "vg-icon" }, "🎬")),
+      h("div", { class: "vg-text" },
+        h("strong", {}, "Generating your video"),
+        h("span", { class: "muted small" }, "Usually takes 1–3 minutes. You can keep chatting — it will appear here."),
+        time));
+  }
+
+  // Polls a job started in this session until the clip is ready (or fails / times out).
+  async function pollVideo(reply) {
+    const { task_id, message_id, started } = reply.videoTask;
+    while (reply.videoTask && Date.now() - started < 16 * 60 * 1000) {
+      await new Promise((r) => setTimeout(r, 5000));
+      let res;
+      try { res = await api.videoStatus(task_id, message_id); } catch { continue; }
+      if (res?.status === "completed" && res.url) {
+        reply.videoTask = null;
+        reply.video = res.url;
+      } else if (res?.status === "failed" || res?.message === "error") {
+        reply.videoTask = null;
+        reply.error = "The video couldn't be generated. Your video credit was refunded — please try again.";
+      } else {
+        continue;
+      }
+      reply.arrived = true;
+      rerenderMessage(reply);
+      loadProfile();
+      return;
+    }
+  }
+
+  // History shows unfinished videos without a job id: re-read the chat until they resolve.
+  async function watchPendingVideos(chatId) {
+    const started = Date.now();
+    while (state.chatId === chatId && state.messages.some((m) => m.videoPending) && Date.now() - started < 16 * 60 * 1000) {
+      await new Promise((r) => setTimeout(r, 10000));
+      if (state.chatId !== chatId) return;
+      try {
+        const data = await api.messages(chatId);
+        const fresh = (data?.result || []).flatMap(fromHistory);
+        if (state.chatId !== chatId) return;
+        if (fresh.filter((m) => m.videoPending).length < state.messages.filter((m) => m.videoPending).length) {
+          state.messages = fresh;
+          renderThread();
+        }
+      } catch { /* try again on the next tick */ }
+    }
   }
 
   function newChat() {
@@ -751,7 +814,9 @@ export function renderApp(root, logout) {
     const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)), fresh: true };
     const reply = {
       role: "assistant", pending: true, fresh: true,
-      pendingLabel: files.length ? "Looking at your images" : IMAGE_MODELS.has(state.model) ? "Creating your image" : "Thinking",
+      pendingLabel: VIDEO_MODELS.has(state.model) ? "Starting your video"
+        : files.length ? "Looking at your images"
+        : IMAGE_MODELS.has(state.model) ? "Creating your image" : "Thinking",
     };
     state.messages.push(userMsg, reply);
     textarea.value = "";
@@ -818,7 +883,10 @@ export function renderApp(root, logout) {
     if (!res || typeof res !== "object") { reply.error = "Empty response from server."; return; }
     if (res.audio) reply.audio = res.audio;
     else if (res.image) reply.image = res.image;
-    else if (res.video_task_id) reply.videoPending = true;
+    else if (res.video_task_id) {
+      reply.videoTask = { task_id: res.video_task_id, message_id: res.message_id, started: Date.now() };
+      pollVideo(reply);
+    }
     else if (res.message === "error") reply.error = "This chat is not available.";
     else if (res.message === "None") reply.error = "Account not found. Try signing in again.";
     else if (typeof res.message === "string") reply.text = res.message;
@@ -856,7 +924,8 @@ function fromHistory(m) {
     else if (/\.(mp3|wav)(\?|$)/i.test(m.image_response)) reply.audio = m.image_response;
     else reply.image = m.image_response;
   }
-  if (!m.response && !m.image_response) reply.videoPending = true;
+  // Only video jobs leave a reply without text or media while they run.
+  if (!m.response && !m.image_response && /veo|video/i.test(m.model || "")) reply.videoPending = true;
   out.push(reply);
   return out;
 }

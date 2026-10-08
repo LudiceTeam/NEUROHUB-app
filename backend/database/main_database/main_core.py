@@ -411,6 +411,19 @@ async def minus_one_video(user_id: str):
                 logger.exception("MAIN SQL Error")
 
 
+async def plus_one_video(user_id: str):
+    """Refund: gives back the video credit of a failed generation."""
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
+                    video_credits = main_table.c.video_credits + 1
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MAIN SQL Error")
+
+
 async def profile(user_id:str) -> dict:
     
     async with AsyncSession(async_engine) as conn:
