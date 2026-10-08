@@ -65,6 +65,7 @@ import tempfile
 from rq import Queue
 import magic
 import stripe
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -514,7 +515,7 @@ async def send_code(request:Request,req:AuthWithEmail):
 
         await check_login_limit(req.email)
 
-        code = random.randint(100000,999999)
+        code = secrets.randbelow(900000) + 100000
         try_create_code = await create_code(req.email,code)
         if not try_create_code:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Code already sent")
