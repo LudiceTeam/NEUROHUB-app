@@ -31,7 +31,7 @@ const FEATURES = [
 ];
 
 const FAQ = [
-  ["Is there a free plan?", "Yes. Every account gets 25 credits a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 40+ models, images, video and voice."],
+  ["Is there a free plan?", "Yes. Every account gets 25 credits a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 30+ models, images, video and voice."],
   ["What are credits?", "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model."],
   ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use monthly premium requests. Videos have their own monthly credits."],
   ["When do they refill?", "Credits refill every day; premium requests and videos every month — automatically, up to your plan's limit."],
@@ -147,7 +147,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
         <div class="l-head reveal">
           <span class="l-kicker">Plans</span>
           <h2>Start free. Upgrade when you're ready.</h2>
-          <p>Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 40+ models.</p>
+          <p>Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 30+ models.</p>
         </div>
         <div class="l-free reveal">
           <div><strong>Free</strong><span>${FREE_PLAN.requests} credits a day with fast models (GPT-4o mini, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>

@@ -53,8 +53,8 @@ const RU = {
   "Chat, create, listen": "Общайтесь, создавайте, слушайте",
   "Ask questions, send photos, generate images, videos and speech.": "Задавайте вопросы, отправляйте фото, создавайте картинки, видео и речь.",
   "Start free. Upgrade when you're ready.": "Начните бесплатно. Переходите на тариф, когда будете готовы.",
-  "Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 40+ models.":
-    "Кредиты пополняются каждый день, премиум-запросы и видео — каждый месяц. Любой платный тариф открывает все 40+ моделей.",
+  "Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 30+ models.":
+    "Кредиты пополняются каждый день, премиум-запросы и видео — каждый месяц. Любой платный тариф открывает все 30+ моделей.",
   "Start free": "Начать бесплатно", "credits / day": "кредитов в день", "premium / month": "премиум в месяц",
   "Vision & encrypted history": "Распознавание фото и шифрование истории", "Images & voice": "Картинки и озвучка",
   "Subscriptions are purchased in the Veora iOS app and work on the web with the same account.":
@@ -86,8 +86,8 @@ const RU = {
   "Share chats": "Делитесь чатами", "Send a link to any conversation in one click.": "Отправьте ссылку на любой диалог в один клик.",
   "Web + iPhone": "Веб + iPhone", "Start on your phone, continue on the web. Everything stays in sync.": "Начните на телефоне, продолжите в браузере. Всё синхронизируется.",
   "Is there a free plan?": "Есть ли бесплатный тариф?",
-  "Yes. Every account gets 25 credits a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 40+ models, images, video and voice.":
-    "Да. Каждый аккаунт получает 25 кредитов в день на быстрые модели — GPT-4o mini, Llama 4, Gemma и Mistral. Любой платный тариф открывает все 40+ моделей, картинки, видео и голос.",
+  "Yes. Every account gets 25 credits a day with fast models like GPT-4o mini, Llama 4, Gemma and Mistral. Any paid plan unlocks all 30+ models, images, video and voice.":
+    "Да. Каждый аккаунт получает 25 кредитов в день на быстрые модели — GPT-4o mini, Llama 4, Gemma и Mistral. Любой платный тариф открывает все 30+ моделей, картинки, видео и голос.",
   "What are credits?": "Что такое кредиты?",
   "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model.":
     "Это ваш дневной лимит. Быстрые модели стоят 1 кредит за сообщение, более мощные — чуть больше: например, Gemini 3 Flash — 4, GPT-5.4 mini — 5. Цена указана рядом с каждой моделью.",
@@ -110,8 +110,8 @@ const RU = {
   // ---------- auth ----------
   "Welcome back": "С возвращением", "Create your account": "Создайте аккаунт",
   "Sign in to continue to your chats.": "Войдите, чтобы продолжить общение.",
-  "Get 25 free credits every day with fast models — upgrade anytime for all 40+ models from OpenAI, Anthropic, Google and more.":
-    "25 бесплатных кредитов каждый день на быстрые модели — а с тарифом все 40+ моделей от OpenAI, Anthropic, Google и других.",
+  "Get 25 free credits every day with fast models — upgrade anytime for all 30+ models from OpenAI, Anthropic, Google and more.":
+    "25 бесплатных кредитов каждый день на быстрые модели — а с тарифом все 30+ моделей от OpenAI, Anthropic, Google и других.",
   "Continue with Google": "Продолжить с Google", "Continue with Apple": "Продолжить с Apple", "Continue with email": "Продолжить по почте",
   "or": "или", "Email": "Почта", "Code": "Код", "Sign in": "Войти", "Sending code…": "Отправляем код…", "Signing in…": "Входим…",
   "Check your email": "Проверьте почту", "We sent a 6-digit code to": "Мы отправили 6-значный код на",
@@ -265,6 +265,14 @@ const RU = {
   "Your plan allows fewer photos per message. Upgrade to send up to 5.": "Ваш тариф позволяет меньше фото в сообщении. С тарифом выше — до 5.",
   "Couldn't copy to the clipboard.": "Не удалось скопировать.", "This folder is not available.": "Эта папка недоступна.",
   "Server error": "Ошибка сервера",
+
+  // ---------- leftovers found by crawling the Russian UI ----------
+  "Resize sidebar": "Изменить ширину панели", "Drag to resize · double-click to reset": "Потяните, чтобы изменить ширину · двойной клик — сбросить",
+  "Smart": "Рекомендуем", "Veora needs JavaScript to run.": "Для работы Veora нужен JavaScript.",
+  "Voice models don't accept images": "Голосовые модели не принимают фото",
+  "Footer": "Подвал", "Sections": "Разделы", "Veora crystal, drag to spin": "Кристалл Veora — потяните, чтобы покрутить", "Veora in numbers": "Veora в цифрах",
+  "Violet": "Фиолетовый", "Ocean": "Океан", "Emerald": "Изумрудный", "Rose": "Розовый", "Gold": "Золотой", "Graphite": "Графит", "Mint": "Мятный",
+  "Close image viewer": "Закрыть просмотр",
 };
 
 const tr = (s) => RU[s] || s;
@@ -284,7 +292,7 @@ const PATTERNS = [
   [/^×(\d+) credits$/, (m) => `×${credits(+m[1])}`],
   [/^Generation (\d+)$/, (m) => `Озвучка ${m[1]}`],
   [/^Generation (\d+) · (.+)$/, (m) => `Озвучка ${m[1]} · ${tr(m[2])}`],
-  [/^([\d,  ]+) \/ ([\d,  ]+) characters$/, (m) => `${m[1]} / ${m[2]} символов`],
+  [/^([\d.,\s\u00a0\u202f]+) \/ ([\d.,\s\u00a0\u202f]+) characters$/, (m) => `${m[1]} / ${m[2]} символов`],
   [/^Choose from (\d+\+?) models or let Veora route each request to the best one\.$/, (m) => `Выберите из ${m[1]} моделей или доверьте Veora выбор лучшей для каждого запроса.`],
   [/^(\d+\+?) models · images · video · voice$/, (m) => `${m[1]} моделей · картинки · видео · голос`],
   [/^All (\d+\+?) models$/, (m) => `Все ${m[1]} моделей`],
@@ -298,7 +306,7 @@ const PATTERNS = [
   [/^(\w+) voice$/, (m) => `Голос ${m[1]}`],
   [/^(Starter|Basic|Plus|Premium|Max|Elite) plan$/, (m) => `Тариф ${m[1]}`],
   [/^How can I help, (.+)\?$/, (m) => `Чем могу помочь, ${m[1]}?`],
-  [/^Renews or ends on (.+)\.$/, (m) => `Продлится или закончится ${m[1]}.`],
+  [/^Renews or ends on (.+)\.$/, (m) => `Продлится или закончится ${m[1].replace(/\.$/, "")}.`],
   [/^Last active (.+)$/, (m) => `Последняя активность: ${m[1]}`],
   [/^You're on (\w+)\. To switch plans, cancel it in "Manage subscription" first\.$/, (m) =>
     `У вас тариф ${m[1]}. Чтобы сменить его, сначала отмените текущий в «Управлении подпиской».`],
@@ -330,14 +338,16 @@ export function t(text) {
 }
 
 // User content and data that must stay as is.
-const SKIP = ".md, .bubble, .chat-link > span, .tts-editor, .tts-history-text > span, .model-option-desc, .model-trigger-label, .msg-model, "
+const SKIP = ".md, .bubble, .chat-link > span, .tts-editor, .tts-history-text > span, .model-trigger-label, .msg-model, "
   + "pre, code, textarea, input, select, .tag-chip, .profile-meta strong, .tts-player-info strong, .clone-script p, .l-model, .l-group li, "
-  + ".lang-switch, .theme-name, .ac-time, .dict-time, .vg-time, .chat-title, .folder-option > span, .devices strong";
+  + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong";
+// Our own sample texts that sit inside otherwise-skipped elements.
+const UNSKIP = ".appearance-preview";
 const ATTRS = ["placeholder", "title", "aria-label"];
 
 function translateText(node) {
   const parent = node.parentElement;
-  if (!parent || parent.closest(SKIP)) return;
+  if (!parent || (parent.closest(SKIP) && !parent.closest(UNSKIP))) return;
   const value = node.nodeValue;
   const out = t(value);
   if (out && out !== value.trim()) {
@@ -393,7 +403,7 @@ export function startI18n() {
   if (lang !== "ru") return;
   document.title = "Veora — весь ИИ в одном месте";
   document.querySelector('meta[name="description"]')?.setAttribute("content",
-    "Общайтесь с 40+ ИИ-моделями от OpenAI, Anthropic, Google, Meta, Mistral и других в одном месте.");
+    "Общайтесь с 30+ ИИ-моделями от OpenAI, Anthropic, Google, Meta, Mistral и других в одном месте.");
   translateTree(document.body);
   new MutationObserver((mutations) => {
     for (const m of mutations) {
