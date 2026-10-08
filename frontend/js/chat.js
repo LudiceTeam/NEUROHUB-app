@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS } from "./model-picker.js";
+import { FREE_MODELS } from "./config.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { setupSidebar } from "./sidebar.js";
@@ -9,7 +10,8 @@ import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from ".
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
 import { openLightbox } from "./lightbox.js";
 import { audioCard } from "./audio-card.js";
-import { handleBillingReturn } from "./billing.js";
+import { handleBillingReturn, openPlans } from "./billing.js";
+import { createVoiceInput } from "./voice-input.js";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -53,7 +55,19 @@ export function renderApp(root, logout) {
   );
   const scrim = h("div", { class: "scrim", onclick: () => toggleSidebar(false) });
 
-  const picker = createModelPicker({ value: state.model, onSelect: onModelChange });
+  const PAID_PLANS = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"];
+  const isPaid = () => PAID_PLANS.some((k) => state.profile?.[k]);
+  // Free plan: only FREE_MODELS; every other model is PLUS and opens the plans dialog.
+  const isLockedModel = (id) => Boolean(state.profile) && !isPaid() && id !== "auto" && !FREE_MODELS.has(id);
+  const picker = createModelPicker({
+    value: state.model,
+    onSelect: onModelChange,
+    isLocked: isLockedModel,
+    onLocked: () => {
+      toast("This model is included with every paid plan.", "info");
+      openPlans(state.profile);
+    },
+  });
 
   const title = h("div", { class: "chat-title" });
   const header = h("header", { class: "topbar" },
@@ -99,6 +113,22 @@ export function renderApp(root, logout) {
       attachBtn, textarea, fileInput, sendBtn),
   );
   const quota = h("p", { class: "quota" });
+
+  // Dictation: the transcript is inserted at the cursor so it can be edited before sending.
+  const voiceInput = createVoiceInput({
+    composer,
+    onText: (text) => {
+      const { selectionStart: a, selectionEnd: b, value } = textarea;
+      const before = value.slice(0, a);
+      const sep = before && !/\s$/.test(before) ? " " : "";
+      textarea.value = before + sep + text + value.slice(b);
+      const caret = (before + sep + text).length;
+      autosize();
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
+    },
+  });
+  sendBtn.before(voiceInput.button);
 
   // Voice models get a text-to-speech studio instead of the chat thread.
   const studio = createTtsStudio({
@@ -504,6 +534,11 @@ export function renderApp(root, logout) {
       if (e.status !== 401) toast(errorText(e));
     }
     state.loading.profile = false;
+    picker.refresh();
+    // A free account still set to a PLUS model (e.g. after the plan ended) goes back to Auto.
+    if (isLockedModel(state.model)) {
+      onModelChange("auto").then(() => picker.setValue("auto")).catch(() => {});
+    }
     if (state.profile) {
       const perks = hasPerks(state.profile);
       cachePerks(perks);
@@ -540,6 +575,9 @@ export function renderApp(root, logout) {
     }
     picker.setValue(state.model);
     picker.el.classList.remove("is-loading");
+    if (isLockedModel(state.model)) {
+      onModelChange("auto").then(() => picker.setValue("auto")).catch(() => {});
+    }
   }
 
   async function onModelChange(id) {
@@ -549,6 +587,7 @@ export function renderApp(root, logout) {
       updateMode();
     } catch (e) {
       toast(errorText(e));
+      if (String(e.message).includes("Upgrade required")) openPlans(state.profile);
       throw e;
     }
   }

@@ -64,6 +64,17 @@ export const MODEL_GROUPS = [
   ]],
 ];
 
+// Mirrors FREE_MODELS in backend/api/config.py: everything else is PLUS (any paid plan).
+export const FREE_MODELS = new Set([
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "google/gemma-4-31b-it",
+  "meta-llama/llama-4-scout",
+  "meta-llama/llama-4-maverick",
+  "mistralai/mistral-small-2603",
+  "qwen/qwen3-vl-8b-instruct",
+]);
+
 export const PREMIUM_MODELS = new Set([
   "anthropic/claude-opus-4.6",
   "anthropic/claude-sonnet-4.6",

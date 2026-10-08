@@ -42,7 +42,7 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -773,8 +773,32 @@ async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_u
 
 
 
-async def decide_whick_model_is_the_best_for_request(request:str,photo:bool) -> str:
-    all_models = models[1:] + expensive_models + image_generation_models + video_generation_models
+def has_paid_plan(user_state:dict) -> bool:
+    return any(user_state.get(plan["column"]) for plan in SUBSCRIPTIONS.values())
+
+
+def chat_models_for(paid:bool) -> List[str]:
+    """Models Auto may pick: free users only get FREE_MODELS."""
+    if not paid:
+        return list(FREE_MODELS)
+    return [m for m in models if m != "auto"] + expensive_models + image_generation_models + video_generation_models
+
+
+async def pick_auto_model(request:str, photo:bool, paid:bool) -> str:
+    allowed = chat_models_for(paid)
+    for _ in range(3):
+        try:
+            choice = await decide_whick_model_is_the_best_for_request(request, photo, allowed)
+        except Exception:
+            logger.exception("AUTO ROUTER ERROR")
+            break
+        if choice in allowed:
+            return choice
+    return PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
+
+
+async def decide_whick_model_is_the_best_for_request(request:str,photo:bool,allowed:List[str] | None = None) -> str:
+    all_models = allowed or (models[1:] + expensive_models + image_generation_models + video_generation_models)
     promt = f"Which model is the best for this request: {request} ? Choose from this list: {all_models}. Answer only with model name without any other words."
 
     if photo:
@@ -1276,24 +1300,19 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         
 
         user_model = await get_user_model_name(user_id)
+        paid = has_paid_plan(user_data)
         # A model removed from the catalog (or by OpenRouter) falls back to Auto instead of failing.
         if user_model != "auto" and user_model not in (models + expensive_models + image_generation_models + video_generation_models) and user_model not in tts_models:
             user_model = "auto"
+        # Free plan: PLUS models quietly fall back to Auto among the free models (older apps keep working).
+        if not paid and user_model != "auto" and user_model not in FREE_MODELS:
+            user_model = "auto"
         if user_model == "auto":
-            user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo=False)
-            all_models = expensive_models + models + image_generation_models + video_generation_models
-            count_attemts = 0
-            while user_model not in all_models:
-                if count_attemts >= 5:
-                    return {
-                        "message" : "Something went wrong."
-                    }
-                user_model = await decide_whick_model_is_the_best_for_request(req.request or "",photo = False)
-                count_attemts += 1
+            user_model = await pick_auto_model(req.request or "", False, paid)
 
 
         if user_model == "auto" and req.request == None:
-            user_model = "google/gemini-3-flash-preview"
+            user_model = PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
 
         if user_model in tts_models or req.voice_id:
             # Voice models read the user's text as is; the chat history isn't used.
@@ -1301,6 +1320,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             own_voice = None
             clone_key = None
             if req.voice_id:
+                if not paid:
+                    raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Upgrade required")
                 user_voices = await get_user_voices(user_id = user_id) or []
                 own_voice = next((v for v in user_voices if v["voice_id"] == req.voice_id), None)
                 if own_voice is None:
@@ -1587,26 +1608,21 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
 
         user_model = await get_user_model_name(user_id)
+        paid = has_paid_plan(user_data)
         # A model removed from the catalog (or by OpenRouter) falls back to Auto instead of failing.
         if user_model != "auto" and user_model not in (models + expensive_models + image_generation_models + video_generation_models) and user_model not in tts_models:
             user_model = "auto"
+        # Free plan: PLUS models quietly fall back to Auto among the free models (older apps keep working).
+        if not paid and user_model != "auto" and user_model not in FREE_MODELS:
+            user_model = "auto"
         if user_model == "auto":
-            user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
-            all_models = expensive_models + models + image_generation_models + video_generation_models
-            count_attemts = 0
-            while user_model not in all_models:
-                if count_attemts >= 5:
-                    return {
-                        "message" : "Something went wrong."
-                    }
-                user_model = await decide_whick_model_is_the_best_for_request(true_request or "",photo = True)
-                count_attemts += 1
+            user_model = await pick_auto_model(true_request or "", True, paid)
 
 
 
         expensive_full_models = image_generation_models + expensive_models + video_generation_models
         if user_model == "auto" and true_request == "":
-            user_model = "google/gemini-3-flash-preview"
+            user_model = PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
 
         if user_model in tts_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice models don't accept images")
@@ -2123,6 +2139,8 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
         total_models = models + expensive_models + image_generation_models + video_generation_models + list(tts_models)
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
+        if req.model_name != "auto" and req.model_name not in FREE_MODELS and not has_paid_plan(await get_user_state(user_id)):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Upgrade required")
 
         device_id = user_data["device_id"]
         await update_last_online(device_id)

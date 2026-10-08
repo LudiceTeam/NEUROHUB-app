@@ -58,7 +58,8 @@ function mark(id, size = "") {
 }
 
 // A custom dropdown for choosing the model. onSelect(id) may be async; throwing reverts the choice.
-export function createModelPicker({ value = "auto", onSelect }) {
+// isLocked(id): PLUS model the user can't pick yet; onLocked(id) runs instead of selecting it.
+export function createModelPicker({ value = "auto", onSelect, isLocked = () => false, onLocked = () => {} }) {
   let current = value;
   let open = false;
   let activeIndex = -1;
@@ -92,8 +93,9 @@ export function createModelPicker({ value = "auto", onSelect }) {
 
   function option(id, desc) {
     const selected = id === current;
+    const locked = isLocked(id);
     const btn = h("button", {
-      class: `model-option${selected ? " selected" : ""}`, type: "button", role: "option",
+      class: `model-option${selected ? " selected" : ""}${locked ? " locked" : ""}`, type: "button", role: "option",
       "aria-selected": String(selected), "data-id": id,
       onclick: () => choose(id),
       onmousemove: () => setActive(items.indexOf(btn)),
@@ -102,7 +104,9 @@ export function createModelPicker({ value = "auto", onSelect }) {
       h("span", { class: "model-option-text" },
         h("span", { class: "model-option-name" }, modelLabel(id)),
         h("span", { class: "model-option-desc" }, desc)),
-      h("span", { class: "model-tags" }, tags(id).map(([text, kind]) => h("span", { class: `model-tag ${kind}` }, text))),
+      h("span", { class: "model-tags" },
+        locked ? h("span", { class: "model-tag plus" }, "🔒 PLUS")
+          : tags(id).map(([text, kind]) => h("span", { class: `model-tag ${kind}` }, text))),
       h("span", { class: "model-check", "aria-hidden": "true" }, selected ? "✓" : ""));
     return btn;
   }
@@ -170,6 +174,7 @@ export function createModelPicker({ value = "auto", onSelect }) {
 
   async function choose(id) {
     close();
+    if (isLocked(id)) { onLocked(id); return; }
     if (id === current) return;
     const prev = current;
     current = id;
@@ -190,5 +195,6 @@ export function createModelPicker({ value = "auto", onSelect }) {
     el,
     get value() { return current; },
     setValue(id) { current = id; renderTrigger(); },
+    refresh() { renderTrigger(); if (open) renderList(); },
   };
 }

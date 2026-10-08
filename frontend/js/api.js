@@ -136,6 +136,13 @@ export const api = {
   pinChat: (chat_id, pin_value) => post("/chat/pin", { chat_id, pin_value }),
   deleteChat: (chat_id) => post("/delete/chat", { chat_id }),
 
+  // speech -> text (Whisper); costs one regular request. Returns { result }.
+  voiceToText: (file) => {
+    const form = new FormData();
+    form.append("audio", file);
+    return request("/voice_to_text", { method: "POST", form });
+  },
+
   // video jobs: status is "pending" | "processing" | "completed" (+ url) | "failed"
   videoStatus: (task_id, message_id) => post("/videos/task/status", { task_id, message_id }),
 

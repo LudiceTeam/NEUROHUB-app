@@ -1200,3 +1200,45 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 .vg-time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--accent); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .vg-frame::after, .vg-icon { animation: none; } }
 
+/* ---------- dictation ---------- */
+.mic-btn .icon { width: 19px; height: 19px; }
+.composer.dictating .composer-row, .composer.dictating .previews { visibility: hidden; }
+.dictation {
+  position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 0 8px;
+  border-radius: inherit; background: var(--bg-elev); animation: fade-in-soft .2s ease both;
+}
+.dict-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; background: #ef4444; animation: dict-pulse 1.2s ease-in-out infinite; }
+@keyframes dict-pulse { 50% { opacity: .35; transform: scale(.8); } }
+.dict-wave { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 3px; height: 28px; overflow: hidden; }
+.dict-wave span {
+  --v: .08;
+  flex: 0 0 3px; height: calc(var(--v) * 100%); min-height: 3px; border-radius: 2px;
+  background: linear-gradient(var(--accent), var(--accent-2)); transition: height .08s linear;
+}
+.dict-time { flex: none; min-width: 36px; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dict-status { flex: none; font-size: 13px; font-weight: 500; color: var(--muted); }
+.dict-status:empty { display: none; }
+.dict-done {
+  display: grid; place-items: center; width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+  transition: transform .2s cubic-bezier(.3, 1.6, .5, 1);
+}
+.dict-done:hover:not(:disabled) { transform: scale(1.07); }
+.dict-done .icon { width: 18px; height: 18px; }
+.dictation.busy .dict-wave { opacity: .35; }
+.dictation.busy .dict-dot { background: var(--accent); }
+.dictation.busy .dict-time, .dictation.busy .dict-cancel { display: none; }
+.dictation.busy .dict-done { opacity: .6; }
+.dictation.busy .dict-status {
+  background: linear-gradient(90deg, var(--muted) 35%, var(--text) 50%, var(--muted) 65%); background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: text-shimmer 2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { .dict-dot, .dictation.busy .dict-status { animation: none; } }
+
+/* PLUS-only models for free accounts */
+.model-option.locked .model-option-name, .model-option.locked .model-mark { opacity: .55; }
+.model-tag.plus {
+  color: #fff; letter-spacing: .04em;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+

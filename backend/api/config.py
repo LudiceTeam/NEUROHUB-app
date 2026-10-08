@@ -42,7 +42,21 @@ AsyncSessionLocal = sessionmaker(
 #   video         video generations, refilled every 30 days
 #   voices_amount own (cloned) voices
 # Sized so that even a user who spends everything with long chats stays profitable.
-FREE_PLAN = {"requests": 5, "nano_req": 3, "video": 0}
+FREE_PLAN = {"requests": 25, "nano_req": 0, "video": 0}
+
+# The free plan only gets fast, cheap models (that's what makes 25 requests/day affordable).
+# Every other model, plus image/video/voice generation, is "PLUS": any paid plan unlocks it.
+FREE_MODELS = [
+    "openai/gpt-4o-mini",
+    "google/gemini-2.5-flash-lite",
+    "google/gemma-4-31b-it",
+    "meta-llama/llama-4-scout",
+    "meta-llama/llama-4-maverick",
+    "mistralai/mistral-small-2603",
+    "qwen/qwen3-vl-8b-instruct",
+]
+FREE_DEFAULT_MODEL = "openai/gpt-4o-mini"
+PAID_DEFAULT_MODEL = "google/gemini-3-flash-preview"
 
 # Cost caps that the limits above are calculated with.
 MAX_OUTPUT_TOKENS = 1500
