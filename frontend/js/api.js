@@ -122,6 +122,7 @@ export const api = {
     return request("/change_avatar", { method: "POST", form });
   },
   streak: () => request("/streak/get", { apiKey: true }),
+  resumeStreak: () => request("/streak/resume", { apiKey: true }),
   devices: () => request("/get/user/devices", { apiKey: true }),
   deleteDevice: (device_id) => post("/delete/device", { device_id }),
 

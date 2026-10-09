@@ -3,6 +3,7 @@ import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS
 import { FREE_MODELS } from "./config.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
+import { streakInfo } from "./streak.js";
 import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
@@ -43,6 +44,7 @@ export function renderApp(root, logout) {
     loading: { chats: true, folders: true, profile: true },
     gpts: [],             // custom GPTs: [{ gpt_id, gpt_name, gpt_promt }]
     activeGpt: null,      // gpt_id the next messages are answered with
+    streak: null,         // streakInfo() of /streak/get
   };
 
   // ---------- layout ----------
@@ -557,7 +559,27 @@ export function renderApp(root, logout) {
     const pic = p["Profile Picture"];
     profileBtn.replaceChildren(
       pic ? h("img", { class: "avatar-img", src: pic, alt: "" }) : h("span", { class: "avatar-img initials" }, (p.Name || "?").slice(0, 1).toUpperCase()),
-      h("span", { class: "profile-meta" }, h("strong", {}, p.Name || "Account"), h("small", {}, planName(p))));
+      h("span", { class: "profile-meta" }, h("strong", {}, p.Name || "Account"), h("small", {}, planName(p))),
+      streakBadge());
+  }
+
+  // 🔥 N next to the account; a dot means a lost streak can be restored.
+  let litBefore = null;
+  function streakBadge() {
+    const s = state.streak;
+    if (!s || (!s.streak && !s.canResume)) return null;
+    // Grey until today's message extends the streak; it lights up (with a pop) once it does.
+    const justLit = s.doneToday && litBefore === false;
+    litBefore = s.doneToday;
+    return h("span", {
+      class: `streak-badge${s.doneToday ? "" : " out"}${justLit ? " lit" : ""}`,
+      title: s.canResume ? `Best streak: ${s.record} days. Restore it in your account.` : `${s.streak}-day streak`,
+    }, h("span", { "aria-hidden": "true" }, "🔥"), String(s.streak), s.canResume && h("i", { class: "streak-dot", "aria-hidden": "true" }));
+  }
+
+  async function loadStreak() {
+    try { state.streak = streakInfo(await api.streak()); } catch { /* the badge just stays hidden */ }
+    renderProfileBtn();
   }
 
   // Voice models open the TTS studio; the chat composer also refuses images for them.
@@ -619,6 +641,7 @@ export function renderApp(root, logout) {
     renderProfileBtn();
     renderQuota();
     finishBoot();
+    if (state.profile) loadStreak();
     studio.setCredits(state.profile?.["Nano Requests"] ?? null);
     if (state.profile) studio.setPlan(state.profile);
     if (!state.messages.length) renderThread();

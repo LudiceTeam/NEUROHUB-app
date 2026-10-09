@@ -4,6 +4,7 @@ import { planName } from "./chat.js";
 import { openPlans, openPortal } from "./billing.js";
 import { BASE_THEMES, CUSTOM_THEMES, BUBBLES, hasPerks, loadPrefs, savePrefs, applyAppearance } from "./appearance.js";
 import { languageSwitch } from "./i18n.js";
+import { streakCard } from "./streak.js";
 
 export function openProfile(state, { logout, onChange }) {
   return modal("Account", (close) => {
@@ -47,13 +48,12 @@ export function openProfile(state, { logout, onChange }) {
     );
 
     // Plan + usage
-    const streak = h("strong", {}, "—");
     body.append(h("div", { class: "stats" },
       stat("Plan", planName(p).replace(" plan", "")),
       stat("Credits today", p.Requests ?? 0),
       stat("Premium / month", p["Nano Requests"] ?? 0),
-      stat("Videos / month", p["Video Credits"] ?? 0),
-      h("div", { class: "stat" }, h("span", {}, "Streak"), streak)));
+      stat("Videos / month", p["Video Credits"] ?? 0)));
+    body.append(streakCard(state, { onChange }));
     const subscribed = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"].some((k) => p[k]);
     const manageBtn = h("button", { class: "pill-btn ghost", type: "button", onclick: () => openPortal(manageBtn) }, "Manage subscription");
     body.append(h("div", { class: "billing-row" },
@@ -62,10 +62,6 @@ export function openProfile(state, { logout, onChange }) {
         : "Unlock more requests, voice cloning and custom themes."),
       subscribed ? manageBtn : h("button", { class: "pill-btn glow", type: "button", onclick: () => openPlans(p) },
         h("span", { class: "pill-spark", "aria-hidden": "true" }, "✦"), "Upgrade plan")));
-
-    api.streak()
-      .then((s) => { streak.textContent = s?.streak != null ? `${s.streak} 🔥` : "0"; })
-      .catch(() => { streak.textContent = "—"; });
 
     body.append(appearanceSection(state));
 

@@ -170,7 +170,7 @@ const RU = {
 
   // ---------- profile / appearance / billing ----------
   "Account": "Аккаунт", "Plan": "Тариф", "Credits today": "Кредиты сегодня", "Premium / month": "Премиум в месяц",
-  "Videos / month": "Видео в месяц", "Streak": "Серия дней", "Signed-in devices": "Устройства", "Sign out": "Выйти",
+  "Videos / month": "Видео в месяц", "Streak": "Серия дней", "Send a message to start your streak.": "Отправьте сообщение, чтобы начать серию.", "You're on fire — come back tomorrow to keep it going.": "Вы в ударе — возвращайтесь завтра, чтобы продолжить серию.", "Send a message today to keep your streak.": "Отправьте сообщение сегодня, чтобы не потерять серию.", "Send a message to start a new streak.": "Отправьте сообщение, чтобы начать новую серию.", "Your best streak": "Ваша лучшая серия", "30 days! Starter is yours free for a month.": "30 дней! Starter ваш бесплатно на месяц.", "Restore streak": "Вернуть серию", "Restore with Plus": "Вернуть с Plus", "Your plan lets you restore your best streak.": "Ваш тариф позволяет вернуть лучшую серию.", "Restoring a lost streak is included with Plus, Premium, Max and Elite.": "Вернуть потерянную серию можно на Plus, Premium, Max и Elite.", "Invalid subscribtion type": "Вернуть серию можно только на Plus и выше", "Not subscribed": "Нужна подписка Plus или выше", "Signed-in devices": "Устройства", "Sign out": "Выйти",
   "No devices": "Нет устройств", "This device": "Это устройство", "Unknown device": "Неизвестное устройство", "Sign out device?": "Выйти на устройстве?",
   "Name": "Имя", "Name updated": "Имя обновлено", "Avatar updated": "Аватар обновлён", "Change avatar": "Сменить аватар", "Avatar": "Аватар",
   "Appearance": "Оформление", "Language": "Язык", "Message color": "Цвет сообщений", "Basic+ unlocked": "Basic+ открыто",
@@ -293,6 +293,12 @@ const credits = (n) => `${n} ${plural(n, "кредит", "кредита", "кр
 
 // Strings that contain numbers or names.
 const PATTERNS = [
+  [/^(\d+) days?$/, (m) => `${m[1]} ${plural(+m[1], "день", "дня", "дней")}`],
+  [/^(\d+) more days to get Starter free for a month$/, (m) => `Ещё ${m[1]} ${plural(+m[1], "день", "дня", "дней")} — и Starter бесплатно на месяц`],
+  [/^Get your (\d+)-day streak back$/, (m) => `Верните серию в ${m[1]} ${plural(+m[1], "день", "дня", "дней")}`],
+  [/^Streak restored: (\d+) days? 🔥$/, (m) => `Серия восстановлена: ${m[1]} ${plural(+m[1], "день", "дня", "дней")} 🔥`],
+  [/^(\d+)-day streak$/, (m) => `Серия: ${m[1]} ${plural(+m[1], "день", "дня", "дней")}`],
+  [/^Best streak: (\d+) days\. Restore it in your account\.$/, (m) => `Лучшая серия: ${m[1]} ${plural(+m[1], "день", "дня", "дней")}. Её можно вернуть в аккаунте.`],
   [/^(\d+) credits today(?: · (\d+) premium)?(?: · (\d+) videos?)? left$/, (m) =>
     `Осталось: ${credits(+m[1])} сегодня${m[2] ? ` · ${m[2]} премиум` : ""}${m[3] ? ` · ${m[3]} видео` : ""}`],
   [/^(\d+) credits \/ day · all models$/, (m) => `${credits(+m[1])} в день · все модели`],

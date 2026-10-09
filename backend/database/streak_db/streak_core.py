@@ -133,10 +133,13 @@ async def resume_streak(user_id:str) -> None:
     try:
         async with AsyncSession(async_engine) as conn:
             async with conn.begin():
+                # Today counts as done, so the next message neither resets it nor skips a day.
                 stmt = streak_table.update().where(
-                    streak_table.c.user_id == user_id
+                    streak_table.c.user_id == user_id,
+                    streak_table.c.record > 1
                 ).values(
-                    streak = streak_table.c.record
+                    streak = streak_table.c.record,
+                    last_updated = datetime.now().date()
                 )
                 await conn.execute(stmt)
                 return None

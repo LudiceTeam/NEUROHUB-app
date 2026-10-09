@@ -1397,6 +1397,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
+            await write_record(user_id = user_id)
+
             if not try_streak_increase:
                 await reset_streak(
                     user_id = user_id
@@ -1446,6 +1448,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
+            await write_record(user_id = user_id)
             if not try_streak_increase:
                 await reset_streak(
                     user_id = user_id
@@ -1500,6 +1503,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
+            await write_record(user_id = user_id)
             if not try_streak_increase:
                 await reset_streak(
                     user_id = user_id
@@ -1547,7 +1551,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         )
 
         await update_chat_last_message_date(chat_id)
-        
+        await write_record(user_id = user_id)
         try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
@@ -1766,6 +1770,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
+            await write_record(user_id = user_id)
+
             if not try_streak_increase:
                 await reset_streak(
                     user_id = user_id
@@ -1816,6 +1822,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
+            await write_record(user_id = user_id)
+
             if not try_streak_increase:
                 await reset_streak(
                     user_id = user_id
@@ -1855,6 +1863,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         try_streak_increase = await plus_one_streak_day(
                 user_id = user_id
             )
+        await write_record(user_id = user_id)
         if not try_streak_increase:
             await reset_streak(
                 user_id = user_id
@@ -2460,7 +2469,7 @@ async def resume_streak_handler(request:Request,user_data:dict = Depends(get_cur
                 )
         user_plan = await get_user_plan(user_id = user_id) or {}
         if any(user_plan.values()):
-            if user_plan["starter"] or user_plan["basic"]:
+            if user_plan["starter_sub"] or user_plan["basic_sub"]:
                 raise HTTPException(
                     status_code = status.HTTP_400_BAD_REQUEST,
                     detail = "Invalid subscribtion type"
