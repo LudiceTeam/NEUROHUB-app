@@ -2441,6 +2441,46 @@ async def get_user_streak_handler(request:Request,user_data:dict = Depends(get_c
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+@app.get("/streak/resume")
+@limiter.limit("20/minute")
+async def resume_streak_handler(request:Request,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+                
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+    
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+        user_plan = await get_user_plan(user_id = user_id) or {}
+        if any(user_plan.values()):
+            if user_plan["starter"] or user_plan["basic"]:
+                raise HTTPException(
+                    status_code = status.HTTP_400_BAD_REQUEST,
+                    detail = "Invalid subscribtion type"
+                )
+            await resume_streak(
+                user_id = user_id
+            )
+            return {
+                "message" : "Ok"
+            }
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail = "Not subscribed"
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
     
 
 
