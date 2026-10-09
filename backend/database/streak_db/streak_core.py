@@ -7,7 +7,7 @@ import asyncio
 import logging
 import uuid
 from typing import List,Optional,Dict
-from sqlalchemy import select,func
+from sqlalchemy import select,func,text
 from datetime import datetime,timezone,timedelta
 from backend.api.psw_hash import decrypt,encrypt
 from backend.api.config import database_url,async_engine
@@ -26,7 +26,11 @@ async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
 
+async def migrate_streak_table():
+    async with async_engine.begin() as conn:
+        await conn.execute(text("ALTER TABLE streak_table ADD COLUMN IF NOT EXISTS record INTEGER DEFAULT 0"))
 
+        
 
 async def create_user_streak(user_id:str) -> bool:
     async with AsyncSession(async_engine) as conn:
@@ -35,7 +39,8 @@ async def create_user_streak(user_id:str) -> bool:
                 stmt = insert(streak_table).values(
                     user_id = user_id,
                     streak = 1,
-                    last_updated = datetime.now().date()
+                    last_updated = datetime.now().date(),
+                    record = 1,
                 ).on_conflict_do_nothing(
                     index_elements=[streak_table.c.user_id]
                 )
@@ -92,7 +97,8 @@ async def get_user_streak_data(user_id:str) -> dict:
         try:
             stmt = select(
                 streak_table.c.streak,
-                streak_table.c.last_updated
+                streak_table.c.last_updated,
+                streak_table.c.record
             ).where(
                 streak_table.c.user_id == user_id
             )
@@ -106,3 +112,34 @@ async def get_user_streak_data(user_id:str) -> dict:
         except Exception:
             logger.exception("STREAK SQL ERROR")
             return {}
+
+async def write_record(user_id:str) -> None:
+    try:
+        async with AsyncSession(async_engine) as conn:
+            async with conn.begin():
+                stmt = streak_table.update().where(
+                    streak_table.c.user_id == user_id,
+                    streak_table.c.streak > streak_table.c.record
+                ).values(
+                    record = streak_table.c.streak
+                )
+                await conn.execute(stmt)
+                return None
+    except Exception:
+        logger.exception("STREAK SQL ERROR")
+        return None
+
+async def resume_streak(user_id:str) -> None:
+    try:
+        async with AsyncSession(async_engine) as conn:
+            async with conn.begin():
+                stmt = streak_table.update().where(
+                    streak_table.c.user_id == user_id
+                ).values(
+                    streak = streak_table.c.record
+                )
+                await conn.execute(stmt)
+                return None
+    except Exception:
+        logger.exception("STREAK SQL ERROR")
+        return None

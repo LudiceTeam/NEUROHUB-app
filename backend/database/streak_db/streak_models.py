@@ -9,5 +9,6 @@ streak_table = Table(
     metadata_obj,
     Column("user_id",String,primary_key=True,unique=True),
     Column("streak",Integer),# days of streak
-    Column("last_updated",Date, default=datetime.now().date)
+    Column("last_updated",Date, default=datetime.now().date),
+    Column("record",Integer),
 )
