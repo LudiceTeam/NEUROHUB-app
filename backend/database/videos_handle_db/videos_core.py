@@ -7,7 +7,7 @@ import asyncio
 import logging
 import uuid
 from typing import List,Optional
-from sqlalchemy import select,func
+from sqlalchemy import select,func,text
 from datetime import datetime,timezone
 from backend.database.messages_database.messages_core import count_model_messages
 from backend.api.config import database_url,async_engine
@@ -24,6 +24,10 @@ async def drop_table():
 async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
+
+async def migrate_videos_table():
+    async with async_engine.begin() as conn:
+        await conn.execute(text("ALTER TABLE videos_table ADD COLUMN IF NOT EXISTS prompt VARCHAR"))
 
 
 async def create_video_task(

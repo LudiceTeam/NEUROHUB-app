@@ -1070,7 +1070,7 @@ function fromHistory(m) {
     else reply.image = m.image_response;
   }
   // Only video jobs leave a reply without text or media while they run.
-  if (!m.response && !m.image_response && /veo|video/i.test(m.model || "")) reply.videoPending = true;
+  if (!m.response && !m.image_response && (VIDEO_MODELS.has(m.model) || /veo|video|seedance/i.test(m.model || ""))) reply.videoPending = true;
   out.push(reply);
   return out;
 }

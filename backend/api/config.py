@@ -207,7 +207,7 @@ image_generation_models = [
 ]
 
 video_generation_models = [
-    "google/veo-3.1-fast"
+    "bytedance/seedance-2.0-fast"
 ]
 
 

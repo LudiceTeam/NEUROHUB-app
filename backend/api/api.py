@@ -33,7 +33,7 @@ from backend.database.folders_db.folders_core import create_folder,get_user_fold
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
 from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links
-from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status,get_user_tasks
+from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status,get_user_tasks,migrate_videos_table
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -100,7 +100,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def run_migrations():
     # Adds columns that create_all can't add to existing tables. Safe to run every start (IF NOT EXISTS).
-    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table):
+    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table):
         try:
             await migrate()
         except Exception:

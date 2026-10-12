@@ -9,5 +9,6 @@ videos_table = Table(
     Column("id",String,primary_key=True,unique=True),
     Column("user_id",String),
     Column("status",String),
-    Column("video_url",String)
+    Column("video_url",String),
+    Column("prompt",String)
 )
