@@ -206,9 +206,37 @@ image_generation_models = [
     "google/gemini-3.1-flash-image-preview",
 ]
 
-video_generation_models = [
-    "bytedance/seedance-2.0-fast"
-]
+# Video studio models and the settings OpenRouter accepts for each (GET /api/v1/videos/models).
+VIDEO_MODEL_SPECS = {
+    "bytedance/seedance-2.0-fast": {
+        "name": "Seedance 2.0 Fast",
+        "note": "Fast, sharp motion, with sound",
+        "resolutions": ["480p", "720p"],
+        "aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+        "durations": list(range(4, 16)),
+        "frames": ["first_frame", "last_frame"],
+        "audio": True,
+    },
+    "bytedance/seedance-2.0-mini": {
+        "name": "Seedance 2.0 Mini",
+        "note": "Lighter and cheaper, great for drafts",
+        "resolutions": ["480p", "720p"],
+        "aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+        "durations": list(range(4, 16)),
+        "frames": ["first_frame", "last_frame"],
+        "audio": True,
+    },
+}
+video_generation_models = list(VIDEO_MODEL_SPECS)
+# What a video sent from the chat gets (the studio lets the user pick).
+VIDEO_DEFAULTS = {"duration": 8, "aspect_ratio": "9:16", "resolution": "720p", "generate_audio": True}
+MAX_VIDEO_PROMPT = 2000
+
+
+def video_credit_cost(duration:int, resolution:str) -> int:
+    """Video credits for one clip: an 8-second 720p clip costs 1, longer or sharper clips cost more."""
+    weight = {"480p": 0.5, "720p": 1, "1080p": 2}.get(resolution, 1)
+    return max(1, -(-int(duration * weight) // 8))
 
 
 # Text-to-speech models (OpenRouter /audio/speech). Every entry is one voice of a speech

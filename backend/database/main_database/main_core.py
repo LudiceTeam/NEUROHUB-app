@@ -424,6 +424,36 @@ async def minus_one_video(user_id: str):
                 logger.exception("MAIN SQL Error")
 
 
+async def take_video_credits(user_id: str, amount: int) -> bool:
+    """Takes `amount` video credits in one step; False when the user doesn't have enough."""
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(
+                    main_table.c.user_id == user_id,
+                    main_table.c.video_credits >= amount
+                ).values(
+                    video_credits = main_table.c.video_credits - amount
+                )
+                res = await conn.execute(stmt)
+                return res.rowcount > 0
+            except Exception:
+                logger.exception("MAIN SQL Error")
+                return False
+
+
+async def refund_video_credits(user_id: str, amount: int):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                stmt = main_table.update().where(main_table.c.user_id == user_id).values(
+                    video_credits = main_table.c.video_credits + amount
+                )
+                await conn.execute(stmt)
+            except Exception:
+                logger.exception("MAIN SQL Error")
+
+
 async def plus_one_video(user_id: str):
     """Refund: gives back the video credit of a failed generation."""
     async with AsyncSession(async_engine) as conn:

@@ -1348,3 +1348,171 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 .streak-badge.lit > span { display: inline-block; animation: streak-lit .7s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes streak-lit { 0% { transform: scale(.4); filter: grayscale(1); } 60% { transform: scale(1.5); } 100% { transform: scale(1); } }
 
+
+/* ---------- video studio ---------- */
+.vs { flex: 1; display: none; min-height: 0; }
+.main.video-mode .chat-view { display: none; }
+.main.video-mode .vs { display: grid; grid-template-columns: 380px minmax(0, 1fr); }
+
+.vs-panel { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--bg); }
+.vs-panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 12px; display: flex; flex-direction: column; gap: 20px; }
+.vs-settings { display: flex; flex-direction: column; gap: 20px; }
+.vs-field { display: flex; flex-direction: column; gap: 8px; }
+.vs-field .skel { height: 38px; border-radius: 12px; }
+.vs-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 14px; }
+.vs-field-head small { font-weight: 500; color: var(--muted); font-size: 12px; }
+.vs-hint { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+.vs-prompt-wrap {
+  border: 1px solid var(--border); border-radius: 14px; background: var(--bg-soft);
+  transition: border-color .15s, box-shadow .15s;
+}
+.vs-prompt-wrap:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.vs-prompt-input {
+  display: block; width: 100%; min-height: 120px; max-height: 320px; padding: 12px 14px; resize: vertical;
+  border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 15px; line-height: 1.55;
+}
+.vs-counter { font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vs-counter.over { color: var(--danger); font-weight: 600; }
+
+.vs-frames { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vs-frame {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  aspect-ratio: 16 / 10; border: 1.5px dashed var(--border); border-radius: 12px; background: var(--bg-soft);
+  color: var(--muted); font-size: 12px; cursor: pointer; overflow: hidden; transition: border-color .15s, background .15s, color .15s;
+}
+.vs-frame:hover, .vs-frame.drag, .vs-frame:focus-visible { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 7%, var(--bg-soft)); outline: none; }
+.vs-frame .icon { width: 20px; height: 20px; }
+.vs-frame.filled { border-style: solid; }
+.vs-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vs-frame-remove {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 50%; background: rgb(0 0 0 / .6); color: #fff;
+}
+.vs-frame-remove .icon { width: 13px; height: 13px; }
+
+.vs-models { display: flex; flex-direction: column; gap: 6px; }
+.vs-model {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; text-align: left;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elev); transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.vs-model:hover { background: var(--bg-soft); }
+.vs-model.selected { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.vs-model-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.vs-model-text small { color: var(--muted); font-size: 12px; }
+.vs-check { color: var(--accent); font-weight: 700; }
+
+.vs-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vs-chip {
+  display: inline-flex; align-items: center; padding: 7px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-elev); color: var(--text); font-size: 13px; font-weight: 500; transition: background .15s, border-color .15s, color .15s;
+}
+.vs-chip:hover { background: var(--bg-soft); }
+.vs-chip.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+.vs-aspect { display: inline-flex; align-items: center; gap: 7px; }
+.vs-aspect i { display: block; border: 1.5px solid currentColor; border-radius: 3px; opacity: .8; }
+
+.vs-dur { font-variant-numeric: tabular-nums; }
+.vs-range {
+  width: 100%; height: 6px; appearance: none; -webkit-appearance: none; border-radius: 999px; outline: none; cursor: pointer;
+  background: linear-gradient(90deg, var(--accent) var(--p), color-mix(in srgb, var(--text) 12%, transparent) var(--p));
+}
+.vs-range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); box-shadow: 0 2px 6px rgb(0 0 0 / .2); }
+.vs-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); box-shadow: 0 2px 6px rgb(0 0 0 / .2); }
+.vs-range-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+
+.vs-switch-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.vs-switch-text { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vs-switch-text > span { display: flex; flex-direction: column; line-height: 1.3; }
+.vs-switch-text small { color: var(--muted); font-size: 12px; }
+.vs-switch-text .icon { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.vs-switch {
+  appearance: none; -webkit-appearance: none; position: relative; width: 38px; height: 22px; flex: none; margin: 0;
+  border-radius: 999px; background: color-mix(in srgb, var(--text) 18%, transparent); cursor: pointer; transition: background .2s;
+}
+.vs-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .25); transition: transform .2s; }
+.vs-switch:checked { background: var(--accent); }
+.vs-switch:checked::after { transform: translateX(16px); }
+
+.vs-advanced summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); list-style: none; }
+.vs-advanced summary::before { content: "▸"; display: inline-block; margin-right: 6px; transition: transform .15s; }
+.vs-advanced[open] summary::before { transform: rotate(90deg); }
+.vs-seed { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.vs-seed > span { flex: 1; display: flex; flex-direction: column; line-height: 1.3; font-size: 14px; }
+.vs-seed small { color: var(--muted); font-size: 12px; }
+.vs-seed .input { width: 130px; }
+
+.vs-footer { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg); }
+.vs-cost { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.vs-cost-main { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
+.vs-cost-main .icon { width: 16px; height: 16px; color: var(--accent); }
+.vs-cost small { color: var(--muted); font-size: 12px; }
+.vs-generate {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border: 0; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-weight: 600;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); transition: transform .1s, opacity .15s;
+}
+.vs-generate:hover:not(:disabled) { opacity: .92; }
+.vs-generate:active:not(:disabled) { transform: scale(.97); }
+.vs-generate:disabled { opacity: .5; box-shadow: none; }
+.vs-generate .icon { width: 16px; height: 16px; }
+.vs-generate .spinner { width: 14px; height: 14px; }
+
+.vs-main { min-width: 0; min-height: 0; overflow-y: auto; padding: 22px 28px 32px; }
+.vs-gallery-head { margin-bottom: 18px; }
+.vs-gallery-head h2 { margin: 0; font-size: 22px; }
+.vs-gallery-head p { margin: 2px 0 0; }
+.vs-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; align-items: start; }
+.vs-card { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-elev); overflow: hidden; }
+.vs-media {
+  position: relative; display: block; width: 100%; max-height: 460px; padding: 0; border: 0; overflow: hidden;
+  background: #0b0b10; cursor: pointer;
+}
+.vs-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vs-badge { position: absolute; right: 8px; bottom: 8px; padding: 2px 7px; border-radius: 6px; background: rgb(0 0 0 / .6); color: #fff; font-size: 11px; font-weight: 600; }
+.vs-media.working, .vs-media.failed { cursor: default; display: grid; place-items: center; min-height: 160px; }
+.vs-media.working {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 22%, #0b0b10), #0b0b10 40%, color-mix(in srgb, var(--accent-2) 22%, #0b0b10) 80%);
+  background-size: 300% 300%; animation: vs-flow 4s ease-in-out infinite;
+}
+@keyframes vs-flow { 50% { background-position: 100% 50%; } }
+.vs-media.failed { background: color-mix(in srgb, var(--danger) 10%, var(--bg-soft)); }
+.vs-working { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px; text-align: center; color: #fff; }
+.vs-working small { color: rgb(255 255 255 / .7); font-size: 12px; }
+.vs-elapsed { font-variant-numeric: tabular-nums; }
+.vs-media.failed .vs-working { color: var(--text); }
+.vs-media.failed .vs-working strong { font-size: 13px; font-weight: 600; line-height: 1.4; }
+.vs-media.failed .vs-working small { color: var(--muted); }
+.vs-media.failed .icon { width: 24px; height: 24px; color: var(--danger); }
+.vs-card-body { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 10px; }
+.vs-card-prompt { margin: 0; font-size: 14px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vs-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.vs-meta span { padding: 2px 8px; border-radius: 6px; background: var(--bg-soft); color: var(--muted); font-size: 11px; font-weight: 500; }
+.vs-actions { display: flex; justify-content: flex-end; gap: 2px; margin-top: -2px; }
+.vs-card.skeleton .vs-media { cursor: default; }
+
+.vs-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 48px 16px; text-align: center; }
+.vs-empty h3 { margin: 8px 0 0; font-size: 20px; }
+.vs-empty p { margin: 0; max-width: 420px; }
+.vs-empty-icon {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.vs-empty-icon .icon { width: 30px; height: 30px; }
+.vs-ideas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; width: 100%; max-width: 640px; margin-top: 16px; }
+.vs-idea {
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elev);
+  color: var(--text); font-size: 13px; line-height: 1.45; text-align: left; transition: background .15s, border-color .15s;
+}
+.vs-idea:hover { background: var(--bg-soft); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.vs-viewer { width: 100%; max-height: 70vh; border-radius: 12px; background: #000; }
+
+@media (max-width: 900px) {
+  .main.video-mode .vs { display: flex; flex-direction: column; overflow-y: auto; }
+  .vs-panel { flex: none; border-right: 0; border-bottom: 1px solid var(--border); }
+  .vs-panel-scroll { flex: none; overflow: visible; padding: 16px; }
+  .vs-footer { position: sticky; bottom: 0; z-index: 2; padding: 12px 16px; }
+  .vs-main { flex: none; overflow: visible; padding: 18px 16px 28px; }
+  .vs-gallery { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+}

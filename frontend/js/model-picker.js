@@ -54,7 +54,7 @@ function tags(id) {
   return out;
 }
 
-function mark(id, size = "") {
+export function mark(id, size = "") {
   const p = provider(id);
   return h("span", { class: `model-mark ${size}`, style: `background:${p.color}`, "aria-hidden": "true" }, p.mark);
 }
@@ -174,7 +174,7 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
         h("div", { class: "model-group-title" }, group === "Smart" ? "Recommended" : group),
         matches.map((id) => option(id, id === "auto" ? "Picks the best model for each request"
           : VOICE_MODELS.has(id) ? "Reads your text aloud"
-          : VIDEO_MODELS.has(id) ? "8-second clips with sound · uses video credits" : id))));
+          : VIDEO_MODELS.has(id) ? "Video studio · 4–15 s clips with sound" : id))));
     }
     list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
     items = [...list.querySelectorAll(".model-option")];

@@ -146,6 +146,10 @@ export const api = {
 
   // video jobs: status is "pending" | "processing" | "completed" (+ url) | "failed"
   videoStatus: (task_id, message_id) => post("/videos/task/status", { task_id, message_id }),
+  videoModels: () => request("/videos/models"),
+  videoList: () => request("/videos/list"),
+  generateVideo: (form) => request("/videos/generate", { method: "POST", form }),
+  deleteVideo: (video_id) => post("/videos/delete", { video_id }),
 
   // billing (Stripe)
   stripePlans: () => request("/stripe/plans", { auth: false }),

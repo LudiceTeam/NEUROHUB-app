@@ -6,6 +6,7 @@ import { openProfile } from "./profile.js";
 import { streakInfo } from "./streak.js";
 import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
+import { createVideoStudio } from "./video-studio.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
@@ -148,8 +149,13 @@ export function renderApp(root, logout) {
     onGenerate: generateSpeech,
     onSelectModel: async (id) => { await onModelChange(id); picker.setValue(id); },
   });
+  // Video models get the video studio (settings, frames, gallery of clips).
+  const videoStudio = createVideoStudio({
+    onSelectModel: async (id) => { await onModelChange(id); picker.setValue(id); },
+    onChange: () => loadProfile(),
+  });
   const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
-  const main = h("main", { class: "main" }, header, chatView, studio.el);
+  const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el);
   // Shown only if the first load takes longer than a moment, so fast loads don't flash.
   const splash = h("div", { class: "boot-splash", hidden: true, role: "status", "aria-live": "polite" },
     h("div", { class: "boot-inner" },
@@ -597,6 +603,16 @@ export function renderApp(root, logout) {
       studio.stop();
       renderThread();
     }
+    const video = VIDEO_MODELS.has(state.model);
+    const wasVideo = main.classList.contains("video-mode");
+    main.classList.toggle("video-mode", video);
+    if (video) {
+      videoStudio.setModel(state.model);
+      if (!wasVideo) videoStudio.show();
+    } else if (wasVideo) {
+      videoStudio.hide();
+      renderThread();
+    }
     textarea.placeholder = voice ? "Text to read aloud…"
       : VIDEO_MODELS.has(state.model) ? "Describe the video you want — attach a photo to animate it…"
       : activeGpt() ? `Message ${activeGpt().gpt_name}…`
@@ -644,6 +660,8 @@ export function renderApp(root, logout) {
     if (state.profile) loadStreak();
     studio.setCredits(state.profile?.["Nano Requests"] ?? null);
     if (state.profile) studio.setPlan(state.profile);
+    videoStudio.setCredits(state.profile?.["Video Credits"] ?? null);
+    if (state.profile) videoStudio.setPlan(state.profile);
     if (!state.messages.length) renderThread();
   }
 
@@ -786,6 +804,8 @@ export function renderApp(root, logout) {
     if (VOICE_MODELS.has(state.model)) {
       studio.setGenerations([]);
       studio.focus();
+    } else if (VIDEO_MODELS.has(state.model)) {
+      videoStudio.focus();
     } else {
       textarea.focus();
     }

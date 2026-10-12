@@ -19,7 +19,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,minus_requests,migrate_table as migrate_main_table
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,take_video_credits,refund_video_credits,minus_requests,migrate_table as migrate_main_table
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
@@ -33,7 +33,7 @@ from backend.database.folders_db.folders_core import create_folder,get_user_fold
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
 from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links
-from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status,get_user_tasks,migrate_videos_table
+from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status,get_user_tasks,migrate_videos_table,set_video_result,get_studio_videos,delete_user_video
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
 from backend.api.redis_lock import check_login_limit,register_failed_login,reset_login_limit
@@ -42,7 +42,7 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt,unselect_user_custom_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -897,6 +897,162 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+# --- VIDEO STUDIO ---
+
+VIDEO_FRAME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def video_item(row:dict) -> dict:
+    try:
+        prompt = decrypt(row["prompt"], os.getenv("HASH_MESSAGES_KEY")) if row.get("prompt") else ""
+    except Exception:
+        prompt = ""
+    return {
+        "id": str(row["id"]),
+        "status": row.get("status") or "pending",
+        "url": row.get("video_url") or None,
+        "prompt": prompt,
+        "model": row.get("model"),
+        "duration": row.get("duration"),
+        "aspect_ratio": row.get("aspect_ratio"),
+        "resolution": row.get("resolution"),
+        "audio": row.get("audio"),
+        "cost": row.get("cost") or 1,
+        "error": row.get("error"),
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+    }
+
+
+async def check_ban(user_id:str):
+    ban_info = await get_ban_info(user_id = user_id)
+    if ban_info is not None:
+        if ban_info["unban_date"] > datetime.now().date():
+            raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = "Access denied")
+        await unban_user(user_id = user_id)
+
+
+@app.get("/videos/models")
+@limiter.limit("30/minute")
+async def video_models_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    return {
+        "result": [{"id": model_id, **spec} for model_id, spec in VIDEO_MODEL_SPECS.items()],
+        "defaults": VIDEO_DEFAULTS,
+        "max_prompt": MAX_VIDEO_PROMPT,
+    }
+
+
+@app.get("/videos/list")
+@limiter.limit("60/minute")
+async def video_list_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    try:
+        await check_ban(user_data["user_id"])
+        rows = await get_studio_videos(user_data["user_id"])
+        return {"result": [video_item(row) for row in rows]}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
+async def read_frame(upload:UploadFile | None, frame_type:str) -> dict | None:
+    if upload is None or not upload.filename:
+        return None
+    data = await upload.read(MAX_IMAGE_SIZE + 1)
+    if len(data) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Image is too large")
+    mime = magic.from_buffer(data[:8192], mime = True)
+    if mime not in VIDEO_FRAME_TYPES:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported image type")
+    return {"frame_type": frame_type, "url": f"data:{mime};base64,{base64.b64encode(data).decode()}"}
+
+
+@app.post("/videos/generate")
+@limiter.limit("10/minute")
+async def video_generate_handler(
+        request:Request,
+        prompt:str = Form(...),
+        model:str = Form(...),
+        duration:int = Form(VIDEO_DEFAULTS["duration"]),
+        aspect_ratio:str = Form(VIDEO_DEFAULTS["aspect_ratio"]),
+        resolution:str = Form(VIDEO_DEFAULTS["resolution"]),
+        generate_audio:bool = Form(VIDEO_DEFAULTS["generate_audio"]),
+        seed:Optional[int] = Form(None),
+        first_frame:Optional[UploadFile] = File(None),
+        last_frame:Optional[UploadFile] = File(None),
+        user_data_jwt:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data_jwt["user_id"]
+        await check_ban(user_id)
+        await update_last_online(user_data_jwt["device_id"])
+        await refil_all_requests(user_id)
+
+        spec = VIDEO_MODEL_SPECS.get(model)
+        prompt = prompt.strip()
+        if spec is None:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unknown video model")
+        if not prompt:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Describe the video")
+        if len(prompt) > MAX_VIDEO_PROMPT:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Prompt is too long")
+        if (duration not in spec["durations"] or aspect_ratio not in spec["aspect_ratios"]
+                or resolution not in spec["resolutions"] or (generate_audio and not spec["audio"])):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video settings")
+        if seed is not None and not 0 <= seed <= 2_147_483_647:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video settings")
+
+        frames = [f for f in (await read_frame(first_frame, "first_frame"), await read_frame(last_frame, "last_frame")) if f]
+        if any(f["frame_type"] not in spec["frames"] for f in frames):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video settings")
+
+        cost = video_credit_cost(duration, resolution)
+        if not await take_video_credits(user_id, cost):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "No video credits")
+
+        task_id = str(uuid.uuid4())
+        created = await create_video_task(
+            id = task_id, user_id = user_id,
+            prompt = encrypt(prompt, os.getenv("HASH_MESSAGES_KEY")),
+            model = model, duration = duration, aspect_ratio = aspect_ratio, resolution = resolution,
+            audio = generate_audio, cost = cost, in_studio = True
+        )
+        if not created:
+            await refund_video_credits(user_id, cost)
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+        start_video_task(
+            task_id = task_id, prompt = prompt, model = model, message_id = None, user_id = user_id,
+            duration = duration, aspect_ratio = aspect_ratio, resolution = resolution,
+            generate_audio = generate_audio, frames = frames, seed = seed, cost = cost
+        )
+        rows = await get_studio_videos(user_id, limit = 1)
+        return {"result": video_item(rows[0]) if rows else {"id": task_id, "status": "pending"}, "cost": cost}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
+class VideoDelete(BaseModel):
+    video_id:str
+
+
+@app.post("/videos/delete")
+@limiter.limit("30/minute")
+async def video_delete_handler(request:Request, req:VideoDelete, user_data:dict = Depends(get_current_user)):
+    try:
+        await check_ban(user_data["user_id"])
+        if not await delete_user_video(user_data["user_id"], req.video_id):
+            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Video not found")
+        return {"message": "Ok"}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 VIDEO_TIMEOUT_SECONDS = 15 * 60
 _video_jobs:set = set()   # references to running jobs so asyncio doesn't garbage-collect them
@@ -908,9 +1064,22 @@ def start_video_task(**kwargs) -> None:
     job.add_done_callback(_video_jobs.discard)
 
 
-async def process_video_task(task_id:str, prompt:str | List, model:str, message_id:str, user_id:str) -> str:
-    """Generates a video with OpenRouter (POST /videos, poll, download), stores it in S3 and writes the
-    URL into the chat message. On failure the message gets an error text and the video credit is refunded."""
+def video_error_text(raw:str) -> str:
+    """Short reason shown to the user; the full error stays in the log."""
+    low = raw.lower()
+    if any(word in low for word in ("moderat", "safety", "policy", "sensitive", "violat")):
+        return "Blocked by the model's safety filter. Try rephrasing the prompt or using another photo."
+    if "timed out" in low:
+        return "The model took too long. Please try again."
+    return "The video couldn't be generated. Please try again."
+
+
+async def process_video_task(task_id:str, prompt:str | List, model:str, message_id:str | None, user_id:str,
+                             duration:int = VIDEO_DEFAULTS["duration"], aspect_ratio:str = VIDEO_DEFAULTS["aspect_ratio"],
+                             resolution:str = VIDEO_DEFAULTS["resolution"], generate_audio:bool = VIDEO_DEFAULTS["generate_audio"],
+                             frames:List | None = None, seed:int | None = None, cost:int = 1) -> str:
+    """Generates a video with OpenRouter (POST /videos, poll, download) and stores it in S3.
+    Chat videos (message_id set) also get the URL written into their message. On failure the credits are refunded."""
     headers = {"Authorization": f"Bearer {OPEN_AI_KEY}"}
     try:
         if isinstance(prompt, list):
@@ -923,17 +1092,22 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
         body = {
             "model": model,
             "prompt": request,
-            "duration": 8,
-            "aspect_ratio": "9:16",
-            "resolution": "720p",
+            "duration": duration,
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+            "generate_audio": generate_audio,
         }
-        # Image-to-video: the first attached photo becomes the first frame.
-        if images_list:
+        if seed is not None:
+            body["seed"] = seed
+        # Chat: the first attached photo becomes the first frame. Studio: frames come ready as data URLs.
+        if images_list and not frames:
+            frames = [{"frame_type": "first_frame", "url": f"data:image/jpeg;base64,{images_list[0]}"}]
+        if frames:
             body["frame_images"] = [{
                 "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{images_list[0]}"},
-                "frame_type": "first_frame",
-            }]
+                "image_url": {"url": frame["url"]},
+                "frame_type": frame["frame_type"],
+            } for frame in frames]
 
         async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = 120)) as session:
             async with session.post(f"{OPENROUTER_URL}/videos", json = body, headers = headers) as response:
@@ -969,15 +1143,17 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
         )
         del video_bytes
 
-        await update_image_response_url(message_id = message_id, new_url = url)
-        await update_video_status(video_id = task_id, status = "completed")
+        if message_id:
+            await update_image_response_url(message_id = message_id, new_url = url)
+        await set_video_result(task_id, "completed", url = url)
         return url
 
-    except Exception:
+    except Exception as e:
         logger.exception("VIDEO GENERATION ERROR")
-        await update_video_status(video_id = task_id, status = "failed")
-        await plus_one_video(user_id)
-        await set_message_response(message_id, "⚠️ The video couldn't be generated. Your video credit was refunded — please try again.")
+        await set_video_result(task_id, "failed", error = video_error_text(str(e)))
+        await refund_video_credits(user_id, cost)
+        if message_id:
+            await set_message_response(message_id, "⚠️ The video couldn't be generated. Your video credit was refunded — please try again.")
         return ""
 
 
@@ -1431,7 +1607,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 image_response = None,
                 model_name = user_model
             )
-            await create_video_task(id = task_id, user_id = user_id, prompt = str(req.request)[:2000])
+            await create_video_task(id = task_id, user_id = user_id, prompt = encrypt(str(req.request)[:MAX_VIDEO_PROMPT], os.getenv("HASH_MESSAGES_KEY")), model = user_model, cost = 1, **{k: VIDEO_DEFAULTS[k] for k in ("duration", "aspect_ratio", "resolution")}, audio = VIDEO_DEFAULTS["generate_audio"])
             await minus_one_video(user_id)
 
             start_video_task(
@@ -1806,7 +1982,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 image_response = None,
                 model_name = user_model
             )
-            await create_video_task(id = task_id, user_id = user_id, prompt = str(true_request)[:2000])
+            await create_video_task(id = task_id, user_id = user_id, prompt = encrypt(str(true_request)[:MAX_VIDEO_PROMPT], os.getenv("HASH_MESSAGES_KEY")), model = user_model, cost = 1, **{k: VIDEO_DEFAULTS[k] for k in ("duration", "aspect_ratio", "resolution")}, audio = VIDEO_DEFAULTS["generate_audio"])
             await minus_one_video(user_id)
 
             start_video_task(

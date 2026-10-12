@@ -51,8 +51,8 @@ export const MODEL_GROUPS = [
     "moonshotai/kimi-k2.5",
   ]],
   ["Image generation", ["google/gemini-3-pro-image-preview", "google/gemini-3.1-flash-image-preview"]],
-  // 8-second clips with sound; uses the monthly video credits, not premium requests.
-  ["Video", ["bytedance/seedance-2.0-fast"]],
+  // Open the video studio (backend VIDEO_MODEL_SPECS); use the monthly video credits, not premium requests.
+  ["Video", ["bytedance/seedance-2.0-fast", "bytedance/seedance-2.0-mini"]],
   // Mirrors tts_models in backend/api/config.py: "<model>:<voice>".
   ["Voice", [
     "google/gemini-3.8-flash-tts:kore",
