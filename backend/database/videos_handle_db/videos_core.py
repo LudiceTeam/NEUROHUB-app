@@ -27,6 +27,8 @@ async def create_table():
 
 async def migrate_videos_table():
     async with async_engine.begin() as conn:
+        # The table may not exist yet on a fresh database; create_all skips existing tables.
+        await conn.run_sync(metadata_obj.create_all)
         await conn.execute(text("ALTER TABLE videos_table ADD COLUMN IF NOT EXISTS prompt VARCHAR"))
 
 

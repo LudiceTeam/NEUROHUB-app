@@ -18,8 +18,8 @@ from backend.database.ban_db.ban_core import metadata_obj as m15
 from backend.database.custom_gpt_db.custom_core import metadata_obj as m16
 from backend.database.custom_gpt_select_db.select_core import metadata_obj as m17
 from backend.database.user_voices.voice_models import metadata_obj as m18
+from backend.database.videos_handle_db.videos_models import metadata_obj as m19
 from backend.database.stats_db.stats_core import write_default
-
 from backend.database.main_database.main_core import subscribe
 
 
@@ -29,7 +29,7 @@ import asyncio
 import os
 
 
-all_metadata = [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18]
+all_metadata = [m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19]
 
 async def create_all():
     async with async_engine.begin() as conn:
