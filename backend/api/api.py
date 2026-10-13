@@ -4411,6 +4411,78 @@ async def rename_voice_handler(request:Request,req:RenameVoice,user_data:dict = 
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+async def improve_phompht(source_prompt:str) -> str:
+    prompt = f"""
+You are given the following source prompt:
+
+{source_prompt}
+
+Your task is to improve and refine this prompt while keeping it in the same language as the original. Do not translate it unless explicitly requested. Preserve the original intent, make it clearer, more precise, and more effective. If the prompt is ambiguous, improve it in the most reasonable way without changing its meaning. Return only the improved prompt.
+"""
+    content = [
+        {
+            "type" : "text",
+            "text" : prompt,
+        }
+    ]
+    response = await client.chat.completions.create(  
+        model="google/gemini-2.5-flash",  
+        messages=[
+            {"role": "user", "content": content}
+        ],
+    )
+
+
+    result = response.choices[0].message.content.strip()
+    if not result:
+        return "No text result."
+
+    return result
+
+class ImporovePrompht(BaseModel):
+    prompht:str
+
+
+@app.post("/prompht/improve")
+@limiter.limit("20/minute")
+async def improve_prompht_handler(request:Request,req:ImporovePrompht,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]                       
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+        
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+        user_plan = await get_user_plan(user_id = user_id_for_check) or {}
+        if any(user_plan.values()):
+            if user_plan["starter_sub"] or user_plan["basic_sub"]:
+                raise HTTPException(
+                    status_code = status.HTTP_400_BAD_REQUEST,
+                    detail = "Invalid subscribtion type"
+                )
+            if len(req.prompht) > 4:
+                await improve_phompht(
+                    source_prompt = req.prompht
+                )
+                return {
+                    "message" : "Ok"
+                }
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "Prompt is too short"
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
 
 
 
