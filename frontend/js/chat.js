@@ -7,6 +7,7 @@ import { streakInfo } from "./streak.js";
 import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { createVideoStudio } from "./video-studio.js";
+import { improveButton } from "./prompt-improve.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
@@ -144,6 +145,14 @@ export function renderApp(root, logout) {
   });
   sendBtn.before(voiceInput.button);
 
+  // ✨ rewrites the draft for the selected kind of model; shown once there's something to improve.
+  const improveBtn = improveButton({
+    field: textarea,
+    kind: () => (IMAGE_MODELS.has(state.model) ? "image" : VIDEO_MODELS.has(state.model) ? "video" : "chat"),
+    getProfile: () => state.profile,
+  });
+  voiceInput.button.before(improveBtn);
+
   // Voice models get a text-to-speech studio instead of the chat thread.
   const studio = createTtsStudio({
     onGenerate: generateSpeech,
@@ -153,6 +162,7 @@ export function renderApp(root, logout) {
   const videoStudio = createVideoStudio({
     onSelectModel: async (id) => { await onModelChange(id); picker.setValue(id); },
     onChange: () => loadProfile(),
+    getProfile: () => state.profile,
   });
   const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
   const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el);
@@ -628,6 +638,7 @@ export function renderApp(root, logout) {
   function autosize() {
     textarea.style.height = "auto";
     textarea.style.height = Math.min(textarea.scrollHeight, 220) + "px";
+    composer.classList.toggle("has-text", Boolean(textarea.value.trim()));
   }
 
   function setSending(value) {

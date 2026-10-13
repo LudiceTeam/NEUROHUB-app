@@ -1516,3 +1516,31 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
   .vs-main { flex: none; overflow: visible; padding: 18px 16px 28px; }
   .vs-gallery { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 }
+
+/* ✨ prompt improvement */
+.improve-btn .icon { width: 18px; height: 18px; }
+.improve-btn.icon-btn { color: var(--accent); }
+.improve-btn.icon-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.improve-btn.labeled {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, transparent); color: color-mix(in srgb, var(--accent) 75%, var(--text));
+  transition: background .15s, border-color .15s;
+}
+.improve-btn.labeled:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.improve-btn.labeled .icon { width: 14px; height: 14px; }
+.improve-btn.busy .icon { animation: improve-spin 1.1s linear infinite; }
+@keyframes improve-spin { 50% { transform: rotate(180deg) scale(.8); opacity: .6; } 100% { transform: rotate(360deg); } }
+.improve-btn.undo { color: var(--muted); }
+.improve-btn.labeled.undo { background: var(--bg-soft); border-color: var(--border); }
+.improve-btn[hidden] { display: none; }
+textarea.improving {
+  color: color-mix(in srgb, var(--text) 45%, transparent);
+  background-image: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent) 14%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%; animation: improve-shimmer 1.4s linear infinite;
+}
+@keyframes improve-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.vs-head-right { display: inline-flex; align-items: center; gap: 10px; }
+.composer .improve-btn:not(.undo) { display: none; }
+.composer.has-text .improve-btn, .composer .improve-btn.busy { display: inline-grid; }
+

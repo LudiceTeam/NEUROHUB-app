@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { h, toast, errorText, confirmModal, modal } from "./dom.js";
 import { mark } from "./model-picker.js";
 import { openPlans } from "./billing.js";
+import { improveButton } from "./prompt-improve.js";
 
 const SETTINGS_KEY = "veora_video_settings";
 const MAX_FRAME_BYTES = 5 * 1024 * 1024;     // backend MAX_IMAGE_SIZE
@@ -56,7 +57,7 @@ const formatElapsed = (ms) => {
  * Video studio shown instead of the chat when a video model is selected.
  * onSelectModel(id) -> Promise (rejects to revert); onChange() reloads the profile after spending credits.
  */
-export function createVideoStudio({ onSelectModel, onChange = () => {} }) {
+export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfile = () => null }) {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; } })();
   const st = {
     models: [],
@@ -116,7 +117,8 @@ export function createVideoStudio({ onSelectModel, onChange = () => {} }) {
   const panel = h("aside", { class: "vs-panel" },
     h("div", { class: "vs-panel-scroll" },
       h("div", { class: "vs-field" },
-        h("div", { class: "vs-field-head" }, h("span", {}, "Prompt"), counter),
+        h("div", { class: "vs-field-head" }, h("span", {}, "Prompt"),
+          h("span", { class: "vs-head-right" }, counter, improveButton({ field: prompt, kind: "video", getProfile, label: "Improve" }))),
         h("div", { class: "vs-prompt-wrap" }, prompt)),
       settings),
     footer);
