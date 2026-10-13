@@ -1543,4 +1543,19 @@ textarea.improving {
 .vs-head-right { display: inline-flex; align-items: center; gap: 10px; }
 .composer .improve-btn:not(.undo) { display: none; }
 .composer.has-text .improve-btn, .composer .improve-btn.busy { display: inline-grid; }
+.improve-btn { position: relative; }
+.improve-tip {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; z-index: 30; transform: translate(-50%, 4px);
+  padding: 5px 9px; border-radius: 8px; background: var(--text); color: var(--bg);
+  font-size: 12px; font-weight: 500; line-height: 1.3; white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity .15s, transform .15s; box-shadow: 0 4px 14px rgb(0 0 0 / .18);
+}
+.improve-tip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--text); }
+.improve-btn:hover .improve-tip, .improve-btn:focus-visible .improve-tip { opacity: 1; transform: translate(-50%, 0); transition-delay: .25s; }
+.improve-btn.busy .improve-tip { opacity: 0; }
+/* The studio button sits at the top of a scrolling panel: its hint opens below. */
+.improve-btn.labeled .improve-tip { top: calc(100% + 8px); bottom: auto; left: auto; right: 0; transform: translateY(-4px); }
+.improve-btn.labeled:hover .improve-tip, .improve-btn.labeled:focus-visible .improve-tip { transform: none; }
+.improve-btn.labeled .improve-tip::after { top: auto; bottom: 100%; left: auto; right: 14px; border-top-color: transparent; border-bottom-color: var(--text); }
+@media (hover: none) { .improve-tip { display: none; } }
 

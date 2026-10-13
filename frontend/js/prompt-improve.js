@@ -39,19 +39,20 @@ export function improveButton({ field, kind = "chat", getProfile = () => null, l
   let previous = null;
   let undoTimer = 0;
 
+  // Small hint shown on hover (a real element, so the RU translator picks it up).
+  const tip = () => h("span", { class: "improve-tip", role: "tooltip" }, previous != null ? "Bring back your original prompt" : "Improve prompt with AI");
   const text = label ? h("span", {}, label) : null;
   const btn = h("button", {
     class: `improve-btn${label ? " labeled" : " icon-btn"}`, type: "button",
-    "aria-label": "Improve prompt", title: "Improve prompt with AI",
+    "aria-label": "Improve prompt",
     onclick: () => (previous != null ? undo() : improve()),
-  }, SPARK(), text);
+  }, SPARK(), text, tip());
 
   function setUndo(on) {
     clearTimeout(undoTimer);
     btn.classList.toggle("undo", on);
-    btn.replaceChildren(on ? UNDO() : SPARK(), label ? h("span", {}, on ? "Undo" : label) : null);
+    btn.replaceChildren(on ? UNDO() : SPARK(), label ? h("span", {}, on ? "Undo" : label) : null, tip());
     btn.setAttribute("aria-label", on ? "Undo improvement" : "Improve prompt");
-    btn.title = on ? "Bring back your original prompt" : "Improve prompt with AI";
     if (on) undoTimer = setTimeout(() => { previous = null; setUndo(false); }, UNDO_MS);
   }
 
