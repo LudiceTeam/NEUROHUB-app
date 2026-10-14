@@ -48,6 +48,7 @@ export function renderApp(root, logout) {
     activeGpt: null,      // gpt_id the next messages are answered with
     streak: null,         // streakInfo() of /streak/get
   };
+  const arrived = new Set();   // chat ids that animate in on the next render
 
   // ---------- layout ----------
   const chatList = h("nav", { class: "chat-list", "aria-label": "Chats" });
@@ -270,7 +271,7 @@ export function renderApp(root, logout) {
   function chatItem(id, name) {
     const pinned = state.pinned.has(id);
     const item = h("div", {
-      class: `chat-item${id === state.chatId ? " active" : ""}`, draggable: "true",
+      class: `chat-item${id === state.chatId ? " active" : ""}${arrived.has(id) ? " arrive" : ""}`, draggable: "true", "data-chat": id,
       ondragstart: (e) => {
         e.dataTransfer.setData(DRAG_TYPE, id);
         e.dataTransfer.effectAllowed = "move";
@@ -298,7 +299,7 @@ export function renderApp(root, logout) {
         h("span", {}, f.folder_name),
         h("small", { class: "folder-count" }, String(chats.length))),
       h("button", { class: "icon-btn chat-more", type: "button", "aria-label": "Folder options", onclick: (e) => { e.stopPropagation(); folderMenu(row, f); } }, icon("dots")));
-    const block = h("div", { class: "folder" }, row,
+    const block = h("div", { class: "folder", "data-folder": f.folder_id }, row,
       open && h("div", { class: "folder-chats" },
         chats.length ? chats.map(([id, name]) => chatItem(id, name)) : h("p", { class: "empty-list" }, "Drag chats here")));
     dropTarget(block, f.folder_id);
@@ -919,14 +920,23 @@ export function renderApp(root, logout) {
   async function removeFolder(f) {
     const ok = await confirmModal("Delete folder?", `“${f.folder_name}” will be deleted. Its chats stay in your chat list.`);
     if (!ok) return;
+    const block = chatList.querySelector(`.folder[data-folder="${CSS.escape(f.folder_id)}"]`);
+    block?.classList.add("removing");
     try {
       checkFolderResult(await api.deleteFolder(f.folder_id));
+      await collapseOut(block);
       state.folders = state.folders.filter((x) => x.folder_id !== f.folder_id);
-      for (const [chatId, folderId] of state.folderOf) if (folderId === f.folder_id) state.folderOf.delete(chatId);
+      const freed = [];
+      for (const [chatId, folderId] of state.folderOf) if (folderId === f.folder_id) { state.folderOf.delete(chatId); freed.push(chatId); }
+      markArrived(freed);
       state.expanded.delete(f.folder_id);
       saveExpanded();
       renderChats();
-    } catch (e) { toast(errorText(e)); }
+    } catch (e) {
+      block?.classList.remove("removing");
+      shake(block?.querySelector(".folder-item"));
+      toast(errorText(e));
+    }
   }
 
   async function rename(id, current) {
@@ -950,14 +960,60 @@ export function renderApp(root, logout) {
   async function remove(id) {
     const ok = await confirmModal("Delete chat?", "This chat and all its messages and images will be permanently deleted.");
     if (!ok) return;
+    const row = chatList.querySelector(`.chat-item[data-chat="${CSS.escape(id)}"]`);
+    row?.classList.add("removing");
+    const open = state.chatId === id;
+    if (open) main.classList.add("chat-leaving");
     try {
       await api.deleteChat(id);
       state.pinned.delete(id);
       state.folderOf.delete(id);
       localStorage.setItem(PINNED_KEY, JSON.stringify([...state.pinned]));
-      if (state.chatId === id) newChat();
-      await loadChats();
-    } catch (e) { toast(errorText(e)); }
+      // The row folds away while the open chat fades out; then the list is rebuilt without it.
+      await Promise.all([collapseOut(row), open && wait(180)]);
+      state.chats = state.chats.filter(([cid]) => cid !== id);
+      if (open) newChat(); else renderChats();
+      main.classList.remove("chat-leaving");
+      toast("Chat deleted", "ok");
+      loadChats();
+    } catch (e) {
+      row?.classList.remove("removing");
+      main.classList.remove("chat-leaving");
+      shake(row);
+      toast(errorText(e));
+    }
+  }
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Folds a sidebar row to zero height (slide left + fade), resolving when it's done.
+  function collapseOut(el) {
+    if (!el?.isConnected || reducedMotion()) return Promise.resolve();
+    el.style.height = `${el.offsetHeight}px`;
+    el.getBoundingClientRect();   // commit the start height before transitioning
+    el.classList.add("collapsing");
+    el.style.height = "0px";
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(t); el.removeEventListener("transitionend", onEnd); resolve(); };
+      const onEnd = (e) => { if (e.target === el && e.propertyName === "height") done(); };
+      const t = setTimeout(done, 450);
+      el.addEventListener("transitionend", onEnd);
+    });
+  }
+
+  function shake(el) {
+    if (!el || reducedMotion()) return;
+    el.classList.remove("shake");
+    el.getBoundingClientRect();
+    el.classList.add("shake");
+    el.addEventListener("animationend", () => el.classList.remove("shake"), { once: true });
+  }
+
+  // Chats that just landed back in the main list (e.g. their folder was deleted) pop in once.
+  function markArrived(ids) {
+    ids.forEach((id) => arrived.add(id));
+    setTimeout(() => ids.forEach((id) => arrived.delete(id)), 600);
   }
 
   function addFiles(files) {
