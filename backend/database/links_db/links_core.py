@@ -7,7 +7,7 @@ import asyncio
 import logging
 import uuid
 from typing import List,Optional,Dict
-from sqlalchemy import select,func
+from sqlalchemy import select,func,text
 from sqlalchemy.dialects.postgresql import insert
 from backend.api.config import database_url,async_engine
 from datetime import datetime,timezone,timedelta
@@ -25,10 +25,16 @@ async def create_table():
     async with async_engine.begin() as conn:
         await conn.run_sync(metadata_obj.create_all)
 
+async def migrate_links_table():
+      async with async_engine.begin() as conn:
+          # The table may not exist yet on a fresh database; create_all skips existing tables.
+          await conn.run_sync(metadata_obj.create_all)
+          await conn.execute(text("ALTER TABLE links_table ADD COLUMN IF NOT EXISTS read_only BOOLEANDEFAULT TRUE"))
+
 async def create_link(
         user_id:str,
         chat_id:str,
-        #read_only:bool
+        read_only:bool = True,
 ) -> str:
     async with AsyncSession(async_engine) as conn:
         async with conn.begin():
@@ -47,7 +53,7 @@ async def create_link(
                     user_id = user_id,
                     chat_id = chat_id,
                     link_id = link_id,
-                    #read_only = read_only
+                    read_only = read_only
                 )
                 result = await conn.execute(stmt)
                 return link_id

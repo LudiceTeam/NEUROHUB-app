@@ -12,6 +12,15 @@ export const BASE_THEMES = [
 
 export const CUSTOM_THEMES = [
   {
+    // Pure black with neutral greys; the accent is grey too, so nothing on screen has color.
+    id: "black", name: "Black", base: "dark", preview: ["#000000", "#141414", "#a3a3a3"],
+    vars: {
+      "--bg": "#000000", "--bg-soft": "#0d0d0d", "--bg-elev": "#141414", "--sidebar": "#080808", "--border": "#262626",
+      "--text": "#ededed", "--muted": "#8a8a8a", "--accent": "#8c8c8c", "--accent-2": "#525252", "--user-bubble": "#1f1f1f",
+      "--code-bg": "#0f0f0f", "--hl-bg": "#0a0a0a", "--hl-head": "#141414",
+    },
+  },
+  {
     id: "midnight", name: "Midnight", base: "dark", preview: ["#0a0f1f", "#141d36", "#5b8cff"],
     vars: {
       "--bg": "#0a0f1f", "--bg-soft": "#121a30", "--bg-elev": "#141d36", "--sidebar": "#0c1326", "--border": "#1f2a48",
