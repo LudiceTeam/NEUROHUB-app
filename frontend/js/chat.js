@@ -107,6 +107,30 @@ export function renderApp(root, logout) {
   });
   const scroller = h("div", { class: "scroller" }, thread);
 
+  // File links are presigned and expire after a few hours. When one fails in a chat that has been
+  // open for a while, re-read the chat once to get fresh links (once per chat, so files that are
+  // really gone don't cause a reload loop).
+  const refreshedChats = new Set();
+  async function refreshExpiredMedia() {
+    const id = state.chatId;
+    if (!id || refreshedChats.has(id) || state.sending) return;
+    refreshedChats.add(id);
+    try {
+      const data = await api.messages(id);
+      if (state.chatId !== id) return;
+      const fresh = (data?.result || []).flatMap(fromHistory);
+      // Only swap in the history if nothing new was added locally meanwhile.
+      if (fresh.length >= state.messages.filter((m) => !m.pending).length) {
+        state.messages = fresh;
+        renderThread();
+      }
+    } catch { /* the broken file just stays broken */ }
+  }
+  thread.addEventListener("error", (e) => {
+    if (e.target instanceof HTMLImageElement || e.target instanceof HTMLVideoElement) refreshExpiredMedia();
+  }, true);
+  thread.addEventListener("media-expired", refreshExpiredMedia);
+
   const textarea = h("textarea", {
     class: "composer-input", rows: "1", placeholder: "Message Veora…", "aria-label": "Message",
     oninput: autosize,
@@ -577,7 +601,7 @@ export function renderApp(root, logout) {
     const p = state.profile || {};
     const pic = p["Profile Picture"];
     profileBtn.replaceChildren(
-      pic ? h("img", { class: "avatar-img", src: pic, alt: "" }) : h("span", { class: "avatar-img initials" }, (p.Name || "?").slice(0, 1).toUpperCase()),
+      pic ? h("img", { class: "avatar-img", src: pic, alt: "", onerror: refreshAvatar }) : h("span", { class: "avatar-img initials" }, (p.Name || "?").slice(0, 1).toUpperCase()),
       h("span", { class: "profile-meta" }, h("strong", {}, p.Name || "Account"), h("small", {}, planName(p))),
       streakBadge());
   }
@@ -651,6 +675,14 @@ export function renderApp(root, logout) {
   }
 
   // ---------- data ----------
+  // The avatar link expires like every file; fetch the profile again once if it fails to load.
+  let avatarRefreshed = false;
+  function refreshAvatar() {
+    if (avatarRefreshed) return;
+    avatarRefreshed = true;
+    loadProfile();
+  }
+
   async function loadProfile() {
     try {
       state.profile = await api.profile();

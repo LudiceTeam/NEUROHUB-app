@@ -170,6 +170,18 @@ export function openGallery({ onOpenChat = () => {} } = {}) {
     render();
   }
 
+  // Links are presigned and expire; if files stop loading after a while, reload the list once.
+  let refreshed = false;
+  const onMediaError = (e) => {
+    if (refreshed || st.loading) return;
+    if (e.type === "media-expired" || e.target instanceof HTMLImageElement || e.target instanceof HTMLVideoElement) {
+      refreshed = true;
+      load(true);
+    }
+  };
+  page.addEventListener("error", onMediaError, true);
+  page.addEventListener("media-expired", onMediaError);
+
   document.addEventListener("keydown", onKey);
   document.body.append(page);
   page.querySelector(".icon-btn")?.focus();

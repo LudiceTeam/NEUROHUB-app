@@ -143,7 +143,11 @@ export function audioCard(url, { label = "" } = {}) {
   audio.addEventListener("play", () => setPlaying(true));
   audio.addEventListener("pause", () => setPlaying(false));
   audio.addEventListener("ended", () => { setPlaying(false); audio.currentTime = 0; paint(); });
-  audio.addEventListener("error", () => { card.classList.add("error"); time.textContent = "Unavailable"; });
+  audio.addEventListener("error", () => {
+    card.classList.add("error");
+    time.textContent = "Unavailable";
+    card.dispatchEvent(new CustomEvent("media-expired", { bubbles: true }));
+  });
 
   // Swap in the real waveform once the card scrolls into view (needs CORS on the CDN; else keep the placeholder).
   const io = new IntersectionObserver(([entry]) => {

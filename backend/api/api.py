@@ -74,13 +74,24 @@ load_dotenv()
 cloud_front_domain = os.getenv("CLOUD_FRONT_DOMAIN")
 
 
+# Private bucket: the database stores object keys and clients get presigned links (AWS_CLIENT.sign).
 AWS_CLIENT = S3Client(
-    access_key=os.getenv("AWS_ACCESS_KEY"),
-    secret_key=os.getenv("AWS_SECRET_KEY"),
-    endpoint_url=f"https://s3.{os.getenv('AWS_REGION')}.amazonaws.com",
-    bucket_name=os.getenv("BUCKET_NAME"),
-    cloud_front_domain=os.getenv("CLOUD_FRONT_DOMAIN")
+    access_key=os.getenv("R2_ACCESS_KEY_ID"),
+    secret_key=os.getenv("R2_SECRET_ACCESS_KEY"),
+    endpoint_url=f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+    bucket_name=os.getenv("R2_BUCKET_NAME"),
+    # Old rows keep full links on these hosts; they're turned back into keys when signing.
+    own_hosts=(cloud_front_domain, os.getenv("R2_PUBLIC_DOMAIN"))
 )
+
+
+def sign_message(message:dict) -> dict:
+    """Presigned links for the files of a chat message (history, shared chats)."""
+    if message.get("image_response"):
+        message["image_response"] = AWS_CLIENT.sign(message["image_response"])
+    if message.get("image_message"):
+        message["image_message"] = [AWS_CLIENT.sign(url) for url in message["image_message"]]
+    return message
 
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -762,6 +773,8 @@ async def profile_hadnler(request:Request,user_data:dict = Depends(get_current_u
         await refil_all_requests(user_id)
 
         profile_dict = await profile(user_id)
+        if isinstance(profile_dict, dict) and profile_dict.get("Profile Picture"):
+            profile_dict["Profile Picture"] = AWS_CLIENT.sign(profile_dict["Profile Picture"])
 
         await update_last_online(user_data["device_id"])
 
@@ -888,7 +901,7 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
         result = {"status": task_status}
         # The background job already saved the URL into the message; this lets the client show it right away.
         if task_status == "completed":
-            result["url"] = f"https://{cloud_front_domain}/{req.task_id}.mp4"
+            result["url"] = AWS_CLIENT.sign(f"{req.task_id}.mp4")
         return result
     except HTTPException:
         raise
@@ -910,7 +923,7 @@ def video_item(row:dict) -> dict:
     return {
         "id": str(row["id"]),
         "status": row.get("status") or "pending",
-        "url": row.get("video_url") or None,
+        "url": AWS_CLIENT.sign(row.get("video_url")) or None,
         "prompt": prompt,
         "model": row.get("model"),
         "duration": row.get("duration"),
@@ -1333,7 +1346,7 @@ async def eleven_create_voice(label:str, sample_url:str) -> str:
         form = aiohttp.FormData()
         form.add_field("name", label)
         form.add_field("remove_background_noise", "true")
-        form.add_field("files", sample, filename = "sample." + sample_url.rsplit(".", 1)[-1], content_type = content_type)
+        form.add_field("files", sample, filename = "sample." + sample_url.split("?", 1)[0].rsplit(".", 1)[-1], content_type = content_type)
         async with session.post(f"{ELEVENLABS_URL}/voices/add", data = form, headers = {"xi-api-key": ELEVENLABS_API_KEY}) as response:
             if response.status != 200:
                 raise Exception(f"ElevenLabs voice clone error: {await response.text()}")
@@ -1520,7 +1533,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 own_voice = next((v for v in user_voices if v["voice_id"] == req.voice_id), None)
                 if own_voice is None:
                     raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice not found")
-                reference_url = decrypt(own_voice["link"],VOICE_ENCODING_KEY)
+                reference_url = AWS_CLIENT.sign_external(decrypt(own_voice["link"],VOICE_ENCODING_KEY))
                 clone_key = pick_clone_model(req.voice_model)
                 clone = CLONE_MODELS[clone_key]
                 user_model = f"{clone.get('model') or 'elevenlabs/' + clone['model_id']}:custom"
@@ -1581,7 +1594,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 )
 
             return {
-                "audio": url
+                "audio": AWS_CLIENT.sign(url)
             }
 
         if user_model in video_generation_models:
@@ -1688,7 +1701,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 
                 
             return {
-                "image": url
+                "image": AWS_CLIENT.sign(url)
             } #  либо текст, либо url картинки
         expensive_models_full = expensive_models + image_generation_models + video_generation_models
         # Daily credits: every model costs its weight (MODEL_CREDITS).
@@ -1935,7 +1948,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 message = encrypted_message,
                 response = None,
                 image = url_list,
-                image_response = None,
+                image_response = response_image_url,
                 model_name = user_model
             )
 
@@ -1954,7 +1967,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 )
 
             return {
-                "image":response_image_url
+                "image":AWS_CLIENT.sign(response_image_url)
             } #  либо текст, либо url картинки
 
         if user_model in video_generation_models:
@@ -2262,7 +2275,7 @@ async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = 
 
         result = await get_chat_messages_for_front_end(req.chat_id)
         return {
-            "result":result
+            "result":[sign_message(message) for message in result]
         }
     except HTTPException:
         raise
@@ -2408,6 +2421,8 @@ async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(
                     user_id = user_id
                 )
         result = await get_user_avatar_and_name(user_id)
+        if result.get("avatar"):
+            result["avatar"] = AWS_CLIENT.sign(result["avatar"])
         return result
     except HTTPException:
         raise
@@ -4333,7 +4348,7 @@ async def get_user_voices_handler(request:Request,user_data:dict = Depends(get_c
                 )
         user_voices = await get_user_voices(user_id = user_id_for_check) or []
         for user_voice in user_voices:
-            user_voice["link"] = decrypt(user_voice["link"],VOICE_ENCODING_KEY)
+            user_voice["link"] = AWS_CLIENT.sign(decrypt(user_voice["link"],VOICE_ENCODING_KEY))
             user_voice["name"] = decrypt(user_voice["name"],VOICE_ENCODING_KEY)
             # internal: the transcript and the ElevenLabs id stay on the server
             user_voice.pop("transcript", None)
@@ -4511,6 +4526,8 @@ async def gallery_handler(request:Request,limit:int = 200,offset:int = 0,user_da
         )
         if gallery is None:
             raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        for item in gallery:
+            item["url"] = AWS_CLIENT.sign(item["url"])
         return {
             "result" : gallery
         }

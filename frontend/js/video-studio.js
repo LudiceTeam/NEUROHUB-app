@@ -470,6 +470,14 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     tickTimer = 0;
   }
 
+  // Clip links are presigned and expire; reload the list once when one fails.
+  let mediaRefreshed = false;
+  gallery.addEventListener("error", (e) => {
+    if (mediaRefreshed || !(e.target instanceof HTMLVideoElement)) return;
+    mediaRefreshed = true;
+    loadItems();
+  }, true);
+
   renderSettings();
   renderGallery();
 
