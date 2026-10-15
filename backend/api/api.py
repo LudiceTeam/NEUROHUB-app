@@ -24,7 +24,7 @@ from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_u
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
 from backend.database.ai_choose_db.ai_core import create_default_user_model_name,get_user_model_name,change_user_model_name
-from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2,update_image_response_url,set_message_response
+from backend.database.messages_database.messages_core import create_message,get_chat_messages,get_chat_first_message,delete_chat_messages,get_chat_messages_for_front_end,count_model_messages,get_today_models_usage,get_total_models_usage,get_chat_messages_2,update_image_response_url,set_message_response,get_all_generated_images
 from backend.database.apple_notification_log.apple_core import create_new_log,is_notification_exists
 from backend.database.transaction_db.transaction_core import create_new_trasacrion,is_transaction_exists,get_user_by_original_transaction_id,update_transaction
 from backend.database.stats_db.stats_core import write_models_stats,get_date_last_update,get_models_stats
@@ -4480,6 +4480,39 @@ async def improve_prompt_handler(request:Request,req:ImporovePrompht,user_data:d
         )
         return {
             "result" : improved
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+@app.get("/galery")
+@app.get("/gallery")
+@limiter.limit("20/minute")
+async def gallery_handler(request:Request,limit:int = 200,offset:int = 0,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+        gallery = await get_all_generated_images(
+            user_id = user_id_for_check,
+            limit = max(1, min(limit, 200)),
+            offset = max(0, offset)
+        )
+        if gallery is None:
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+        return {
+            "result" : gallery
         }
     except HTTPException:
         raise

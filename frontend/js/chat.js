@@ -8,6 +8,7 @@ import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { createVideoStudio } from "./video-studio.js";
 import { improveButton } from "./prompt-improve.js";
+import { openGallery } from "./gallery.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
@@ -59,6 +60,7 @@ export function renderApp(root, logout) {
       h("button", { class: "icon-btn only-desktop", type: "button", "aria-label": "Close sidebar", title: "Close sidebar (⌘⇧S)", onclick: () => sidebarCtl.collapse() }, icon("sidebar")),
       h("button", { class: "icon-btn only-mobile", type: "button", "aria-label": "Close menu", onclick: () => toggleSidebar(false) }, icon("close"))),
     h("button", { class: "btn new-chat", type: "button", onclick: newChat }, icon("plus"), "New chat"),
+    h("button", { class: "sidebar-link", type: "button", onclick: () => { toggleSidebar(false); openGallery({ onOpenChat: openChat }); } }, icon("gallery"), "Gallery"),
     chatList,
     profileBtn,
   );

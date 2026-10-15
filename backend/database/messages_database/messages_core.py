@@ -176,6 +176,48 @@ async def get_chat_messages_for_front_end(chat_id:str) -> List:
             logger.exception("MESSAGES SQL ERROR")
             return []
 
+async def get_all_generated_images(user_id:str, limit:int = 200, offset:int = 0) -> List[Dict] | None:
+    """Every generated image, video and audio of the user, newest first, with the prompt that made it."""
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(
+                messages_table.c.message_id,
+                messages_table.c.image_response,
+                messages_table.c.message_text,
+                messages_table.c.chat_id,
+                messages_table.c.model_name,
+                messages_table.c.created_at
+            ).where(
+                messages_table.c.user_id == user_id,
+                messages_table.c.image_response.isnot(None)
+            ).order_by(messages_table.c.created_at.desc()).limit(limit).offset(offset)
+            res = await conn.execute(stmt)
+            key = os.getenv("HASH_MESSAGES_KEY")
+            data = []
+            for row in res.mappings().all():
+                # One unreadable row shouldn't empty the whole gallery.
+                try:
+                    url = decrypt(row["image_response"], key)
+                    prompt = decrypt(row["message_text"], key) if row["message_text"] else ""
+                except Exception:
+                    logger.exception("MESSAGES DECRYPT ERROR")
+                    continue
+                if not url:
+                    continue
+                data.append({
+                    "id": row["message_id"],
+                    "url": url,
+                    "prompt": "" if prompt == "None" else prompt[:500],
+                    "chat_id": row["chat_id"],
+                    "model": row["model_name"],
+                    "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                })
+            return data
+        except Exception:
+            logger.exception("MESSAGES SQL ERROR")
+            return None
+
+
 async def count_model_messages(model_name:str) -> int:
     async with AsyncSession(async_engine) as conn:
         try:

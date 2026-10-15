@@ -36,6 +36,8 @@ export function icon(name) {
     chevron: "M9 6l6 6-6 6",
     edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
     trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
+    gallery: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01",
+    back: "M15 6l-6 6 6 6",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");

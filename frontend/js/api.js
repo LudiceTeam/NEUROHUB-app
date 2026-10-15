@@ -147,6 +147,7 @@ export const api = {
   // video jobs: status is "pending" | "processing" | "completed" (+ url) | "failed"
   videoStatus: (task_id, message_id) => post("/videos/task/status", { task_id, message_id }),
   videoModels: () => request("/videos/models"),
+  gallery: (limit = 200, offset = 0) => request(`/galery?limit=${limit}&offset=${offset}`),
   improvePrompt: (prompht, kind = "chat") => post("/prompt/improve", { prompht, kind }),
   videoList: () => request("/videos/list"),
   generateVideo: (form) => request("/videos/generate", { method: "POST", form }),
