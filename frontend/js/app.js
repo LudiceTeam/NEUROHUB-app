@@ -4,6 +4,8 @@ import { renderLogin } from "./auth.js";
 import { renderApp } from "./chat.js";
 import { renderLanding } from "./landing.js";
 import { resetAppearance, cachePerks } from "./appearance.js";
+import { renderSharedChat, SHARE_PARAM } from "./share.js";
+import { toast } from "./dom.js";
 
 const root = document.getElementById("app");
 let cleanup = null;
@@ -13,6 +15,19 @@ function start() {
   cleanup?.();
   cleanup = null;
   scrollTo(0, 0);
+
+  // ?share=<link_id>: a read-only shared chat. Viewing needs an account, so guests sign in first
+  // and land back on the shared chat (the parameter stays in the URL through the login).
+  const shareId = new URLSearchParams(location.search).get(SHARE_PARAM);
+  if (shareId) {
+    if (tokens.access || tokens.refresh) {
+      cleanup = renderSharedChat(root, shareId, { onExit: leaveShare });
+    } else {
+      renderLogin(root, start, { mode: "login", onBack: leaveShare });
+      toast("Sign in to view the shared chat.", "info");
+    }
+    return;
+  }
 
   if (tokens.access || tokens.refresh) {
     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
@@ -29,6 +44,11 @@ function start() {
       onSignup: () => { location.hash = "signup"; },
     });
   }
+}
+
+function leaveShare() {
+  history.replaceState(null, "", location.pathname);
+  start();
 }
 
 function logout() {

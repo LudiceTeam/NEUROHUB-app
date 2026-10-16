@@ -29,7 +29,7 @@ async def migrate_links_table():
       async with async_engine.begin() as conn:
           # The table may not exist yet on a fresh database; create_all skips existing tables.
           await conn.run_sync(metadata_obj.create_all)
-          await conn.execute(text("ALTER TABLE links_table ADD COLUMN IF NOT EXISTS read_only BOOLEANDEFAULT TRUE"))
+          await conn.execute(text("ALTER TABLE links_table ADD COLUMN IF NOT EXISTS read_only BOOLEAN DEFAULT TRUE"))
 
 async def create_link(
         user_id:str,
@@ -122,8 +122,21 @@ async def get_user_links(user_id:str) -> List:
                 links_table.c.user_id == user_id
             )
             res = await conn.execute(stmt)
-            data = res.mappings().all()
+            data = res.scalars().all()
             return data
         except Exception:
             logger.exception("LINKS SQL ERROR")
             return []
+
+async def get_link_details(link_id:str) -> Dict | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(links_table).where(
+                links_table.c.link_id == link_id
+            )
+            res = await conn.execute(stmt)
+            data = res.mappings().first()
+            return dict(data) if data else None
+        except Exception:
+            logger.exception("LINKS SQL ERROR")
+            return None

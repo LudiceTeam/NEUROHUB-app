@@ -32,7 +32,7 @@ from backend.database.devices_db.devices_core import create_new_device,delete_de
 from backend.database.folders_db.folders_core import create_folder,get_user_folders,rename_folder,delete_folder_folder_core,add_tag,remove_tag
 from backend.database.facts_db.facts_core import create_fact_data,update_user_fact,get_user_fact,check_last_gather
 from backend.api.memory import gather_user_main_information,summarize_user_message_history
-from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links,migrate_links_table
+from backend.database.links_db.links_core import create_link,get_chat_id_by_link,get_link_id_by_chat_id,delete_link,does_chat_have_link,get_user_links,migrate_links_table,get_link_details
 from backend.database.videos_handle_db.videos_core import create_video_task,update_video_status,get_video_status,get_user_tasks,migrate_videos_table,set_video_result,get_studio_videos,delete_user_video
 from backend.api.psw_hash import encrypt,decrypt
 from backend.database.model_stats_redis.redis_cli import RedisClient
@@ -3409,12 +3409,15 @@ async def update_user_fact_handler(
 
 # --- LINKS ---
 
+class CreateLink(BaseModel):
+    chat_id:str
+    read_only:bool = True
 
 @app.post("/share/create")
 @limiter.limit("20/minute")
 async def create_link_handler(
     request:Request,
-    req:ChatId,
+    req:CreateLink,
     user_data:dict = Depends(get_current_user)
 ):
 
@@ -3441,7 +3444,8 @@ async def create_link_handler(
 
         link_id = await create_link(
             user_id = user_data["user_id"],
-            chat_id = req.chat_id
+            chat_id = req.chat_id,
+            read_only = req.read_only
         )
         if link_id != "":
             return {
@@ -3481,18 +3485,26 @@ async def share_get_chat_by_link_handler(
         chat_id = await get_chat_id_by_link(
             link_id = link_id
         )
+        
         if chat_id == "":
             return {
                 "message" : "Chat not found."
             }
+
+            
         chat_messages = await get_chat_messages_for_front_end(
             chat_id = chat_id
         )
-        if chat_messages == "":
+
+
+        if not chat_messages:
             return {
                 "message" : "Chat was deleted by the owner."
             }
 
+        return {
+            "result" : [sign_message(message) for message in chat_messages]
+        }
     except HTTPException:
         raise
     except Exception:

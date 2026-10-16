@@ -9,6 +9,7 @@ import { createTtsStudio } from "./tts-studio.js";
 import { createVideoStudio } from "./video-studio.js";
 import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
+import { shareChatModal } from "./share.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
 import { LANGUAGES, languageName, preferredLanguage, setPreferredLanguage, translateMarkdown } from "./translate.js";
@@ -88,11 +89,16 @@ export function renderApp(root, logout) {
   });
 
   const title = h("div", { class: "chat-title" });
+  const shareBtn = h("button", {
+    class: "icon-btn share-btn", type: "button", "aria-label": "Share chat", title: "Share chat", hidden: true,
+    onclick: () => state.chatId && shareChatModal(state.chatId),
+  }, icon("share"));
   const header = h("header", { class: "topbar" },
     h("button", { class: "icon-btn only-mobile", type: "button", "aria-label": "Open menu", onclick: () => toggleSidebar(true) }, icon("menu")),
     h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "Open sidebar", title: "Open sidebar (⌘⇧S)", onclick: () => sidebarCtl.expand() }, icon("sidebar")),
     h("button", { class: "icon-btn when-collapsed", type: "button", "aria-label": "New chat", title: "New chat", onclick: newChat }, icon("plus")),
     title,
+    shareBtn,
     picker.el);
 
   const thread = h("div", { class: "thread", "aria-live": "polite" });
@@ -420,6 +426,7 @@ export function renderApp(root, logout) {
       ["Rename", () => rename(id, name)],
       [pinned ? "Unpin" : "Pin", () => togglePin(id, !pinned)],
       ["Move to folder…", () => moveChatDialog(id)],
+      ["Share…", () => shareChatModal(id)],
       ["Delete", () => remove(id), true],
     ]);
   }
@@ -435,6 +442,7 @@ export function renderApp(root, logout) {
   function renderTitle() {
     const current = state.chats.find(([id]) => id === state.chatId);
     title.textContent = current ? current[1] : "New chat";
+    shareBtn.hidden = !state.chatId;
   }
 
   function renderThread() {
@@ -1178,7 +1186,7 @@ export function renderApp(root, logout) {
   });
 }
 
-function fromHistory(m) {
+export function fromHistory(m) {
   const out = [];
   if (m.message || m.image_message?.length) {
     out.push({ role: "user", text: m.message && m.message !== "None" ? m.message : "", images: m.image_message || [] });
@@ -1198,7 +1206,7 @@ function fromHistory(m) {
 
 // "google/gemini-3.8-flash-tts:kore" -> "Kore voice"; own voices -> "Voice clone"
 // (the message header above already says "Your voice").
-function voiceLabel(model) {
+export function voiceLabel(model) {
   if (!model) return "Voice";
   if (model.endsWith(":custom")) return "Voice clone";
   const voice = model.includes(":") ? model.split(":").pop() : "";

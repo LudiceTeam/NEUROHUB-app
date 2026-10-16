@@ -38,6 +38,7 @@ export function icon(name) {
     trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
     gallery: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01",
     back: "M15 6l-6 6 6 6",
+    share: "M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");

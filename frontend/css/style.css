@@ -1681,3 +1681,35 @@ textarea.improving {
 @media (hover: none) { .gal-actions { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .gallery-page, .gallery-page.closing { animation: none; } .gal-tile:hover img { transform: none; } }
 
+/* ---------- shared chats ---------- */
+.share-btn[hidden] { display: none; }
+.share-dialog { gap: 14px; }
+.share-explain { display: flex; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--bg-soft); }
+.share-explain p { margin: 2px 0 0; line-height: 1.45; }
+.share-explain-icon {
+  display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent);
+}
+.share-explain-icon .icon { width: 18px; height: 18px; }
+.share-row { gap: 8px; }
+.share-url { flex: 1; min-width: 0; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+.share-row .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.share-row .btn .icon { width: 15px; height: 15px; }
+.share-status:empty { display: none; }
+.danger-text { color: var(--danger); }
+
+.shared-page { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--bg); }
+.shared-head {
+  display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px);
+}
+.shared-badge {
+  padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--bg-soft); color: var(--muted); border: 1px solid var(--border);
+}
+.shared-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.shared-thread { padding-bottom: 40px; }
+.shared-notice { padding-top: 14vh; }
+.shared-foot { text-align: center; margin: 12px 0 0; }
+@media (max-width: 640px) { .shared-head { padding: 10px 12px; } .shared-badge { display: none; } }
+
