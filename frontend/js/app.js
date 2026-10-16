@@ -6,6 +6,7 @@ import { renderLanding } from "./landing.js";
 import { resetAppearance, cachePerks } from "./appearance.js";
 import { renderSharedChat, SHARE_PARAM } from "./share.js";
 import { toast } from "./dom.js";
+import { renderLegal, LEGAL_ROUTES } from "./legal.js";
 
 const root = document.getElementById("app");
 let cleanup = null;
@@ -18,6 +19,14 @@ function start() {
 
   // ?share=<link_id>: a read-only shared chat. Viewing needs an account, so guests sign in first
   // and land back on the shared chat (the parameter stays in the URL through the login).
+  // #offer, #privacy, #refund: legal documents, open for everyone (signed in or not).
+  const legal = location.hash.slice(1);
+  onLegal = LEGAL_ROUTES.has(legal);
+  if (onLegal) {
+    cleanup = renderLegal(root, legal, { onBack: leaveLegal });
+    return;
+  }
+
   const shareId = new URLSearchParams(location.search).get(SHARE_PARAM);
   if (shareId) {
     if (tokens.access || tokens.refresh) {
@@ -46,6 +55,12 @@ function start() {
   }
 }
 
+let onLegal = false;
+function leaveLegal() {
+  history.replaceState(null, "", location.pathname + location.search);
+  start();
+}
+
 function leaveShare() {
   history.replaceState(null, "", location.pathname);
   start();
@@ -61,7 +76,7 @@ function logout() {
 }
 
 addEventListener("hashchange", () => {
-  if (!(tokens.access || tokens.refresh)) start();
+  if (!(tokens.access || tokens.refresh) || onLegal || LEGAL_ROUTES.has(location.hash.slice(1))) start();
 });
 
 setOnLogout(logout);

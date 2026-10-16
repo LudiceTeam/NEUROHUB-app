@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { h, modal, toast, errorText } from "./dom.js";
+import { lang } from "./i18n.js";
 
 const PLAN_NAMES = { starter: "Starter", basic: "Basic", plus: "Plus", premium: "Premium", max: "Max", elite: "Elite" };
 const POPULAR = "plus";
@@ -55,7 +56,7 @@ export function openPlans(profile) {
       }));
     }).catch((e) => grid.replaceChildren(h("p", { class: "muted" }, errorText(e))));
 
-    return h("div", { class: "stack" }, grid, note);
+    return h("div", { class: "stack" }, grid, note, plansConsent());
   }, { wide: true });
 }
 
@@ -92,4 +93,12 @@ export async function handleBillingReturn({ reloadProfile, hasPlan }) {
     if (hasPlan()) { toast("Your plan is active. Enjoy Veora! 🎉", "ok"); return; }
   }
   toast("Payment received. Your plan will appear in a minute — refresh if it doesn't.", "info");
+}
+
+// Required before paying: the offer, auto-renewal and refunds (opens in a new tab so checkout isn't lost).
+function plansConsent() {
+  const link = (hash, text) => h("a", { href: `${location.pathname}#${hash}`, target: "_blank", rel: "noopener" }, text);
+  return h("p", { class: "muted small plans-legal" }, ...(lang === "ru"
+    ? ["Оформляя подписку, вы принимаете ", link("offer", "договор-оферту"), ", соглашаетесь на автоматическое продление раз в 30 дней и ", link("refund", "условия возврата"), "."]
+    : ["By subscribing you accept the ", link("offer", "public offer"), ", agree to automatic renewal every 30 days and the ", link("refund", "refund policy"), "."]));
 }

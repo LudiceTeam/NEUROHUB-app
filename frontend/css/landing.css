@@ -251,6 +251,22 @@ html.landing-mode #app { height: auto; }
 .l-final h2 { font-size: clamp(32px, 4.6vw, 54px); line-height: 1.05; }
 .l-final p { margin-top: 14px; color: var(--l-muted); font-size: 17px; }
 
+/* seller details */
+.l-requisites { padding-top: 24px; }
+.l-req-list {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0 32px; margin: 0;
+  padding: 8px 24px; border: 1px solid var(--l-border); border-radius: 18px; background: var(--l-surface);
+}
+.l-req-row { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--l-border); }
+.l-req-row dt { color: var(--l-muted); font-size: 14px; }
+.l-req-row dd { margin: 0; font-size: 14px; color: var(--l-text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.l-req-row dd a { color: var(--l-accent); }
+.l-req-docs { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 16px; font-size: 14px; }
+.l-req-docs a { color: var(--l-accent); }
+.l-req-docs a:hover { text-decoration: underline; }
+.l-req-row dd a:hover { text-decoration: underline; }
+@media (max-width: 560px) { .l-req-list { padding: 4px 16px; } .l-req-row { grid-template-columns: 1fr; gap: 2px; } }
+
 .l-footer {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
   max-width: 1200px; margin: 0 auto; padding: 48px 24px 40px; color: var(--l-muted); font-size: 14px;

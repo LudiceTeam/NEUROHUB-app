@@ -2,6 +2,7 @@ import { MODEL_GROUPS } from "./config.js";
 import { mountCrystal } from "./crystal.js";
 import { enhanceLanding } from "./landing-fx.js";
 import { languageSwitch } from "./i18n.js";
+import { SELLER as S, CONTACT_EMAIL } from "./legal.js";
 
 // Mirrors FREE_PLAN / SUBSCRIPTIONS in backend/api/config.py:
 // credits per day, premium requests / videos per month, own voices.
@@ -17,6 +18,20 @@ const PLANS = [
 ];
 // "1 290 ₽": a thin space groups thousands the Russian way.
 const rubles = (n) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u2009")}\u00a0₽`;
+
+// Seller details required for payments (YooKassa) and consumer law (data lives in legal.js).
+const SELLER = [
+  ["Seller", S.name],
+  ["Legal address", S.address],
+  ["OGRNIP", S.ogrnip],
+  ["INN", S.inn],
+  ["Bank account", S.account],
+  ["Bank", S.bank],
+  ["Bank address", S.bankAddress],
+  ["BIC", S.bic],
+  ["Correspondent account", S.corrAccount],
+  ["Contact email", `<a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>`],
+];
 
 const FEATURES = [
   { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true, accent: true },
@@ -197,9 +212,20 @@ export function renderLanding(root, { onLogin, onSignup }) {
       </section>
     </main>
 
+    <section class="l-section l-requisites" id="requisites">
+      <div class="l-head">
+        <span class="l-kicker">Legal</span>
+        <h2>Seller details</h2>
+      </div>
+      <dl class="l-req-list">
+        ${SELLER.map(([label, value]) => `<div class="l-req-row"><dt>${label}</dt><dd>${value}</dd></div>`).join("")}
+      </dl>
+      <p class="l-req-docs"><a href="#offer">Public offer</a><a href="#privacy">Privacy policy</a><a href="#refund">Refund policy</a></p>
+    </section>
+
     <footer class="l-footer">
       <div class="l-brand"><img src="logo.png" alt="" width="24" height="24"><span>Veora</span></div>
-      <nav aria-label="Footer"><a href="#features">Features</a><a href="#models">Models</a><a href="#plans">Plans</a><a href="#faq">FAQ</a></nav>
+      <nav aria-label="Footer"><a href="#features">Features</a><a href="#models">Models</a><a href="#plans">Plans</a><a href="#faq">FAQ</a><a href="#requisites">Seller details</a><a href="#offer">Public offer</a><a href="#privacy">Privacy policy</a><a href="#refund">Refund policy</a><a href="mailto:${CONTACT_EMAIL}">Contact us</a></nav>
       <span>© ${new Date().getFullYear()} Veora. All AI in one place.</span>
     </footer>`;
 
@@ -213,11 +239,12 @@ export function renderLanding(root, { onLogin, onSignup }) {
     if (action === "login") onLogin();
     if (action === "signup") onSignup();
     // Section links scroll smoothly without touching the auth hash routes.
+    // Links to the legal pages (#offer, …) have no section here and navigate normally.
     const link = e.target.closest('a[href^="#"]');
-    if (link) {
+    const target = link && page.querySelector(link.getAttribute("href"));
+    if (target) {
       e.preventDefault();
-      const target = page.querySelector(link.getAttribute("href"));
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   });
 
