@@ -9,12 +9,12 @@ import { SELLER as S, CONTACT_EMAIL } from "./legal.js";
 const FREE_PLAN = { requests: 25 };
 // rub: monthly price in rubles.
 const PLANS = [
-  { name: "Starter", rub: 299, requests: 40, premium: 8, videos: 0, voices: 0, note: "Unlock every model" },
-  { name: "Basic", rub: 590, requests: 80, premium: 18, videos: 0, voices: 1, note: "For everyday chats" },
-  { name: "Plus", rub: 1290, requests: 150, premium: 40, videos: 2, voices: 3, note: "Add video & voices", popular: true },
-  { name: "Premium", rub: 2290, requests: 260, premium: 75, videos: 4, voices: 5, note: "For power users" },
-  { name: "Max", rub: 4490, requests: 520, premium: 150, videos: 8, voices: 10, note: "For heavy creators" },
-  { name: "Elite", rub: 9490, requests: 1100, premium: 330, videos: 18, voices: 15, note: "No compromises" },
+  { name: "Starter", rub: 499, requests: 40, premium: 8, videos: 0, voices: 0, note: "Unlock every model" },
+  { name: "Basic", rub: 890, requests: 80, premium: 18, videos: 0, voices: 1, note: "For everyday chats" },
+  { name: "Plus", rub: 1890, requests: 150, premium: 40, videos: 2, voices: 3, note: "Add video & voices", popular: true },
+  { name: "Premium", rub: 2990, requests: 260, premium: 75, videos: 4, voices: 5, note: "For power users" },
+  { name: "Max", rub: 5990, requests: 520, premium: 150, videos: 8, voices: 10, note: "For heavy creators" },
+  { name: "Elite", rub: 12990, requests: 1100, premium: 330, videos: 18, voices: 15, note: "No compromises" },
 ];
 // "1 290 ₽": a thin space groups thousands the Russian way.
 const rubles = (n) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u2009")}\u00a0₽`;
