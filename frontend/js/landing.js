@@ -6,14 +6,17 @@ import { languageSwitch } from "./i18n.js";
 // Mirrors FREE_PLAN / SUBSCRIPTIONS in backend/api/config.py:
 // credits per day, premium requests / videos per month, own voices.
 const FREE_PLAN = { requests: 25 };
+// rub: monthly price in rubles.
 const PLANS = [
-  { name: "Starter", requests: 40, premium: 8, videos: 0, voices: 0, note: "Unlock every model" },
-  { name: "Basic", requests: 80, premium: 18, videos: 0, voices: 1, note: "For everyday chats" },
-  { name: "Plus", requests: 150, premium: 40, videos: 2, voices: 3, note: "Add video & voices", popular: true },
-  { name: "Premium", requests: 260, premium: 75, videos: 4, voices: 5, note: "For power users" },
-  { name: "Max", requests: 520, premium: 150, videos: 8, voices: 10, note: "For heavy creators" },
-  { name: "Elite", requests: 1100, premium: 330, videos: 18, voices: 15, note: "No compromises" },
+  { name: "Starter", rub: 299, requests: 40, premium: 8, videos: 0, voices: 0, note: "Unlock every model" },
+  { name: "Basic", rub: 590, requests: 80, premium: 18, videos: 0, voices: 1, note: "For everyday chats" },
+  { name: "Plus", rub: 1290, requests: 150, premium: 40, videos: 2, voices: 3, note: "Add video & voices", popular: true },
+  { name: "Premium", rub: 2290, requests: 260, premium: 75, videos: 4, voices: 5, note: "For power users" },
+  { name: "Max", rub: 4490, requests: 520, premium: 150, videos: 8, voices: 10, note: "For heavy creators" },
+  { name: "Elite", rub: 9490, requests: 1100, premium: 330, videos: 18, voices: 15, note: "No compromises" },
 ];
+// "1 290 ₽": a thin space groups thousands the Russian way.
+const rubles = (n) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u2009")}\u00a0₽`;
 
 const FEATURES = [
   { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true, accent: true },
@@ -150,7 +153,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
           <p>Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 30+ models.</p>
         </div>
         <div class="l-free reveal">
-          <div><strong>Free</strong><span>${FREE_PLAN.requests} credits a day with fast models (GPT-4o mini, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>
+          <div><strong>Free</strong><b class="l-free-price">${rubles(0)}</b><span>${FREE_PLAN.requests} credits a day with fast models (GPT-4o mini, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>
           <button class="l-btn ghost" type="button" data-action="signup">Start free</button>
         </div>
         <div class="l-plans">
@@ -159,7 +162,8 @@ export function renderLanding(root, { onLogin, onSignup }) {
               ${p.popular ? '<span class="l-badge">Most popular</span>' : ""}
               <h3>${p.name}</h3>
               <p class="l-plan-note">${p.note}</p>
-              <div class="l-plan-num"><strong>${p.requests}</strong><span>credits / day</span></div>
+              <div class="l-plan-price"><strong>${rubles(p.rub)}</strong><span>/ month</span></div>
+              <div class="l-plan-num small"><strong>${p.requests}</strong><span>credits / day</span></div>
               <div class="l-plan-num small"><strong>${p.premium}</strong><span>premium / month</span></div>
               <ul>
                 <li>All ${modelCount} models</li>

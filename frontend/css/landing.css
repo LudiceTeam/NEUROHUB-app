@@ -199,6 +199,7 @@ html.landing-mode #app { height: auto; }
 .l-free > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
 .l-free strong { font-size: 20px; letter-spacing: -.02em; }
 .l-free span { color: var(--l-muted); font-size: 15px; }
+.l-free-price { margin-left: -6px; font-size: 20px; font-weight: 700; color: var(--l-muted); }
 .l-plan { padding: 26px; display: flex; flex-direction: column; gap: 12px; }
 .l-plan.popular {
   border-color: transparent;
@@ -210,6 +211,12 @@ html.landing-mode #app { height: auto; }
 .l-badge { position: absolute; top: 18px; right: 18px; padding: 4px 10px; border-radius: 999px; background: linear-gradient(135deg, var(--l-accent), var(--l-accent-2)); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .l-plan h3 { font-size: 22px; }
 .l-plan-note { color: var(--l-muted); font-size: 14px; margin-top: -6px; }
+.l-plan-price { display: flex; align-items: baseline; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--l-border); }
+.l-plan-price strong { font-size: 38px; letter-spacing: -.03em; line-height: 1; white-space: nowrap; }
+.l-plan.popular .l-plan-price strong {
+  background: linear-gradient(135deg, #fff, var(--l-accent)); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.l-plan-price span { color: var(--l-muted); font-size: 14px; }
 .l-plan-num { display: flex; align-items: baseline; gap: 8px; }
 .l-plan-num strong { font-size: 40px; letter-spacing: -.04em; line-height: 1; }
 .l-plan-num span { color: var(--l-muted); font-size: 14px; }
