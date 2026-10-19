@@ -1758,4 +1758,10 @@ textarea.improving {
 .streak-resume-dots i { width: 18px; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--text) 15%, transparent); }
 .streak-resume-dots i.on { background: linear-gradient(90deg, #ffb000, #ff5e00); }
 .streak-resume.used-up { background: var(--bg-soft); border-color: var(--border); }
+.streak-restores { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.streak-restores-icon { font-size: 18px; line-height: 1; }
+.streak-restores .grow { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
+.streak-restores strong { font-size: 13px; }
+.streak-restores small { font-size: 12px; }
+.streak-restores .streak-resume-dots { margin: 0; flex: none; }
 

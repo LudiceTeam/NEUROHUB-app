@@ -58,8 +58,20 @@ export function streakCard(state, { onChange = () => {} } = {}) {
           ? "30 days! Starter is yours free for a month."
           : `${REWARD_DAYS - info.streak} more days to get Starter free for a month`)),
 
-      info.canResume && resumeBox(info),
+      info.canResume ? resumeBox(info) : restoresLine(info),
     ].filter(Boolean));
+  }
+
+  // Plus and higher always see how many restores are left, not only after losing a streak.
+  function restoresLine(info) {
+    if (!canResumeStreak(state.profile) || info.resumesLeft == null) return null;
+    return h("div", { class: "streak-restores" },
+      h("span", { class: "streak-restores-icon", "aria-hidden": "true" }, "🛟"),
+      h("span", { class: "grow" },
+        h("strong", {}, `${info.resumesLeft} of ${RESUMES_PER_MONTH} restores left this month`),
+        h("small", { class: "muted" }, "If you miss a day, you can bring your streak back.")),
+      h("span", { class: "streak-resume-dots", "aria-hidden": "true" },
+        Array.from({ length: RESUMES_PER_MONTH }, (_, i) => h("i", { class: i < info.resumesLeft ? "on" : "" }))));
   }
 
   function resumeBox(info) {
