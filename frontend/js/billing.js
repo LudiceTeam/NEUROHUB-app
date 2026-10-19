@@ -90,7 +90,7 @@ export async function handleBillingReturn({ reloadProfile, hasPlan }) {
   for (let i = 0; i < 10; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     await reloadProfile();
-    if (hasPlan()) { toast("Your plan is active. Enjoy Veora! 🎉", "ok"); return; }
+    if (hasPlan()) { toast("Your plan is active. Enjoy Veora!", "ok"); return; }
   }
   toast("Payment received. Your plan will appear in a minute — refresh if it doesn't.", "info");
 }

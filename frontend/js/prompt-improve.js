@@ -31,7 +31,7 @@ function replaceText(field, text) {
 }
 
 /**
- * ✨ button that rewrites the prompt in `field` through /prompt/improve.
+ * Sparkle button that rewrites the prompt in `field` through /prompt/improve.
  * kind: "chat" | "image" | "video" (or a function returning one); getProfile() for the Plus check.
  */
 export function improveButton({ field, kind = "chat", getProfile = () => null, label = "" }) {
@@ -102,7 +102,7 @@ export function improveButton({ field, kind = "chat", getProfile = () => null, l
     field.readOnly = false;
   }
 
-  // Typing after an improvement keeps the new text; the undo button goes back to ✨.
+  // Typing after an improvement keeps the new text; the undo button goes back to the sparkle.
   field.addEventListener("input", (e) => {
     if (previous != null && e.isTrusted) { previous = null; setUndo(false); }
   });

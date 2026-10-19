@@ -86,7 +86,7 @@ export function openGallery({ onOpenChat = () => {} } = {}) {
         onclick: () => openVideo(x),
         onmouseenter: () => video.play().catch(() => {}),
         onmouseleave: () => video.pause(),
-      }, video, h("span", { class: "gal-play", "aria-hidden": "true" }, "▶"), caption, actions);
+      }, video, h("span", { class: "gal-play", "aria-hidden": "true" }, icon("play")), caption, actions);
     }
     const img = h("img", { src: x.url, alt: x.prompt || "Generated image", loading: "lazy", decoding: "async",
       onload: () => img.classList.add("loaded"), onerror: () => img.closest(".gal-tile")?.classList.add("broken") });

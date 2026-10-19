@@ -7,7 +7,7 @@ export function moveToFolderModal(folders, currentId = "") {
     const option = (id, label, iconName) => h("button", {
       class: `folder-option${id === currentId ? " selected" : ""}`, type: "button",
       onclick: () => close(id === currentId ? null : { folderId: id }),
-    }, icon(iconName), h("span", {}, label), id === currentId && h("span", { class: "tts-check" }, "✓"));
+    }, icon(iconName), h("span", {}, label), id === currentId && h("span", { class: "tts-check" }, icon("check")));
 
     return h("div", { class: "stack" },
       h("div", { class: "folder-options" },

@@ -8,16 +8,16 @@ const MAX_PROMPT = 4000;   // backend MAX_GPT_PROMPT
 // so they're written in the interface language directly.
 const TEMPLATES = {
   en: [
-    ["🌍", "Translator", "Translate everything I send into English, or into Russian if it's already in English. Keep the tone and formatting, and reply with the translation only."],
-    ["🧑‍💻", "Code reviewer", "You are a senior software engineer. Review the code I send: first point out bugs, security issues and unclear parts, then suggest concrete improvements with short code examples."],
-    ["🎓", "English tutor", "You are a friendly English tutor. Answer in simple English, gently correct my mistakes and explain each correction in one short sentence."],
-    ["✍️", "Copywriter", "You are a marketing copywriter. Write short, punchy, benefit-focused copy and offer three variants for every request."],
+    ["Translator", "Translate everything I send into English, or into Russian if it's already in English. Keep the tone and formatting, and reply with the translation only."],
+    ["Code reviewer", "You are a senior software engineer. Review the code I send: first point out bugs, security issues and unclear parts, then suggest concrete improvements with short code examples."],
+    ["English tutor", "You are a friendly English tutor. Answer in simple English, gently correct my mistakes and explain each correction in one short sentence."],
+    ["Copywriter", "You are a marketing copywriter. Write short, punchy, benefit-focused copy and offer three variants for every request."],
   ],
   ru: [
-    ["🌍", "Переводчик", "Переводи всё, что я присылаю, на английский, а если текст уже на английском — на русский. Сохраняй тон и форматирование, отвечай только переводом."],
-    ["🧑‍💻", "Ревьюер кода", "Ты опытный разработчик. Проверяй код, который я присылаю: сначала укажи ошибки, уязвимости и непонятные места, затем предложи конкретные улучшения с короткими примерами кода."],
-    ["🎓", "Репетитор английского", "Ты дружелюбный репетитор английского. Отвечай на простом английском, мягко исправляй мои ошибки и объясняй каждое исправление одним коротким предложением."],
-    ["✍️", "Копирайтер", "Ты маркетинговый копирайтер. Пиши коротко, ярко и с акцентом на пользу, предлагай три варианта на каждый запрос."],
+    ["Переводчик", "Переводи всё, что я присылаю, на английский, а если текст уже на английском — на русский. Сохраняй тон и форматирование, отвечай только переводом."],
+    ["Ревьюер кода", "Ты опытный разработчик. Проверяй код, который я присылаю: сначала укажи ошибки, уязвимости и непонятные места, затем предложи конкретные улучшения с короткими примерами кода."],
+    ["Репетитор английского", "Ты дружелюбный репетитор английского. Отвечай на простом английском, мягко исправляй мои ошибки и объясняй каждое исправление одним коротким предложением."],
+    ["Копирайтер", "Ты маркетинговый копирайтер. Пиши коротко, ярко и с акцентом на пользу, предлагай три варианта на каждый запрос."],
   ],
 };
 
@@ -43,10 +43,10 @@ export function gptEditor(existing = null) {
 
     const templates = !existing && h("div", { class: "gpt-templates" },
       h("span", { class: "muted small" }, "Start from a template"),
-      h("div", { class: "gpt-template-row" }, (TEMPLATES[lang] || TEMPLATES.en).map(([emoji, title, text]) => h("button", {
+      h("div", { class: "gpt-template-row" }, (TEMPLATES[lang] || TEMPLATES.en).map(([title, text]) => h("button", {
         class: "gpt-template", type: "button",
         onclick: () => { name.value = title; prompt.value = text; refresh(); prompt.focus(); },
-      }, h("span", { "aria-hidden": "true" }, emoji), title))));
+      }, title))));
 
     return h("form", {
       class: "stack gpt-editor",

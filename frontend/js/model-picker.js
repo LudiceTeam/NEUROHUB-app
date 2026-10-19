@@ -3,7 +3,7 @@ import { h, icon } from "./dom.js";
 import { gptAvatar } from "./gpts.js";
 
 const PROVIDERS = {
-  auto: { name: "Veora", color: "linear-gradient(135deg, var(--accent), var(--accent-2))", mark: "✦" },
+  auto: { name: "Veora", color: "linear-gradient(135deg, var(--accent), var(--accent-2))", mark: "spark" },
   openai: { name: "OpenAI", color: "#10a37f", mark: "O" },
   anthropic: { name: "Anthropic", color: "#d97757", mark: "A" },
   google: { name: "Google", color: "#4285f4", mark: "G" },
@@ -56,7 +56,7 @@ function tags(id) {
 
 export function mark(id, size = "") {
   const p = provider(id);
-  return h("span", { class: `model-mark ${size}`, style: `background:${p.color}`, "aria-hidden": "true" }, p.mark);
+  return h("span", { class: `model-mark ${size}`, style: `background:${p.color}`, "aria-hidden": "true" }, p.mark === "spark" ? icon("spark") : p.mark);
 }
 
 // A custom dropdown for choosing the model. onSelect(id) may be async; throwing reverts the choice.
@@ -123,7 +123,7 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
           onclick: (e) => { e.stopPropagation(); close(); gpt.onEdit?.(g); } }, icon("edit")),
         h("button", { class: "icon-btn tiny danger-hover", type: "button", "aria-label": "Delete GPT", title: "Delete",
           onclick: (e) => { e.stopPropagation(); close(); gpt.onDelete?.(g); } }, icon("trash"))),
-      h("span", { class: "model-check", "aria-hidden": "true" }, selected ? "✓" : ""));
+      h("span", { class: "model-check", "aria-hidden": "true" }, selected && icon("check")));
     return row;
   }
 
@@ -155,9 +155,9 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
         h("span", { class: "model-option-name" }, modelLabel(id)),
         h("span", { class: "model-option-desc" }, desc)),
       h("span", { class: "model-tags" },
-        locked ? h("span", { class: "model-tag plus" }, "🔒 PLUS")
+        locked ? h("span", { class: "model-tag plus" }, icon("lock"), "PLUS")
           : tags(id).map(([text, kind]) => h("span", { class: `model-tag ${kind}` }, text))),
-      h("span", { class: "model-check", "aria-hidden": "true" }, selected ? "✓" : ""));
+      h("span", { class: "model-check", "aria-hidden": "true" }, selected && icon("check")));
     return btn;
   }
 

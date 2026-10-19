@@ -1,5 +1,5 @@
 import { api, deviceId } from "./api.js";
-import { h, modal, toast, errorText, confirmModal } from "./dom.js";
+import { h, icon, modal, toast, errorText, confirmModal } from "./dom.js";
 import { planName } from "./chat.js";
 import { openPlans, openPortal } from "./billing.js";
 import { BASE_THEMES, CUSTOM_THEMES, BUBBLES, hasPerks, loadPrefs, savePrefs, applyAppearance } from "./appearance.js";
@@ -61,7 +61,7 @@ export function openProfile(state, { logout, onChange }) {
         ? `Renews or ends on ${formatDate(p["Date End"])}.`
         : "Unlock more requests, voice cloning and custom themes."),
       subscribed ? manageBtn : h("button", { class: "pill-btn glow", type: "button", onclick: () => openPlans(p) },
-        h("span", { class: "pill-spark", "aria-hidden": "true" }, "✦"), "Upgrade plan")));
+        h("span", { class: "pill-spark", "aria-hidden": "true" }, icon("spark")), "Upgrade plan")));
 
     body.append(appearanceSection(state));
 
@@ -95,7 +95,7 @@ function appearanceSection(state) {
   const activeTheme = () => (perks || !CUSTOM_THEMES.some((t) => t.id === prefs.theme) ? prefs.theme : "system");
   const activeBubble = () => (perks ? prefs.bubble : "default");
 
-  const lock = () => h("span", { class: "lock", "aria-label": "Basic plan or higher" }, "🔒");
+  const lock = () => h("span", { class: "lock", "aria-label": "Basic plan or higher" }, icon("lock"));
 
   function themeCard(theme, locked) {
     const selected = activeTheme() === theme.id;
@@ -133,7 +133,7 @@ function appearanceSection(state) {
       h("h4", {}, "Message color"),
       h("div", { class: "bubble-row" }, BUBBLES.map(bubbleSwatch)),
       h("div", { class: "appearance-preview", "aria-hidden": "true" },
-        h("div", { class: "msg user" }, h("div", { class: "bubble" }, "Make my messages pop ✨")),
+        h("div", { class: "msg user" }, h("div", { class: "bubble" }, "Make my messages pop")),
         h("div", { class: "preview-reply" }, h("img", { src: "logo.png", alt: "" }), h("span", {}, "Done — your new look is saved on this device."))),
       !perks && h("p", { class: "muted small" }, "Custom themes and message colors are included with Basic, Plus, Premium, Max and Elite."),
     ].filter(Boolean));

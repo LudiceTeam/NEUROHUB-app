@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { MODEL_GROUPS } from "./config.js";
-import { h, toast, errorText, promptModal, confirmModal } from "./dom.js";
+import { h, icon, toast, errorText, promptModal, confirmModal } from "./dom.js";
 import { cloneVoiceModal } from "./voice-clone.js";
 
 const MAX_CHARS = 3000;   // backend MAX_TTS_CHARS
@@ -269,7 +269,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
             onclick: (e) => { e.stopPropagation(); renameVoice(v); } }, ICON.edit()),
           h("button", { class: "icon-btn tiny danger-hover", type: "button", "aria-label": "Delete voice", title: "Delete",
             onclick: (e) => { e.stopPropagation(); deleteVoice(v); } }, ICON.trash())),
-        selected && h("span", { class: "tts-check" }, "✓"));
+        selected && h("span", { class: "tts-check" }, icon("check")));
     });
 
     return h("div", { class: "tts-field" }, head,
@@ -366,7 +366,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
             class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => selectPreset(id),
           }, voiceAvatar(id), h("span", { class: "tts-option-text" }, h("strong", {}, name), note && h("small", {}, note)),
-          selected && h("span", { class: "tts-check" }, "✓"));
+          selected && h("span", { class: "tts-check" }, icon("check")));
         }))),
       h("p", { class: "tts-hint" }, ICON.info(), "Write in the language you want to hear — it's detected automatically."),
       h("div", { class: "tts-field" },
@@ -385,7 +385,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
             }, h("span", { class: "model-mark sm", style: `background:${color}` }, mark),
             h("span", { class: "tts-option-text" }, h("strong", {}, m.name), h("small", {}, m.note)),
             m.default && !selected && h("span", { class: "tts-badge" }, "Best"),
-            selected && h("span", { class: "tts-check" }, "✓"));
+            selected && h("span", { class: "tts-check" }, icon("check")));
           }),
           h("p", { class: "muted small" }, "Pick a preset voice above to switch back to the other models."))
         : h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Model" }, bases.map((b) => {
@@ -396,7 +396,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
             onclick: () => { if (!selected) choose(VOICE_IDS.find((id) => splitId(id)[0] === b)); },
           }, h("span", { class: "model-mark sm", style: `background:${meta.color}` }, meta.mark),
           h("span", { class: "tts-option-text" }, h("strong", {}, meta.name), h("small", {}, meta.note)),
-          selected && h("span", { class: "tts-check" }, "✓"));
+          selected && h("span", { class: "tts-check" }, icon("check")));
         }))),
       h("div", { class: "tts-row" }, h("span", {}, "Language"), h("span", { class: "tts-pill" }, "Auto-detect")),
       h("div", { class: "tts-row" }, h("span", {}, "Output format"), h("span", { class: "tts-pill" }, info.format)),

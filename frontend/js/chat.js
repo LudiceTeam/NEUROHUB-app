@@ -24,10 +24,10 @@ const PLAN_PHOTOS = { Starter: 3, Basic: 5, Plus: 5, Premium: 5, Max: 5, Elite: 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const PINNED_KEY = "veora_pinned";
 const SUGGESTIONS = [
-  ["💡", "Explain quantum computing like I'm 12"],
-  ["🐍", "Write a Python script that renames files by date"],
-  ["✈️", "Plan a 3-day trip to Tokyo on a budget"],
-  ["✍️", "Help me write a friendly follow-up email"],
+  ["bulb", "Explain quantum computing like I'm 12"],
+  ["code", "Write a Python script that renames files by date"],
+  ["plane", "Plan a 3-day trip to Tokyo on a budget"],
+  ["mail", "Help me write a friendly follow-up email"],
 ];
 const EXPANDED_KEY = "veora_open_folders";
 const DRAG_TYPE = "text/veora-chat";
@@ -178,7 +178,7 @@ export function renderApp(root, logout) {
   });
   sendBtn.before(voiceInput.button);
 
-  // ✨ rewrites the draft for the selected kind of model; shown once there's something to improve.
+  // The improve button rewrites the draft for the selected kind of model; shown once there's something to improve.
   const improveBtn = improveButton({
     field: textarea,
     kind: () => (IMAGE_MODELS.has(state.model) ? "image" : VIDEO_MODELS.has(state.model) ? "video" : "chat"),
@@ -455,10 +455,10 @@ export function renderApp(root, logout) {
           : h("h1", {}, `How can I help${name}?`),
         activeGpt() && h("p", { class: "gpt-welcome-note" }, "Your custom GPT is on. Its instructions apply to every message."),
         h("p", { class: "muted" }, "Pick a model at the top or leave it on Auto — Veora will choose the best one for your request."),
-        h("div", { class: "suggestions" }, SUGGESTIONS.map(([emoji, text], i) => h("button", {
+        h("div", { class: "suggestions" }, SUGGESTIONS.map(([iconName, text], i) => h("button", {
           class: "suggestion", type: "button", style: `--i:${i}`,
           onclick: () => { textarea.value = text; autosize(); textarea.focus(); },
-        }, h("span", { class: "suggestion-emoji", "aria-hidden": "true" }, emoji), h("span", {}, text))))));
+        }, h("span", { class: "suggestion-icon", "aria-hidden": "true" }, icon(iconName)), h("span", {}, text))))));
       return;
     }
     thread.replaceChildren(...state.messages.map(renderMessage));
@@ -614,7 +614,7 @@ export function renderApp(root, logout) {
       streakBadge());
   }
 
-  // 🔥 N next to the account; a dot means a lost streak can be restored.
+  // Flame + N next to the account; a dot means a lost streak can be restored.
   let litBefore = null;
   function streakBadge() {
     const s = state.streak;
@@ -625,7 +625,7 @@ export function renderApp(root, logout) {
     return h("span", {
       class: `streak-badge${s.doneToday ? "" : " out"}${justLit ? " lit" : ""}`,
       title: s.canResume ? `Best streak: ${s.record} days. Restore it in your account.` : `${s.streak}-day streak`,
-    }, h("span", { "aria-hidden": "true" }, "🔥"), String(s.streak), s.canResume && h("i", { class: "streak-dot", "aria-hidden": "true" }));
+    }, h("span", { class: "streak-badge-icon", "aria-hidden": "true" }, icon("flame")), String(s.streak), s.canResume && h("i", { class: "streak-dot", "aria-hidden": "true" }));
   }
 
   async function loadStreak() {
@@ -800,7 +800,7 @@ export function renderApp(root, logout) {
     tick();
     const timer = setInterval(() => (time.isConnected ? tick() : clearInterval(timer)), 1000);
     return h("div", { class: "video-gen", role: "status" },
-      h("div", { class: "vg-frame", "aria-hidden": "true" }, h("span", { class: "vg-icon" }, "🎬")),
+      h("div", { class: "vg-frame", "aria-hidden": "true" }, h("span", { class: "vg-icon" }, icon("film"))),
       h("div", { class: "vg-text" },
         h("strong", {}, "Generating your video"),
         h("span", { class: "muted small" }, "Usually takes 1–3 minutes. You can keep chatting — it will appear here."),
@@ -1192,7 +1192,7 @@ export function fromHistory(m) {
     out.push({ role: "user", text: m.message && m.message !== "None" ? m.message : "", images: m.image_message || [] });
   }
   const reply = { role: "assistant", model: m.model };
-  if (m.response) reply.text = m.response;
+  if (m.response) reply.text = m.response.replace(/^\u26a0\ufe0f?\s*/, "");
   if (m.image_response) {
     if (/\.mp4(\?|$)/i.test(m.image_response)) reply.video = m.image_response;
     else if (/\.(mp3|wav)(\?|$)/i.test(m.image_response)) reply.audio = m.image_response;

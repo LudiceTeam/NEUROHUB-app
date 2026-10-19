@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { h, toast, errorText } from "./dom.js";
+import { h, icon, toast, errorText } from "./dom.js";
 import { openPlans } from "./billing.js";
 
 const REWARD_DAYS = 30;                          // backend gives a free month of Starter at 30 days
@@ -42,14 +42,14 @@ export function streakCard(state, { onChange = () => {} } = {}) {
 
     card.replaceChildren(...[
       h("div", { class: "streak-main" },
-        h("span", { class: `streak-flame${info.doneToday ? "" : " out"}`, "aria-hidden": "true" }, "🔥"),
+        h("span", { class: `streak-flame${info.doneToday ? "" : " out"}`, "aria-hidden": "true" }, icon("flame")),
         h("div", { class: "stack tight grow" },
           h("strong", { class: "streak-count" }, `${info.streak} ${dayWord(info.streak)}`),
           h("span", { class: "muted small" }, info.doneToday
             ? "You're on fire — come back tomorrow to keep it going."
             : info.alive ? "Send a message today to keep your streak." : "Send a message to start a new streak.")),
         h("div", { class: "streak-record", title: "Your best streak" },
-          h("span", { "aria-hidden": "true" }, "🏆"), h("strong", {}, String(info.record)), h("small", {}, "Best"))),
+          h("span", { "aria-hidden": "true" }, icon("trophy")), h("strong", {}, String(info.record)), h("small", {}, "Best"))),
 
       free && h("div", { class: "streak-reward" },
         h("div", { class: "streak-bar", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(REWARD_DAYS), "aria-valuenow": String(progress) },
@@ -66,7 +66,7 @@ export function streakCard(state, { onChange = () => {} } = {}) {
   function restoresLine(info) {
     if (!canResumeStreak(state.profile) || info.resumesLeft == null) return null;
     return h("div", { class: "streak-restores" },
-      h("span", { class: "streak-restores-icon", "aria-hidden": "true" }, "🛟"),
+      h("span", { class: "streak-restores-icon", "aria-hidden": "true" }, icon("lifebuoy")),
       h("span", { class: "grow" },
         h("strong", {}, `${info.resumesLeft} of ${RESUMES_PER_MONTH} restores left this month`),
         h("small", { class: "muted" }, "If you miss a day, you can bring your streak back.")),
@@ -86,7 +86,7 @@ export function streakCard(state, { onChange = () => {} } = {}) {
           const res = await api.resumeStreak();
           // The backend answers "no restores left" with a 200 and an "Error" field.
           if (res?.Error) throw new Error(res.Error);
-          toast(`Streak restored: ${info.record} ${dayWord(info.record)} 🔥`, "ok");
+          toast(`Streak restored: ${info.record} ${dayWord(info.record)}`, "ok");
           await load();
           onChange();
         } catch (e) {

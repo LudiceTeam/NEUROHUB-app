@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { h, toast, errorText, confirmModal, modal } from "./dom.js";
+import { h, icon, toast, errorText, confirmModal, modal } from "./dom.js";
 import { mark } from "./model-picker.js";
 import { openPlans } from "./billing.js";
 import { improveButton } from "./prompt-improve.js";
@@ -217,7 +217,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
             class: `vs-model${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => pickModel(x.id),
           }, mark(x.id, "sm"), h("span", { class: "vs-model-text" }, h("strong", {}, x.name), h("small", {}, x.note)),
-          selected && h("span", { class: "vs-check" }, "✓"));
+          selected && h("span", { class: "vs-check" }, icon("check")));
         }))),
 
       chipGroup("Aspect ratio", m.aspect_ratios, st.aspect, (v) => { st.aspect = v; saveSettings(); renderSettings(); }, aspectIcon),
@@ -356,7 +356,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
           v.duration && h("span", {}, `${v.duration}s`),
           v.resolution && h("span", {}, v.resolution),
           v.aspect_ratio && h("span", {}, v.aspect_ratio),
-          v.audio && h("span", { title: "With sound" }, "♪"),
+          v.audio && h("span", { class: "vs-meta-icon", title: "With sound" }, icon("music")),
         ].filter(Boolean)),
         h("div", { class: "vs-actions" }, ...[
           v.status === "completed" && v.url && h("a", { class: "icon-btn tiny", href: v.url, target: "_blank", rel: "noopener", download: "", "aria-label": "Download", title: "Download" }, ICON.download()),
@@ -442,7 +442,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
       st.loaded = true;
       // A clip that just finished: refresh it in place and tell the user.
       const finished = st.items.filter((v) => before.get(v.id) && before.get(v.id) !== v.status && !["pending", "processing"].includes(v.status));
-      if (finished.some((v) => v.status === "completed")) toast("Your video is ready 🎬", "ok");
+      if (finished.some((v) => v.status === "completed")) toast("Your video is ready", "ok");
       if (finished.some((v) => v.status === "failed")) onChange();
     } catch (e) {
       st.loaded = true;
