@@ -3,7 +3,8 @@ import { h, toast, errorText } from "./dom.js";
 import { openPlans } from "./billing.js";
 
 const REWARD_DAYS = 30;                          // backend gives a free month of Starter at 30 days
-const RESUME_PLANS = ["Plus", "Premium", "Max", "Elite"];   // /streak/resume refuses Starter and Basic
+const RESUME_PLANS = ["Plus", "Premium", "Max", "Elite"];  // restoring a streak needs Plus or higher
+const RESUMES_PER_MONTH = 3;                                // backend refil_resumes: 3 every 30 days
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -21,7 +22,9 @@ export function streakInfo(s) {
   const alive = doneToday || last === isoDay(yesterday);
   const streak = alive ? Number(s.streak) || 0 : 0;
   const record = Math.max(Number(s.record) || 0, streak);
-  return { streak, record, alive, doneToday, canResume: record > streak && record > 1 };
+  // null when the backend doesn't send it (older API): then the count just isn't shown.
+  const resumesLeft = s.resumes_left == null ? null : Math.max(0, Number(s.resumes_left) || 0);
+  return { streak, record, alive, doneToday, resumesLeft, canResume: record > streak && record > 1 };
 }
 
 export const canResumeStreak = (profile) => RESUME_PLANS.some((k) => profile?.[k]);
@@ -61,13 +64,16 @@ export function streakCard(state, { onChange = () => {} } = {}) {
 
   function resumeBox(info) {
     const allowed = canResumeStreak(state.profile);
+    const usedUp = allowed && info.resumesLeft === 0;
     const btn = h("button", {
-      class: `btn ${allowed ? "primary" : "plus-btn"}`, type: "button",
+      class: `btn ${allowed ? "primary" : "plus-btn"}`, type: "button", disabled: usedUp,
       onclick: async () => {
         if (!allowed) { openPlans(state.profile); return; }
         btn.disabled = true;
         try {
-          await api.resumeStreak();
+          const res = await api.resumeStreak();
+          // The backend answers "no restores left" with a 200 and an "Error" field.
+          if (res?.Error) throw new Error(res.Error);
           toast(`Streak restored: ${info.record} ${dayWord(info.record)} 🔥`, "ok");
           await load();
           onChange();
@@ -76,13 +82,18 @@ export function streakCard(state, { onChange = () => {} } = {}) {
           btn.disabled = false;
         }
       },
-    }, allowed ? "Restore streak" : "Restore with Plus");
-    return h("div", { class: "streak-resume" },
+    }, !allowed ? "Restore with Plus" : usedUp ? "No restores left" : "Restore streak");
+    const left = info.resumesLeft;
+    return h("div", { class: `streak-resume${usedUp ? " used-up" : ""}` },
       h("div", { class: "stack tight grow" },
         h("strong", {}, `Get your ${info.record}-day streak back`),
-        h("span", { class: "muted small" }, allowed
-          ? "Your plan lets you restore your best streak."
-          : "Restoring a lost streak is included with Plus, Premium, Max and Elite.")),
+        h("span", { class: "muted small" }, !allowed
+          ? "Restoring a lost streak is included with Plus, Premium, Max and Elite."
+          : usedUp ? `You've used all ${RESUMES_PER_MONTH} restores this month. They refill every 30 days.`
+          : left == null ? "Your plan lets you restore your best streak."
+          : `${left} of ${RESUMES_PER_MONTH} restores left this month`),
+        allowed && left != null && h("span", { class: "streak-resume-dots", "aria-hidden": "true" },
+          Array.from({ length: RESUMES_PER_MONTH }, (_, i) => h("i", { class: i < left ? "on" : "" })))),
       btn);
   }
 

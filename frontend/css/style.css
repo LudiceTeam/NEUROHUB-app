@@ -1754,4 +1754,8 @@ textarea.improving {
 .auth-legal { max-width: 400px; margin: 14px auto 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
 .auth-legal a, .plans-legal a { color: var(--accent); }
 .plans-legal { margin: 0; line-height: 1.5; }
+.streak-resume-dots { display: flex; gap: 4px; margin-top: 2px; }
+.streak-resume-dots i { width: 18px; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--text) 15%, transparent); }
+.streak-resume-dots i.on { background: linear-gradient(90deg, #ffb000, #ff5e00); }
+.streak-resume.used-up { background: var(--bg-soft); border-color: var(--border); }
 

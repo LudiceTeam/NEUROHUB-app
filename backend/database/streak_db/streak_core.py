@@ -29,6 +29,9 @@ async def create_table():
 async def migrate_streak_table():
     async with async_engine.begin() as conn:
         await conn.execute(text("ALTER TABLE streak_table ADD COLUMN IF NOT EXISTS record INTEGER DEFAULT 0"))
+        # Streak restores: 3 every 30 days. Existing users start with a full set from today.
+        await conn.execute(text("ALTER TABLE streak_table ADD COLUMN IF NOT EXISTS resumes_left INTEGER DEFAULT 3"))
+        await conn.execute(text("ALTER TABLE streak_table ADD COLUMN IF NOT EXISTS last_restore_date DATE DEFAULT CURRENT_DATE"))
 
         
 
@@ -41,6 +44,8 @@ async def create_user_streak(user_id:str) -> bool:
                     streak = 1,
                     last_updated = datetime.now().date(),
                     record = 1,
+                    last_restore_date = datetime.now().date(),
+                    resumes_left = 3,
                 ).on_conflict_do_nothing(
                     index_elements=[streak_table.c.user_id]
                 )
@@ -98,7 +103,8 @@ async def get_user_streak_data(user_id:str) -> dict:
             stmt = select(
                 streak_table.c.streak,
                 streak_table.c.last_updated,
-                streak_table.c.record
+                streak_table.c.record,
+                streak_table.c.resumes_left,
             ).where(
                 streak_table.c.user_id == user_id
             )
@@ -136,13 +142,45 @@ async def resume_streak(user_id:str) -> None:
                 # Today counts as done, so the next message neither resets it nor skips a day.
                 stmt = streak_table.update().where(
                     streak_table.c.user_id == user_id,
-                    streak_table.c.record > 1
+                    streak_table.c.record > 1,
+                    streak_table.c.resumes_left > 0,
                 ).values(
                     streak = streak_table.c.record,
-                    last_updated = datetime.now().date()
+                    last_updated = datetime.now().date(),
+                    resumes_left = streak_table.c.resumes_left - 1
                 )
                 await conn.execute(stmt)
                 return None
     except Exception:
         logger.exception("STREAK SQL ERROR")
         return None
+
+async def refil_resumes(user_id:str,amount:int) -> None | bool:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                date_now = datetime.now().date()
+                stmt = streak_table.update().where(
+                    streak_table.c.user_id == user_id,
+                    streak_table.c.last_restore_date <= date_now - timedelta(days=30)
+                ).values(
+                   last_restore_date = datetime.now().date(),
+                   resumes_left = amount,
+                )
+                res = await conn.execute(stmt)
+                return res.rowcount > 0
+            except Exception:
+                logger.exception("STREAK SQL ERROR")
+                return None
+
+async def get_user_restores(user_id:str) -> int | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(streak_table.c.resumes_left).where(
+                streak_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            return res.scalar_one_or_none()
+        except Exception:
+            logger.exception("STREAK SQL ERROR")
+            return None 
