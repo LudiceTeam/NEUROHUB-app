@@ -5,6 +5,7 @@ import { openPlans, openPortal } from "./billing.js";
 import { BASE_THEMES, CUSTOM_THEMES, BUBBLES, hasPerks, loadPrefs, savePrefs, applyAppearance } from "./appearance.js";
 import { languageSwitch } from "./i18n.js";
 import { streakCard } from "./streak.js";
+import { creditsMeter } from "./credits-meter.js";
 
 export function openProfile(state, { logout, onChange }) {
   return modal("Account", (close) => {
@@ -62,7 +63,7 @@ export function openProfile(state, { logout, onChange }) {
     // Plan + usage
     body.append(h("div", { class: "stats" },
       stat("Plan", planName(p).replace(" plan", "")),
-      stat("Credits today", p.Requests ?? 0),
+      creditsMeter(p, "card"),
       stat("Premium / month", p["Nano Requests"] ?? 0),
       stat("Videos / month", p["Video Credits"] ?? 0)));
     body.append(streakCard(state, { onChange }));

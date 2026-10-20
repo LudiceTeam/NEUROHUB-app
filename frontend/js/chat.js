@@ -10,6 +10,7 @@ import { createVideoStudio } from "./video-studio.js";
 import { createMusicStudio } from "./music-studio.js";
 import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
+import { creditsMeter } from "./credits-meter.js";
 import { shareChatModal } from "./share.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
@@ -161,7 +162,7 @@ export function renderApp(root, logout) {
     h("div", { class: "composer-row" },
       attachBtn, textarea, fileInput, sendBtn),
   );
-  const quota = h("p", { class: "quota" });
+  const quota = h("div", { class: "quota" });
 
   // Dictation: the transcript is inserted at the cursor so it can be edited before sending.
   const voiceInput = createVoiceInput({
@@ -600,10 +601,8 @@ export function renderApp(root, logout) {
 
   function renderQuota() {
     const p = state.profile;
-    if (!p) { quota.textContent = ""; return; }
-    const videos = p["Video Credits"] ? ` · ${p["Video Credits"]} video${p["Video Credits"] === 1 ? "" : "s"}` : "";
-    const premium = p["Nano Requests"] ? ` · ${p["Nano Requests"]} premium` : "";
-    quota.textContent = `${p.Requests ?? 0} credits today${premium}${videos} left`;
+    if (!p) { quota.replaceChildren(); return; }
+    quota.replaceChildren(creditsMeter(p, "compact"));
   }
 
   function renderProfileBtn() {

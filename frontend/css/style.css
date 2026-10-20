@@ -1926,3 +1926,21 @@ textarea.improving {
 .model-kind.music { color: #a78bfa; }
 @media (prefers-reduced-motion: reduce) { .ms-eq i, .ms-cover.spin .icon { animation: none; } }
 
+/* daily credits meter */
+.credits-meter { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+.credits-bar {
+  position: relative; display: block; width: 96px; height: 5px; flex: none; border-radius: 999px; overflow: hidden;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+.credits-bar > span {
+  display: block; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .5s cubic-bezier(.2, .8, .2, 1);
+}
+.credits-bar.low > span { background: linear-gradient(90deg, #f59e0b, #f97316); }
+.credits-bar.empty > span { background: var(--danger); }
+.credits-text { font-variant-numeric: tabular-nums; }
+.credits-extra::before { content: "·"; margin-right: 12px; opacity: .6; }
+.credits-stat { gap: 6px; }
+.credits-stat strong small { font-size: 13px; font-weight: 500; color: var(--muted); }
+.credits-stat .credits-bar { width: 100%; height: 6px; margin-top: 2px; }
+
