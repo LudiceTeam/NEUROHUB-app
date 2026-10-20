@@ -143,6 +143,8 @@ models = [
     "auto",
 
     # ===== OPENAI =====
+    "openai/gpt-6-luna",
+    "openai/gpt-6.1-sol",
     "openai/gpt-5.4-mini",
     "openai/gpt-4o",
     "openai/gpt-4o-mini",
@@ -189,6 +191,7 @@ models = [
 
 
 expensive_models = [
+    "openai/gpt-6.1-sol",
     "anthropic/claude-opus-4.6",
     "anthropic/claude-sonnet-4.6",
     "openai/gpt-4o",
@@ -211,6 +214,13 @@ image_generation_models = [
     "qwen/qwen-image-3",
     "recraft/recraft-v4.1",
 ]
+# Reasoning models: they think before answering, so they get a larger token budget and a fixed effort
+# (higher effort = more tokens = more cost per answer).
+REASONING_MODELS = {
+    "openai/gpt-6-luna": "low",
+    "openai/gpt-6.1-sol": "medium",
+}
+
 # YooKassa: plan prices in rubles for 30 days (mirror frontend/js/plans.js).
 PLAN_PRICES_RUB = {"starter": 499, "basic": 890, "plus": 1890, "premium": 2990, "max": 5990, "elite": 12990}
 PLAN_TITLES = {"starter": "Starter", "basic": "Basic", "plus": "Plus", "premium": "Premium", "max": "Max", "elite": "Elite"}

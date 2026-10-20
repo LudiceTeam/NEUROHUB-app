@@ -47,7 +47,7 @@ from backend.api.config import IMAGE_MODEL_SPECS,IMAGE_ASPECT_RATIOS,IMAGE_RESOL
 from backend.database.images_db.images_core import migrate_images_table,create_image_job,set_image_job_result,get_user_image_jobs,get_image_job,delete_image_job
 from backend.database.payments_db.payments_core import migrate_payments_tables,save_payment,get_payment as get_yk_payment,claim_payment,set_payment_status,get_subscription,upsert_subscription,due_subscriptions
 from backend.api import yookassa_client
-from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES
+from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1665,7 +1665,8 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
             ],
             # Caps the cost of one answer (plan limits are calculated with it).
             # Thinking models spend part of it on reasoning, so they get more room.
-            max_tokens = MAX_OUTPUT_TOKENS * 2 if "thinking" in user_model else MAX_OUTPUT_TOKENS
+            max_tokens = MAX_OUTPUT_TOKENS * 2 if "thinking" in user_model or user_model in REASONING_MODELS else MAX_OUTPUT_TOKENS,
+            **({"extra_body": {"reasoning": {"effort": REASONING_MODELS[user_model]}}} if user_model in REASONING_MODELS else {})
         )
 
 

@@ -50,6 +50,8 @@ function provider(id) {
 // Name without the version, the version, and what the model is good for (shown in the menu).
 const MODEL_INFO = {
   auto: ["Auto", "", "Picks the best model for each request"],
+  "openai/gpt-6.1-sol": ["GPT Sol", "6.1", "Newest GPT: code, documents, hard tasks"],
+  "openai/gpt-6-luna": ["GPT Luna", "6", "Newest GPT, fast and free"],
   "openai/gpt-5.4-mini": ["GPT Mini", "5.4", "Smart all-rounder for any task"],
   "openai/gpt-4o": ["GPT", "4o", "Reliable writing and analysis"],
   "openai/gpt-4o-mini": ["GPT Mini", "4o", "Quick everyday answers"],

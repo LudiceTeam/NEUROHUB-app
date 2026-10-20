@@ -15,7 +15,7 @@ export const config = {
 // Mirrors backend/api/config.py. Video models are omitted: /change_model rejects them.
 export const MODEL_GROUPS = [
   ["Smart", ["auto"]],
-  ["OpenAI", ["openai/gpt-5.4-mini", "openai/gpt-4o", "openai/gpt-4o-mini"]],
+  ["OpenAI", ["openai/gpt-6.1-sol", "openai/gpt-6-luna", "openai/gpt-5.4-mini", "openai/gpt-4o", "openai/gpt-4o-mini"]],
   ["Anthropic", ["anthropic/claude-opus-4.6", "anthropic/claude-sonnet-4.6"]],
   ["Google Gemini", [
     "google/gemini-3-flash-preview",
@@ -96,6 +96,7 @@ export const MODEL_CREDITS = {
 export const modelCredits = (id) => MODEL_CREDITS[id] || 1;
 
 export const PREMIUM_MODELS = new Set([
+  "openai/gpt-6.1-sol",
   "anthropic/claude-opus-4.6",
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-4o",
