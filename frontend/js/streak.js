@@ -13,7 +13,7 @@ const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
  * Here a streak counts as alive only if the last active day was today or yesterday.
  */
 export function streakInfo(s) {
-  if (!s || s.streak == null) return null;
+  if (!s || typeof s !== "object" || s.streak == null) return null;
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
@@ -36,7 +36,8 @@ export function streakCard(state, { onChange = () => {} } = {}) {
 
   function render(info) {
     card.classList.remove("loading");
-    if (!info) { card.replaceChildren(h("p", { class: "muted small" }, "Send a message to start your streak.")); return; }
+    // No streak yet (or the backend sent nothing / null): show a normal card with 0 days.
+    info = info || { streak: 0, record: 0, alive: false, doneToday: false, resumesLeft: null, canResume: false };
     const free = !["Starter", "Basic", ...RESUME_PLANS].some((k) => state.profile?.[k]);
     const progress = Math.min(info.streak, REWARD_DAYS);
 

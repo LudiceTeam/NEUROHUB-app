@@ -641,3 +641,5 @@ async def get_user_plan(user_id:str) -> Dict | None:
             logger.exception("MAIN SQL ERORR")
             return None
 
+async def get_user_sub_end(user_id:str):
+    pass

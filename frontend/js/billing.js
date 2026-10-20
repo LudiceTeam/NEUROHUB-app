@@ -73,59 +73,94 @@ export function openPlans(profile) {
   }, { wide: true });
 }
 
-/** Subscription management: next charge, saved card, turn auto-renewal off or back on. */
+/** Subscription management: plan, next charge, saved card, auto-renewal. */
 export function openPortal() {
   return modal("Subscription", (close) => {
-    const body = h("div", { class: "stack sub-manage" }, h("span", { class: "skel" }), h("span", { class: "skel skel-small" }));
+    const body = h("div", { class: "sub" },
+      h("div", { class: "sub-hero skeleton" }, h("span", { class: "skel" }), h("span", { class: "skel skel-small" })),
+      h("span", { class: "skel" }));
     const date = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+
+    async function setAutoRenew(sub, on, input) {
+      if (!on && !(await confirmModal("Turn off auto-renewal?",
+        `Your plan stays active until ${date(sub.period_end)}, then it switches to Free. No more charges.`, { confirm: "Turn off", danger: true }))) {
+        input.checked = true;
+        return;
+      }
+      input.disabled = true;
+      try {
+        await (on ? api.yookassaResume() : api.yookassaCancel());
+        toast(on ? "Auto-renewal is on" : "Auto-renewal is off", "ok");
+      } catch (e) { toast(errorText(e)); }
+      load();
+    }
+
+    async function unlink(sub) {
+      if (!(await confirmModal("Unlink card?",
+        `The card will be removed from Veora and won't be charged again. Your plan stays active until ${date(sub.period_end)}.`,
+        { confirm: "Unlink", danger: true }))) return;
+      try {
+        await api.yookassaUnlink();
+        toast("Card unlinked", "ok");
+        load();
+      } catch (e) { toast(errorText(e)); }
+    }
+
+    function empty() {
+      return h("div", { class: "sub-empty" },
+        h("span", { class: "sub-empty-icon" }, icon("card")),
+        h("h3", {}, "No active subscription"),
+        h("p", { class: "muted" }, "Pick a plan to unlock every model, the studios and more requests."),
+        h("button", { class: "plan-btn primary", type: "button", onclick: () => { close(); openPlans(null); } }, "Choose a plan"),
+        h("p", { class: "muted small" }, `Paid another way or need help? Write to ${CONTACT_EMAIL}.`));
+    }
 
     async function load() {
       let sub = null;
       try { sub = (await api.yookassaSubscription())?.result; } catch (e) { body.replaceChildren(h("p", { class: "muted" }, errorText(e))); return; }
-      if (!sub) {
-        body.replaceChildren(h("p", { class: "muted" }, `No online subscription found. If you paid another way or need help, write to ${CONTACT_EMAIL}.`));
-        return;
-      }
+      if (!sub) { body.replaceChildren(empty()); return; }
+
       const plan = PLANS.find((p) => p.id === sub.plan);
-      const toggle = h("button", {
-        class: `btn ${sub.auto_renew ? "ghost danger-text" : "primary"}`, type: "button", disabled: !sub.auto_renew && !sub.can_renew,
-        onclick: async () => {
-          if (sub.auto_renew && !(await confirmModal("Turn off auto-renewal?",
-            `Your plan stays active until ${date(sub.period_end)}, then it switches to Free. No more charges.`, { confirm: "Turn off", danger: true }))) return;
-          toggle.disabled = true;
-          try {
-            await (sub.auto_renew ? api.yookassaCancel() : api.yookassaResume());
-            toast(sub.auto_renew ? "Auto-renewal is off" : "Auto-renewal is on", "ok");
-            load();
-          } catch (e) { toast(errorText(e)); toggle.disabled = false; }
-        },
-      }, sub.auto_renew ? "Turn off auto-renewal" : "Turn auto-renewal back on");
-      async function unlink() {
-        if (!(await confirmModal("Unlink card?",
-          `The card will be removed from Veora and won't be charged again. Your plan stays active until ${date(sub.period_end)}.`,
-          { confirm: "Unlink", danger: true }))) return;
-        try {
-          await api.yookassaUnlink();
-          toast("Card unlinked", "ok");
-          load();
-        } catch (e) { toast(errorText(e)); }
-      }
+      const hasCard = Boolean(sub.card || sub.can_renew);
+      const toggle = h("input", {
+        type: "checkbox", class: "vs-switch", checked: sub.auto_renew, disabled: !sub.auto_renew && !sub.can_renew,
+        "aria-label": "Auto-renewal", onchange: (e) => setAutoRenew(sub, e.target.checked, e.target),
+      });
 
       body.replaceChildren(
-        h("div", { class: "sub-card" },
-          h("div", { class: "sub-head" }, h("strong", {}, plan?.name || sub.plan), sub.price && h("span", {}, `${rubles(sub.price)} / month`)),
-          h("div", { class: "sub-rows" },
-            h("div", {}, h("span", {}, sub.auto_renew ? "Next charge" : "Active until"), h("strong", {}, date(sub.period_end))),
-            h("div", { class: "sub-card-row" }, h("span", {}, "Card"),
-              sub.card || sub.can_renew
-                ? h("span", { class: "sub-card-value" }, h("strong", {}, sub.card || "Linked"),
-                  h("button", { class: "link-btn danger-text", type: "button", onclick: unlink }, "Unlink card"))
-                : h("strong", { class: "muted" }, "Not linked")),
-            h("div", {}, h("span", {}, "Auto-renewal"), h("strong", { class: sub.auto_renew ? "ok-text" : "muted" }, sub.auto_renew ? "On" : "Off")))),
-        h("p", { class: "muted small" }, sub.auto_renew
-          ? "The plan renews every 30 days. You can turn auto-renewal off at any time: the plan stays until the end of the paid period."
-          : "Auto-renewal is off. When the paid period ends, your account switches to the Free plan."),
-        h("div", { class: "row end" }, h("button", { class: "btn ghost", type: "button", onclick: () => close() }, "Close"), toggle));
+        h("div", { class: "sub-hero" },
+          h("div", { class: "sub-hero-top" },
+            h("div", {}, h("small", {}, "Your plan"), h("strong", { class: "sub-plan" }, plan?.name || sub.plan)),
+            h("span", { class: `sub-status ${sub.auto_renew ? "on" : "off"}` }, sub.auto_renew ? "Active" : "Ends soon")),
+          sub.price && h("div", { class: "sub-price" }, h("strong", {}, rubles(sub.price)), h("span", {}, "/ month")),
+          plan && h("div", { class: "sub-limits" },
+            h("span", {}, `${plan.requests} credits / day`),
+            h("span", {}, `${plan.premium} premium / month`),
+            plan.videos > 0 && h("span", {}, `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month`))),
+
+        h("div", { class: "sub-rows" },
+          h("div", { class: "sub-row" },
+            h("span", { class: "sub-row-icon" }, icon("calendar")),
+            h("div", { class: "sub-row-text" },
+              h("small", {}, sub.auto_renew ? "Next charge" : "Active until"),
+              h("strong", {}, date(sub.period_end)))),
+          h("div", { class: "sub-row" },
+            h("span", { class: "sub-row-icon" }, icon("card")),
+            h("div", { class: "sub-row-text" },
+              h("small", {}, "Payment card"),
+              h("strong", { class: hasCard ? "" : "muted" }, hasCard ? sub.card || "Linked" : "Not linked")),
+            hasCard && h("button", { class: "sub-link danger-text", type: "button", onclick: () => unlink(sub) }, "Unlink card")),
+          h("label", { class: "sub-row sub-toggle" },
+            h("span", { class: "sub-row-icon" }, icon("refresh")),
+            h("div", { class: "sub-row-text" },
+              h("small", {}, "Auto-renewal"),
+              h("strong", {}, sub.auto_renew ? "Renews every 30 days" : sub.can_renew ? "Off" : "Off — no saved card")),
+            toggle)),
+
+        h("p", { class: "sub-note muted small" }, sub.auto_renew
+          ? "You can turn auto-renewal off at any time: the plan stays until the end of the paid period."
+          : "When the paid period ends, your account switches to the Free plan. Nothing will be charged."),
+        h("div", { class: "sub-actions" }, h("button", { class: "plan-btn", type: "button", onclick: () => close() }, "Close")));
     }
 
     load();
