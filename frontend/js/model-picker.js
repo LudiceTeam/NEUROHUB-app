@@ -115,7 +115,7 @@ function purpose(id) {
   if (IMAGE_MODELS.has(id)) return ["Photo", "image"];
   if (VIDEO_MODELS.has(id)) return ["Video", "video"];
   if (VOICE_MODELS.has(id)) return ["Voice", "voice"];
-  if (id === "auto") return ["Smart", "smart"];
+  if (id === "auto") return ["Any task", "smart"];
   return ["Chat", "chat"];
 }
 
@@ -228,8 +228,9 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
       h("span", { class: "model-version" }, version || "–"),
       h("span", { class: "model-cost", title: priceTitle }, price),
       h("span", { class: "model-sep", "aria-hidden": "true" }),
-      h("span", { class: `model-badge access ${accessKind}${locked ? " locked" : ""}` }, locked && icon("lock"), accessLabel),
-      h("span", { class: `model-badge kind ${purposeKind}` }, purposeLabel),
+      h("span", { class: "model-access" },
+        h("span", { class: `model-badge ${accessKind}${locked ? " locked" : ""}` }, locked && icon("lock"), accessLabel)),
+      h("span", { class: `model-kind ${purposeKind}` }, purposeLabel),
       h("span", { class: "model-check", "aria-hidden": "true" }, selected && icon("check")));
     return btn;
   }
