@@ -239,10 +239,6 @@ async def auth_google_handler(request:Request,req:AuthGoogle):
 
 
 
-
-
-
-
 APPLE_ISSUER = os.getenv("APPLE_ISSUER")
 APPLE_KEYS_URL = os.getenv("APPLE_KEYS_URL")
 APPLE_AUDIENCE = os.getenv("APPLE_BUNDLE_ID")

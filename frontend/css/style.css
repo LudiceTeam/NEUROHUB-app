@@ -345,7 +345,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 
 .model-panel {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 50;
-  width: 380px; max-height: min(520px, calc(100dvh - 90px)); display: flex; flex-direction: column;
+  width: min(620px, calc(100vw - 32px)); max-height: min(560px, calc(100dvh - 90px)); display: flex; flex-direction: column;
   background: var(--bg-elev); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow);
   overflow: hidden; animation: pop .14s ease-out; transform-origin: top right;
 }
@@ -1792,4 +1792,34 @@ textarea.improving {
 .plans-soon strong { font-size: 14px; }
 .plans-soon span { font-size: 13px; color: var(--muted); }
 .input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent); }
+
+/* model menu rows: icon · name + purpose · version · cost | access · kind */
+.model-option.model-row {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) 46px 34px 1px 70px 58px 16px; align-items: center; column-gap: 10px;
+}
+.model-row .model-option-name { display: flex; align-items: center; gap: 6px; }
+.model-think { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.model-version, .model-cost { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.model-version { color: var(--text); }
+.model-cost { color: var(--muted); }
+.model-sep { align-self: stretch; width: 1px; margin: 4px 0; background: var(--border); }
+.model-badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 3px 0; border-radius: 999px;
+  border: 1px solid currentColor; font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.model-badge .icon { width: 10px; height: 10px; }
+.model-badge.free { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.model-badge.paid { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.model-badge.premium { color: #c27c0e; background: color-mix(in srgb, #f6ad55 14%, transparent); }
+.model-badge.access.locked { color: var(--muted); background: var(--bg-soft); }
+.model-badge.kind { border-color: var(--border); color: var(--muted); background: transparent; }
+.model-badge.kind.image { color: #d53f8c; border-color: color-mix(in srgb, #ed64a6 45%, transparent); }
+.model-badge.kind.video { color: #c2410c; border-color: color-mix(in srgb, #fb923c 45%, transparent); }
+.model-badge.kind.voice { color: #0e9f9a; border-color: color-mix(in srgb, #2ec4b6 45%, transparent); }
+.model-badge.kind.smart { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.model-option.model-row.locked .model-version, .model-option.model-row.locked .model-cost { opacity: .55; }
+@media (max-width: 640px) {
+  .model-option.model-row { grid-template-columns: 30px minmax(0, 1fr) 30px 62px 16px; column-gap: 8px; }
+  .model-row .model-version, .model-row .model-sep, .model-row .model-badge.kind { display: none; }
+}
 

@@ -1,4 +1,4 @@
-import { MODEL_GROUPS, PREMIUM_MODELS, modelCredits } from "./config.js";
+import { MODEL_GROUPS, PREMIUM_MODELS, FREE_MODELS, modelCredits } from "./config.js";
 import { h, icon } from "./dom.js";
 import { gptAvatar } from "./gpts.js";
 
@@ -42,17 +42,83 @@ function provider(id) {
   return PROVIDERS[key] || { name: key, color: "var(--muted)", mark: key[0]?.toUpperCase() || "?" };
 }
 
-function tags(id) {
-  const out = [];
-  if (IMAGE_MODELS.has(id)) out.push(["Image", "image"]);
-  else if (VOICE_MODELS.has(id)) out.push(["Voice", "voice"]);
-  else if (VIDEO_MODELS.has(id)) out.push(["Video", "video"]);
-  else if (PREMIUM_MODELS.has(id)) out.push(["Premium", "premium"]);
-  else if (id !== "auto" && modelCredits(id) > 1) out.push([`×${modelCredits(id)} credits`, "credits"]);
-  if (id.endsWith(":free")) out.push(["Free", "free"]);
-  if (/thinking/.test(id)) out.push(["Reasoning", "reasoning"]);
-  return out;
+// Name without the version, the version, and what the model is good for (shown in the menu).
+const MODEL_INFO = {
+  auto: ["Auto", "", "Picks the best model for each request"],
+  "openai/gpt-5.4-mini": ["GPT Mini", "5.4", "Smart all-rounder for any task"],
+  "openai/gpt-4o": ["GPT", "4o", "Reliable writing and analysis"],
+  "openai/gpt-4o-mini": ["GPT Mini", "4o", "Quick everyday answers"],
+  "anthropic/claude-opus-4.6": ["Claude Opus", "4.6", "Deepest reasoning and long texts"],
+  "anthropic/claude-sonnet-4.6": ["Claude Sonnet", "4.6", "Best for code and writing"],
+  "google/gemini-3-flash-preview": ["Gemini Flash", "3", "Fast and smart, reads photos"],
+  "google/gemini-2.5-flash": ["Gemini Flash", "2.5", "Balanced speed and quality"],
+  "google/gemini-2.5-flash-lite": ["Gemini Flash Lite", "2.5", "Very fast short answers"],
+  "google/gemini-3.1-flash-lite-preview": ["Gemini Flash Lite", "3.1", "Fast answers, good with photos"],
+  "google/gemma-3-4b-it": ["Gemma 4B", "3", "Tiny and instant"],
+  "google/gemma-3-12b-it": ["Gemma 12B", "3", "Light everyday chat"],
+  "google/gemma-3-27b-it": ["Gemma 27B", "3", "Open model, solid quality"],
+  "google/gemma-4-26b-a4b-it": ["Gemma 26B", "4", "Efficient open model"],
+  "google/gemma-4-31b-it": ["Gemma 31B", "4", "Strongest open Gemma"],
+  "google/gemma-4-31b-it:free": ["Gemma 31B", "4", "Strongest open Gemma"],
+  "qwen/qwen2.5-vl-72b-instruct": ["Qwen VL 72B", "2.5", "Reads documents and images"],
+  "qwen/qwen3-vl-8b-instruct": ["Qwen VL 8B", "3", "Light model that sees images"],
+  "qwen/qwen3-vl-8b-thinking": ["Qwen VL 8B Thinking", "3", "Thinks step by step"],
+  "qwen/qwen3-vl-30b-a3b-instruct": ["Qwen VL 30B", "3", "Images, charts and screenshots"],
+  "qwen/qwen3-vl-30b-a3b-thinking": ["Qwen VL 30B Thinking", "3", "Math and logic, step by step"],
+  "meta-llama/llama-4-maverick": ["Llama Maverick", "4", "Creative writing and chat"],
+  "meta-llama/llama-4-scout": ["Llama Scout", "4", "Fast, handles long texts"],
+  "mistralai/mistral-large": ["Mistral Large", "", "Precise, detailed answers"],
+  "mistralai/mistral-small-2603": ["Mistral Small", "26.03", "Fast and compact"],
+  "rekaai/reka-edge": ["Reka Edge", "", "Lightweight, sees images"],
+  "bytedance-seed/seed-2.0-mini": ["Seed Mini", "2.0", "Quick answers from ByteDance"],
+  "bytedance/ui-tars-1.5-7b": ["UI-TARS 7B", "1.5", "Understands app screenshots"],
+  "z-ai/glm-4.6v": ["GLM V", "4.6", "Vision and reasoning"],
+  "moonshotai/kimi-k2.5": ["Kimi", "K2.5", "Long documents and agents"],
+  "google/gemini-3-pro-image-preview": ["Gemini Pro Image", "3", "Highest-quality images"],
+  "google/gemini-3.1-flash-image-preview": ["Gemini Flash Image", "3.1", "Fast image generation and edits"],
+  "bytedance/seedance-2.0-fast": ["Seedance Fast", "2.0", "Video clips with sound"],
+  "bytedance/seedance-2.0-mini": ["Seedance Mini", "2.0", "Cheaper draft videos"],
+};
+
+// Menu columns: [name, version, purpose].
+function info(id) {
+  if (MODEL_INFO[id]) return MODEL_INFO[id];
+  if (VOICE_MODELS.has(id)) {
+    const [base, voice] = id.split(/:(?=[^:]+$)/);
+    const version = base.match(/(\d+(?:\.\d+)+)/)?.[1] || "";
+    const family = /grok/.test(base) ? "Grok Voice" : /lite/.test(base) ? "Gemini Lite TTS" : "Gemini TTS";
+    return [`${family} · ${voice.charAt(0).toUpperCase()}${voice.slice(1)}`, version, "Reads your text aloud"];
+  }
+  return [modelLabel(id), "", id];
 }
+
+// Cost per message: "×N" daily credits; models paid with premium requests or video credits show "–".
+function cost(id) {
+  if (id === "auto" || PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id) || VIDEO_MODELS.has(id) || VOICE_MODELS.has(id)) {
+    return ["–", id === "auto" ? "Depends on the model it picks"
+      : VIDEO_MODELS.has(id) ? "Uses video credits" : "Uses premium requests"];
+  }
+  const n = modelCredits(id);
+  return [`×${n}`, `${n} credit${n === 1 ? "" : "s"} per message`];
+}
+
+// Who can use it: [label, css kind].
+function access(id) {
+  if (id === "auto" || FREE_MODELS.has(id)) return ["Free", "free"];
+  if (PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id)) return ["Premium", "premium"];
+  if (VIDEO_MODELS.has(id)) return ["Plus+", "paid"];
+  return ["Paid", "paid"];
+}
+
+// What it's for: [label, css kind].
+function purpose(id) {
+  if (IMAGE_MODELS.has(id)) return ["Photo", "image"];
+  if (VIDEO_MODELS.has(id)) return ["Video", "video"];
+  if (VOICE_MODELS.has(id)) return ["Voice", "voice"];
+  if (id === "auto") return ["Smart", "smart"];
+  return ["Chat", "chat"];
+}
+
 
 export function mark(id, size = "") {
   const p = provider(id);
@@ -141,22 +207,29 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
           h("span", { class: "model-option-desc" }, "Your own assistant with custom instructions"))));
   }
 
-  function option(id, desc) {
+  // One row of the menu: icon · name and what it's for · version · cost | access · purpose.
+  function option(id) {
     const selected = id === current && !activeGpt;
     const locked = isLocked(id);
+    const [name, version, desc] = info(id);
+    const [price, priceTitle] = cost(id);
+    const [accessLabel, accessKind] = access(id);
+    const [purposeLabel, purposeKind] = purpose(id);
     const btn = h("button", {
-      class: `model-option${selected ? " selected" : ""}${locked ? " locked" : ""}`, type: "button", role: "option",
-      "aria-selected": String(selected), "data-id": id,
+      class: `model-option model-row${selected ? " selected" : ""}${locked ? " locked" : ""}`, type: "button", role: "option",
+      "aria-selected": String(selected), "data-id": id, title: id === "auto" ? "" : id,
       onclick: () => choose(id),
       onmousemove: () => setActive(items.indexOf(btn)),
     },
       mark(id),
       h("span", { class: "model-option-text" },
-        h("span", { class: "model-option-name" }, modelLabel(id)),
+        h("span", { class: "model-option-name" }, name, /thinking/.test(id) && h("span", { class: "model-think" }, "Reasoning")),
         h("span", { class: "model-option-desc" }, desc)),
-      h("span", { class: "model-tags" },
-        locked ? h("span", { class: "model-tag plus" }, icon("lock"), "PLUS")
-          : tags(id).map(([text, kind]) => h("span", { class: `model-tag ${kind}` }, text))),
+      h("span", { class: "model-version" }, version || "–"),
+      h("span", { class: "model-cost", title: priceTitle }, price),
+      h("span", { class: "model-sep", "aria-hidden": "true" }),
+      h("span", { class: `model-badge access ${accessKind}${locked ? " locked" : ""}` }, locked && icon("lock"), accessLabel),
+      h("span", { class: `model-badge kind ${purposeKind}` }, purposeLabel),
       h("span", { class: "model-check", "aria-hidden": "true" }, selected && icon("check")));
     return btn;
   }
@@ -168,13 +241,11 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
     if (mine) sections.push(mine);
     for (const [group, ids] of MODEL_GROUPS) {
       const matches = ids.filter((id) => !q || id.toLowerCase().includes(q) || modelLabel(id).toLowerCase().includes(q)
-        || provider(id).name.toLowerCase().includes(q) || group.toLowerCase().includes(q));
+        || info(id).join(" ").toLowerCase().includes(q) || provider(id).name.toLowerCase().includes(q) || group.toLowerCase().includes(q));
       if (!matches.length) continue;
       sections.push(h("div", { class: "model-group", role: "group", "aria-label": group },
         h("div", { class: "model-group-title" }, group === "Smart" ? "Recommended" : group),
-        matches.map((id) => option(id, id === "auto" ? "Picks the best model for each request"
-          : VOICE_MODELS.has(id) ? "Reads your text aloud"
-          : VIDEO_MODELS.has(id) ? "Video studio · 4–15 s clips with sound" : id))));
+        matches.map((id) => option(id))));
     }
     list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
     items = [...list.querySelectorAll(".model-option")];
