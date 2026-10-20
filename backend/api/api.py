@@ -43,6 +43,8 @@ from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_use
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt,unselect_user_custom_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
 from backend.api.config import MUSIC_MODEL_SPECS,music_generation_models,MAX_MUSIC_PROMPT,MAX_MUSIC_LYRICS,IMAGE_ONLY_MODELS,VIDEO_CREDIT_USD
+from backend.api.config import IMAGE_MODEL_SPECS,IMAGE_ASPECT_RATIOS,IMAGE_RESOLUTIONS,IMAGE_MAX_VARIANTS,IMAGE_MAX_REFERENCES,MAX_IMAGE_PROMPT
+from backend.database.images_db.images_core import migrate_images_table,create_image_job,set_image_job_result,get_user_image_jobs,get_image_job,delete_image_job
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -113,7 +115,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def run_migrations():
     # Adds columns that create_all can't add to existing tables. Safe to run every start (IF NOT EXISTS).
-    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table, migrate_links_table, migrate_music_table):
+    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table, migrate_links_table, migrate_music_table, migrate_images_table):
         try:
             await migrate()
         except Exception:
@@ -848,6 +850,195 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+# --- PHOTO STUDIO ---
+
+_image_jobs:set = set()
+IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+
+
+def image_error_text(raw:str) -> str:
+    low = raw.lower()
+    if any(word in low for word in ("moderat", "safety", "policy", "sensitive", "violat", "blocked", "content_filter")):
+        return "Blocked by the model's safety filter. Try rephrasing the prompt or using another photo."
+    if "timed out" in low or "timeout" in low:
+        return "The model took too long. Please try again."
+    return "The image couldn't be generated. Please try again."
+
+
+def image_job_item(row:dict) -> dict:
+    try:
+        prompt = decrypt(row["prompt"], os.getenv("HASH_MESSAGES_KEY")) if row.get("prompt") else ""
+    except Exception:
+        prompt = ""
+    try:
+        keys = json.loads(row.get("file_keys") or "[]")
+    except Exception:
+        keys = []
+    return {
+        "id": row["id"],
+        "status": row.get("status") or "pending",
+        "urls": [AWS_CLIENT.sign(key) for key in keys],
+        "prompt": prompt,
+        "model": row.get("model"),
+        "aspect_ratio": row.get("aspect_ratio"),
+        "resolution": row.get("resolution"),
+        "count": row.get("count") or 1,
+        "cost": row.get("cost") or 0,
+        "error": row.get("error"),
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+    }
+
+
+async def process_image_job(job_id:str, user_id:str, model:str, prompt:str, aspect_ratio:str, resolution:str,
+                            count:int, per_image:int, references:List):
+    """Makes `count` variants in parallel; failed variants are refunded."""
+    await set_image_job_result(job_id, "processing")
+    extra = {"aspect_ratio": aspect_ratio, "resolution": resolution}
+    results = await asyncio.gather(*[images_api_request(model, prompt, references, extra) for _ in range(count)],
+                                   return_exceptions = True)
+    keys = []
+    errors = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            errors.append(str(result))
+            continue
+        data, content_type = result
+        try:
+            ext = IMAGE_EXT.get(content_type.split(";")[0], "png")
+            keys.append(await AWS_CLIENT.upload_file(file_path = f"{job_id}-{i}.{ext}", file_data = data))
+        except Exception as e:
+            errors.append(str(e))
+    if errors:
+        logger.error(f"PHOTO STUDIO ERRORS {model}: {errors[:2]}")
+    failed = count - len(keys)
+    if failed:
+        await refund_premium_requests(user_id, failed * per_image)
+    if keys:
+        await set_image_job_result(job_id, "completed", file_keys = keys, cost = len(keys) * per_image)
+    else:
+        await set_image_job_result(job_id, "failed", cost = 0, error = image_error_text(" ".join(errors)))
+
+
+@app.get("/images/models")
+@limiter.limit("30/minute")
+async def image_models_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    return {
+        "result": [{"id": model_id, **spec} for model_id, spec in IMAGE_MODEL_SPECS.items()],
+        "aspect_ratios": IMAGE_ASPECT_RATIOS,
+        "resolutions": IMAGE_RESOLUTIONS,
+        "max_variants": IMAGE_MAX_VARIANTS,
+        "max_references": IMAGE_MAX_REFERENCES,
+        "max_prompt": MAX_IMAGE_PROMPT,
+    }
+
+
+@app.get("/images/list")
+@limiter.limit("60/minute")
+async def image_list_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    try:
+        await check_ban(user_data["user_id"])
+        return {"result": [image_job_item(row) for row in await get_user_image_jobs(user_data["user_id"])]}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
+@app.post("/images/generate")
+@limiter.limit("15/minute")
+async def image_generate_handler(
+        request:Request,
+        prompt:str = Form(...),
+        model:str = Form(...),
+        aspect_ratio:str = Form("1:1"),
+        resolution:str = Form("1K"),
+        count:int = Form(1),
+        references:List[UploadFile] = File(default = []),
+        user_data_jwt:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data_jwt["user_id"]
+        await check_ban(user_id)
+        await update_last_online(user_data_jwt["device_id"])
+        await refil_all_requests(user_id)
+
+        prompt = prompt.strip()
+        if model not in IMAGE_MODEL_SPECS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unknown image model")
+        if not prompt:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Describe the image")
+        if len(prompt) > MAX_IMAGE_PROMPT:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Prompt is too long")
+        if aspect_ratio not in IMAGE_ASPECT_RATIOS or resolution not in IMAGE_RESOLUTIONS or not 1 <= count <= IMAGE_MAX_VARIANTS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported image settings")
+        references = [r for r in references if r is not None and r.filename]
+        if len(references) > IMAGE_MAX_REFERENCES:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Too many photos")
+        if not has_paid_plan(await get_user_state(user_id)):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Upgrade required")
+
+        reference_urls = []
+        for upload in references:
+            data = await upload.read(MAX_IMAGE_SIZE + 1)
+            if len(data) > MAX_IMAGE_SIZE:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Image is too large")
+            mime = magic.from_buffer(data[:8192], mime = True)
+            if mime not in VIDEO_FRAME_TYPES:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported image type")
+            reference_urls.append(f"data:{mime};base64,{base64.b64encode(data).decode()}")
+
+        per_image = IMAGE_RESOLUTIONS[resolution]
+        cost = per_image * count
+        if not await take_premium_requests(user_id, cost):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "No premium requests left")
+
+        job_id = str(uuid.uuid4())
+        if not await create_image_job(job_id, user_id, encrypt(prompt, os.getenv("HASH_MESSAGES_KEY")), model, aspect_ratio, resolution, count, cost):
+            await refund_premium_requests(user_id, cost)
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+        job = asyncio.create_task(process_image_job(job_id, user_id, model, prompt, aspect_ratio, resolution, count, per_image, reference_urls))
+        _image_jobs.add(job)
+        job.add_done_callback(_image_jobs.discard)
+
+        row = await get_image_job(user_id, job_id)
+        return {"result": image_job_item(row) if row else {"id": job_id, "status": "pending"}, "cost": cost}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
+class ImageJobDelete(BaseModel):
+    image_id:str
+
+
+@app.post("/images/delete")
+@limiter.limit("30/minute")
+async def image_delete_handler(request:Request, req:ImageJobDelete, user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+        await check_ban(user_id)
+        job = await get_image_job(user_id, req.image_id)
+        if not job:
+            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Image not found")
+        if job["status"] in ("pending", "processing"):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "The image is still being generated")
+        await delete_image_job(user_id, req.image_id)
+        for key in json.loads(job.get("file_keys") or "[]"):
+            try:
+                await AWS_CLIENT.delete_file(key)
+            except Exception:
+                logger.exception("IMAGE FILE DELETE ERROR")
+        return {"message": "Ok"}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
 # --- MUSIC STUDIO ---
 
 MUSIC_TIMEOUT_SECONDS = 6 * 60
@@ -1349,32 +1540,37 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
         return ""
 
 
-async def generate_image_via_images_api(model:str, prompt:str, images_base64:List | None = None) -> bytes | str:
-    """POST /api/v1/images: returns the image bytes, or a short error text like the chat path does."""
-    body = {"model": model, "prompt": prompt or "An image"}
-    # Attached photos become references for editing.
-    if images_base64:
-        body["input_references"] = [
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}}
-            for image in images_base64
-        ]
+async def images_api_request(model:str, prompt:str, references:List | None = None, extra:dict | None = None) -> tuple:
+    """POST /api/v1/images. Returns (image bytes, content type); raises with the provider's message on failure.
+    references are data URLs (or http links) of photos to edit or follow."""
+    body = {"model": model, "prompt": prompt or "An image", **(extra or {})}
+    if references:
+        body["input_references"] = [{"type": "image_url", "image_url": {"url": url}} for url in references]
     headers = {"Authorization": f"Bearer {OPEN_AI_KEY}", "Content-Type": "application/json"}
     async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = 180)) as session:
-        async with session.post("https://openrouter.ai/api/v1/images", json = body, headers = headers) as response:
+        async with session.post(f"{OPENROUTER_URL}/images", json = body, headers = headers) as response:
             if response.status >= 300:
-                logger.error(f"IMAGES API ERROR {model} {response.status}: {(await response.text())[:500]}")
-                return "No image in response"
+                raise Exception(f"Images API {response.status}: {(await response.text())[:500]}")
             result = await response.json()
         for item in result.get("data") or []:
             if item.get("b64_json"):
-                return base64.b64decode(item["b64_json"])
+                return base64.b64decode(item["b64_json"]), item.get("media_type") or "image/png"
             # Some providers may answer with a link instead of base64.
             if item.get("url"):
                 async with session.get(item["url"]) as image_response:
                     if image_response.status == 200:
-                        return await image_response.read()
-    logger.error(f"IMAGES API: no image for {model}: {str(result)[:300]}")
-    return "No image in response"
+                        return await image_response.read(), image_response.headers.get("Content-Type", "image/png")
+    raise Exception(f"Images API returned no image: {str(result)[:300]}")
+
+
+async def generate_image_via_images_api(model:str, prompt:str, images_base64:List | None = None) -> bytes | str:
+    """Chat path: the image bytes, or a short error text the chat handlers already understand."""
+    try:
+        image, _ = await images_api_request(model, prompt, [f"data:image/jpeg;base64,{i}" for i in images_base64 or []])
+        return image
+    except Exception:
+        logger.exception("IMAGES API ERROR")
+        return "No image in response"
 
 
 async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:

@@ -211,6 +211,25 @@ image_generation_models = [
     "qwen/qwen-image-3",
     "recraft/recraft-v4.1",
 ]
+# Photo studio: every image model goes through OpenRouter's Images API (POST /api/v1/images).
+# One image costs 1 premium request (2 at high resolution).
+IMAGE_MODEL_SPECS = {
+    "google/gemini-3-pro-image-preview": {"name": "Nano Banana Pro", "note": "Best quality, understands complex scenes"},
+    "google/gemini-3.1-flash-image-preview": {"name": "Nano Banana 2", "note": "Fast, great at editing photos"},
+    "google/gemini-3.1-flash-lite-image": {"name": "Nano Banana Lite", "note": "Cheapest and fastest"},
+    "openai/gpt-image-2": {"name": "GPT Image 2", "note": "Photorealism and precise edits"},
+    "black-forest-labs/flux.2-pro": {"name": "FLUX.2 Pro", "note": "Top-tier detail and style"},
+    "bytedance-seed/seedream-4.5": {"name": "Seedream 4.5", "note": "Vivid images and posters"},
+    "x-ai/grok-imagine-image-quality": {"name": "Grok Imagine", "note": "Bold, creative images"},
+    "qwen/qwen-image-3": {"name": "Qwen Image 3", "note": "Clean text and lettering"},
+    "recraft/recraft-v4.1": {"name": "Recraft 4.1", "note": "Logos, icons and design"},
+}
+IMAGE_ASPECT_RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9", "2:3", "3:2"]
+IMAGE_RESOLUTIONS = {"1K": 1, "2K": 2}      # resolution -> premium requests per image
+IMAGE_MAX_VARIANTS = 4
+IMAGE_MAX_REFERENCES = 4
+MAX_IMAGE_PROMPT = 2000
+
 # These return only an image (no text part), so they need modalities ["image"].
 IMAGE_ONLY_MODELS = {
     "openai/gpt-image-2",

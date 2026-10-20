@@ -8,6 +8,7 @@ import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { createVideoStudio } from "./video-studio.js";
 import { createMusicStudio } from "./music-studio.js";
+import { createPhotoStudio } from "./photo-studio.js";
 import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
 import { creditsMeter } from "./credits-meter.js";
@@ -205,8 +206,14 @@ export function renderApp(root, logout) {
     onChange: () => loadProfile(),
     getProfile: () => state.profile,
   });
+  // Image models get the photo studio: references, ratio, quality, variants, gallery.
+  const photoStudio = createPhotoStudio({
+    onSelectModel: async (id) => { await onModelChange(id); picker.setValue(id); },
+    onChange: () => loadProfile(),
+    getProfile: () => state.profile,
+  });
   const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
-  const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el, musicStudio.el);
+  const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el, musicStudio.el, photoStudio.el);
   // Shown only if the first load takes longer than a moment, so fast loads don't flash.
   const splash = h("div", { class: "boot-splash", hidden: true, role: "status", "aria-live": "polite" },
     h("div", { class: "boot-inner" },
@@ -664,6 +671,16 @@ export function renderApp(root, logout) {
       videoStudio.hide();
       renderThread();
     }
+    const photo = IMAGE_MODELS.has(state.model);
+    const wasPhoto = main.classList.contains("photo-mode");
+    main.classList.toggle("photo-mode", photo);
+    if (photo) {
+      photoStudio.setModel(state.model);
+      if (!wasPhoto) photoStudio.show();
+    } else if (wasPhoto) {
+      photoStudio.hide();
+      renderThread();
+    }
     const music = MUSIC_MODELS.has(state.model);
     const wasMusic = main.classList.contains("music-mode");
     main.classList.toggle("music-mode", music);
@@ -734,6 +751,8 @@ export function renderApp(root, logout) {
     if (state.profile) videoStudio.setPlan(state.profile);
     musicStudio.setCredits(state.profile?.["Nano Requests"] ?? null);
     if (state.profile) musicStudio.setPlan(state.profile);
+    photoStudio.setCredits(state.profile?.["Nano Requests"] ?? null);
+    if (state.profile) photoStudio.setPlan(state.profile);
     if (!state.messages.length) renderThread();
   }
 
@@ -880,6 +899,8 @@ export function renderApp(root, logout) {
       videoStudio.focus();
     } else if (MUSIC_MODELS.has(state.model)) {
       musicStudio.focus();
+    } else if (IMAGE_MODELS.has(state.model)) {
+      photoStudio.focus();
     } else {
       textarea.focus();
     }
