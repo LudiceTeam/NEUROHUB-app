@@ -1,4 +1,4 @@
-import { h, modal, toast } from "./dom.js";
+import { h, icon, modal, toast } from "./dom.js";
 import { lang } from "./i18n.js";
 import { PLANS, rubles } from "./plans.js";
 import { CONTACT_EMAIL } from "./legal.js";
@@ -16,13 +16,15 @@ export function openPlans(profile) {
         ? `You're on ${PLAN_NAMES[currentPlan]}. To switch plans, cancel it in "Manage subscription" first.`
         : "Prices in rubles for 30 days. Cancel anytime.");
     const soon = !PAYMENTS_READY && h("div", { class: "plans-soon", role: "status" },
-      h("strong", {}, "Online payment is coming very soon"),
-      h("span", {}, "We're connecting payment by Russian cards and SBP. Subscriptions will open in the next few days."));
+      h("span", { class: "plans-soon-icon", "aria-hidden": "true" }, icon("spark")),
+      h("span", { class: "plans-soon-text" },
+        h("strong", {}, "Online payment is coming very soon"),
+        h("span", {}, "We're connecting payment by Russian cards and SBP. Subscriptions will open in the next few days.")));
 
     const grid = h("div", { class: "plans-grid" }, PLANS.map((plan) => {
       const current = plan.id === currentPlan;
       const btn = h("button", {
-        class: `btn ${plan.popular ? "primary" : ""} block`, type: "button", disabled: current,
+        class: `plan-btn${plan.popular ? " primary" : ""}${PAYMENTS_READY || current ? "" : " soon"}`, type: "button", disabled: current,
         onclick: () => {
           if (!PAYMENTS_READY) {
             toast("Online payment is coming very soon. Subscriptions will open in the next few days.", "info");
@@ -33,6 +35,7 @@ export function openPlans(profile) {
       return h("div", { class: `plan-card${plan.popular ? " popular" : ""}${current ? " current" : ""}` },
         h("div", { class: "plan-head" }, h("h3", {}, plan.name),
           plan.popular && h("span", { class: "plan-badge" }, "Popular")),
+        h("p", { class: "plan-note" }, plan.note),
         h("div", { class: "plan-price" }, h("strong", {}, rubles(plan.rub)), h("span", {}, "/ month")),
         h("ul", {},
           h("li", {}, `${plan.requests} credits / day · all models`),
@@ -43,8 +46,16 @@ export function openPlans(profile) {
           plan.voices ? h("li", {}, "Custom themes & message colors") : null),
         btn);
     }));
+    // Soft light that follows the cursor, like the cards on the landing page.
+    grid.addEventListener("pointermove", (e) => {
+      const card = e.target.closest(".plan-card");
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      card.style.setProperty("--my", `${e.clientY - r.top}px`);
+    });
 
-    return h("div", { class: "stack" }, soon, grid, note, plansConsent());
+    return h("div", { class: "stack plans" }, soon, grid, h("div", { class: "plans-foot" }, note, plansConsent()));
   }, { wide: true });
 }
 
