@@ -1872,3 +1872,19 @@ textarea.improving {
   .model-row .model-version, .model-row .model-sep, .model-row .model-kind { display: none; }
 }
 
+/* model menu filters */
+.model-filters { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.model-chip-row { display: flex; gap: 6px; }
+.model-chip-row.scroll { overflow-x: auto; scrollbar-width: none; margin: 0 -10px; padding: 0 10px; mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 24px), transparent); }
+.model-chip-row.scroll::-webkit-scrollbar { display: none; }
+.model-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 11px; border: 0; border-radius: 999px;
+  font: inherit; font-size: 12.5px; font-weight: 500; color: var(--muted); background: color-mix(in srgb, var(--text) 5%, transparent);
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.model-chip:hover { color: var(--text); background: color-mix(in srgb, var(--text) 9%, transparent); }
+.model-chip.active { color: var(--bg); background: var(--text); }
+.model-chip .model-mark { width: 16px; height: 16px; font-size: 9px; }
+.model-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 0; color: var(--muted); }
+.model-empty p { margin: 0; }
+

@@ -151,9 +151,42 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
     onkeydown: onKey,
   });
   const list = h("div", { class: "model-list", role: "listbox", "aria-label": "Models" });
+  // Filters: what the model is for, and which company makes it. Combined with the search.
+  let kindFilter = "all";
+  let companyFilter = null;
+  const KIND_FILTERS = [["all", "All"], ["chat", "Chat"], ["image", "Photo"], ["video", "Video"], ["voice", "Voice"]];
+  const COMPANIES = [...new Set(MODEL_GROUPS.flatMap(([, ids]) => ids).filter((id) => id !== "auto").map((id) => provider(id).name))];
+  const filters = h("div", { class: "model-filters" });
+
+  function chip(label, active, onclick, lead = null) {
+    return h("button", { class: `model-chip${active ? " active" : ""}`, type: "button", "aria-pressed": String(active), onclick }, lead, label);
+  }
+
+  function renderFilters() {
+    filters.replaceChildren(
+      h("div", { class: "model-chip-row", role: "group", "aria-label": "Type" },
+        KIND_FILTERS.map(([key, label]) => chip(label, kindFilter === key, () => { kindFilter = key; renderFilters(); renderList(); }))),
+      h("div", { class: "model-chip-row scroll", role: "group", "aria-label": "Company" },
+        COMPANIES.map((name) => {
+          const sample = MODEL_GROUPS.flatMap(([, ids]) => ids).find((id) => id !== "auto" && provider(id).name === name);
+          return chip(name, companyFilter === name, () => {
+            companyFilter = companyFilter === name ? null : name;
+            renderFilters();
+            renderList();
+          }, mark(sample, "xs"));
+        })));
+  }
+
+  const passesFilters = (id) => {
+    if (kindFilter !== "all" && (id === "auto" || purpose(id)[1] !== kindFilter)) return false;
+    if (companyFilter && (id === "auto" || provider(id).name !== companyFilter)) return false;
+    return true;
+  };
+
   const panel = h("div", { class: "model-panel", hidden: true },
-    h("div", { class: "model-search-wrap" }, search),
+    h("div", { class: "model-search-wrap" }, search, filters),
     list);
+  renderFilters();
   const scrim = h("div", { class: "model-scrim", hidden: true, onclick: () => close() });
   const el = h("div", { class: "model-picker" }, trigger, scrim, panel);
 
@@ -238,17 +271,21 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   function renderList() {
     const q = search.value.trim().toLowerCase();
     const sections = [];
-    const mine = gptGroup(q);
+    // Custom GPTs are chat assistants: shown unless the filters point elsewhere.
+    const mine = (kindFilter === "all" || kindFilter === "chat") && !companyFilter ? gptGroup(q) : null;
     if (mine) sections.push(mine);
     for (const [group, ids] of MODEL_GROUPS) {
-      const matches = ids.filter((id) => !q || id.toLowerCase().includes(q) || modelLabel(id).toLowerCase().includes(q)
-        || info(id).join(" ").toLowerCase().includes(q) || provider(id).name.toLowerCase().includes(q) || group.toLowerCase().includes(q));
+      const matches = ids.filter((id) => passesFilters(id) && (!q || id.toLowerCase().includes(q) || modelLabel(id).toLowerCase().includes(q)
+        || info(id).join(" ").toLowerCase().includes(q) || provider(id).name.toLowerCase().includes(q) || group.toLowerCase().includes(q)));
       if (!matches.length) continue;
       sections.push(h("div", { class: "model-group", role: "group", "aria-label": group },
         h("div", { class: "model-group-title" }, group === "Smart" ? "Recommended" : group),
         matches.map((id) => option(id))));
     }
-    list.replaceChildren(...(sections.length ? sections : [h("p", { class: "model-empty" }, "No models found")]));
+    list.replaceChildren(...(sections.length ? sections : [h("div", { class: "model-empty" },
+      h("p", {}, "No models found"),
+      (kindFilter !== "all" || companyFilter) && h("button", { class: "model-chip", type: "button",
+        onclick: () => { kindFilter = "all"; companyFilter = null; renderFilters(); renderList(); } }, "Reset filters"))]));
     items = [...list.querySelectorAll(".model-option")];
     items.forEach((b, i) => b.style.setProperty("--i", String(Math.min(i, 14))));
     setActive(Math.max(0, items.findIndex((b) => (activeGpt ? b.dataset.gpt === activeGpt : b.dataset.id === current))), false);
