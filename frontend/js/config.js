@@ -50,9 +50,26 @@ export const MODEL_GROUPS = [
     "z-ai/glm-4.6v",
     "moonshotai/kimi-k2.5",
   ]],
-  ["Image generation", ["google/gemini-3-pro-image-preview", "google/gemini-3.1-flash-image-preview"]],
+  ["Image generation", [
+    "google/gemini-3-pro-image-preview",
+    "google/gemini-3.1-flash-image-preview",
+    "google/gemini-3.1-flash-lite-image",
+    "openai/gpt-image-2",
+    "black-forest-labs/flux.2-pro",
+    "bytedance-seed/seedream-4.5",
+    "x-ai/grok-imagine-image-quality",
+    "qwen/qwen-image-3",
+    "recraft/recraft-v4.1",
+  ]],
   // Open the video studio (backend VIDEO_MODEL_SPECS); use the monthly video credits, not premium requests.
-  ["Video", ["bytedance/seedance-2.0-fast", "bytedance/seedance-2.0-mini"]],
+  ["Video", [
+    "bytedance/seedance-2.0-fast",
+    "bytedance/seedance-2.0-mini",
+    "google/veo-3.1-lite",
+    "kwaivgi/kling-v3.0-std",
+    "alibaba/wan-3.0",
+    "x-ai/grok-imagine-video-1.5-lite",
+  ]],
   // Open the music studio (backend MUSIC_MODEL_SPECS); paid with premium requests.
   ["Music", ["google/lyria-3-clip-preview", "google/lyria-3-pro-preview"]],
   // Mirrors tts_models in backend/api/config.py: "<model>:<voice>".

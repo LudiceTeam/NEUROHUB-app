@@ -42,7 +42,7 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt,unselect_user_custom_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
-from backend.api.config import MUSIC_MODEL_SPECS,music_generation_models,MAX_MUSIC_PROMPT,MAX_MUSIC_LYRICS
+from backend.api.config import MUSIC_MODEL_SPECS,music_generation_models,MAX_MUSIC_PROMPT,MAX_MUSIC_LYRICS,IMAGE_ONLY_MODELS,VIDEO_CREDIT_USD
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1128,6 +1128,7 @@ async def video_models_handler(request:Request, user_data:dict = Depends(get_cur
         "result": [{"id": model_id, **spec} for model_id, spec in VIDEO_MODEL_SPECS.items()],
         "defaults": VIDEO_DEFAULTS,
         "max_prompt": MAX_VIDEO_PROMPT,
+        "credit_usd": VIDEO_CREDIT_USD,
     }
 
 
@@ -1195,7 +1196,7 @@ async def video_generate_handler(
         if any(f["frame_type"] not in spec["frames"] for f in frames):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video settings")
 
-        cost = video_credit_cost(duration, resolution)
+        cost = video_credit_cost(model, duration, resolution)
         if not await take_video_credits(user_id, cost):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "No video credits")
 
@@ -1285,8 +1286,9 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
             "duration": duration,
             "aspect_ratio": aspect_ratio,
             "resolution": resolution,
-            "generate_audio": generate_audio,
         }
+        if VIDEO_MODEL_SPECS.get(model, {}).get("audio"):
+            body["generate_audio"] = generate_audio
         if seed is not None:
             body["seed"] = seed
         # Chat: the first attached photo becomes the first frame. Studio: frames come ready as data URLs.
@@ -1391,7 +1393,8 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                 }
             ],
             extra_body={
-                "modalities": ["image", "text"],  # КЛЮЧЕВОЙ ПАРАМЕТР!
+                # Image-only models (FLUX, Seedream, GPT Image…) reject a text part in modalities.
+                "modalities": ["image"] if user_model in IMAGE_ONLY_MODELS else ["image", "text"],
             }
         )
             #print(response.model_dump())
@@ -1402,6 +1405,14 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                     img_data = img_dict['image_url']  # <-- ВОТ ТАК ПРАВИЛЬНО!
 
                     true_img_data = img_data["url"]
+
+                    # Some providers return a link to the image instead of a data URL.
+                    if true_img_data.startswith("http"):
+                        async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = 60)) as session:
+                            async with session.get(true_img_data) as image_response:
+                                if image_response.status != 200:
+                                    return "No image in response"
+                                return await image_response.read()
 
                     if ',' in true_img_data:
                         base64_str = true_img_data.split(',')[1]
@@ -1776,7 +1787,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         if user_model in video_generation_models:
             # Videos have their own monthly credits (one video costs as much as ~30 premium answers).
-            if (user_data.get("video_credits") or 0) <= 0:
+            video_cost = video_credit_cost(user_model, VIDEO_DEFAULTS["duration"], VIDEO_DEFAULTS["resolution"])
+            if (user_data.get("video_credits") or 0) < video_cost:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No video credits")
 
             encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
@@ -1797,15 +1809,17 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 image_response = None,
                 model_name = user_model
             )
-            await create_video_task(id = task_id, user_id = user_id, prompt = encrypt(str(req.request)[:MAX_VIDEO_PROMPT], os.getenv("HASH_MESSAGES_KEY")), model = user_model, cost = 1, **{k: VIDEO_DEFAULTS[k] for k in ("duration", "aspect_ratio", "resolution")}, audio = VIDEO_DEFAULTS["generate_audio"])
-            await minus_one_video(user_id)
+            await create_video_task(id = task_id, user_id = user_id, prompt = encrypt(str(req.request)[:MAX_VIDEO_PROMPT], os.getenv("HASH_MESSAGES_KEY")), model = user_model, cost = video_cost, **{k: VIDEO_DEFAULTS[k] for k in ("duration", "aspect_ratio", "resolution")}, audio = VIDEO_DEFAULTS["generate_audio"])
+            if not await take_video_credits(user_id, video_cost):
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No video credits")
 
             start_video_task(
                 task_id = task_id,
                 prompt = promt_for_video_model,
                 model = user_model,
                 message_id = message_id,
-                user_id = user_id
+                user_id = user_id,
+                cost = video_cost
             )
             await update_chat_last_message_date(chat_id)
             
@@ -2149,7 +2163,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         if user_model in video_generation_models:
             # Videos have their own monthly credits (one video costs as much as ~30 premium answers).
-            if (user_data.get("video_credits") or 0) <= 0:
+            video_cost = video_credit_cost(user_model, VIDEO_DEFAULTS["duration"], VIDEO_DEFAULTS["resolution"])
+            if (user_data.get("video_credits") or 0) < video_cost:
                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No video credits")
 
             encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
@@ -2172,15 +2187,17 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
                 image_response = None,
                 model_name = user_model
             )
-            await create_video_task(id = task_id, user_id = user_id, prompt = encrypt(str(true_request)[:MAX_VIDEO_PROMPT], os.getenv("HASH_MESSAGES_KEY")), model = user_model, cost = 1, **{k: VIDEO_DEFAULTS[k] for k in ("duration", "aspect_ratio", "resolution")}, audio = VIDEO_DEFAULTS["generate_audio"])
-            await minus_one_video(user_id)
+            await create_video_task(id = task_id, user_id = user_id, prompt = encrypt(str(true_request)[:MAX_VIDEO_PROMPT], os.getenv("HASH_MESSAGES_KEY")), model = user_model, cost = video_cost, **{k: VIDEO_DEFAULTS[k] for k in ("duration", "aspect_ratio", "resolution")}, audio = VIDEO_DEFAULTS["generate_audio"])
+            if not await take_video_credits(user_id, video_cost):
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "No video credits")
 
             start_video_task(
                 task_id = task_id,
                 prompt = [promt_for_video_model,image_base64_list],
                 model = user_model,
                 message_id = message_id,
-                user_id = user_id
+                user_id = user_id,
+                cost = video_cost
             )
             await update_chat_last_message_date(chat_id)
             

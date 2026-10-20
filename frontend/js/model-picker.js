@@ -17,6 +17,10 @@ const PROVIDERS = {
   "x-ai": { name: "xAI", color: "#111111", mark: "X" },
   moonshotai: { name: "Moonshot", color: "#111827", mark: "K" },
   nvidia: { name: "NVIDIA", color: "#76b900", mark: "N" },
+  "black-forest-labs": { name: "Black Forest Labs", color: "#111111", mark: "F" },
+  recraft: { name: "Recraft", color: "#e5484d", mark: "R" },
+  kwaivgi: { name: "Kling", color: "#0f766e", mark: "K" },
+  alibaba: { name: "Alibaba", color: "#ff6a00", mark: "W" },
 };
 
 export const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
@@ -77,8 +81,19 @@ const MODEL_INFO = {
   "moonshotai/kimi-k2.5": ["Kimi", "K2.5", "Long documents and agents"],
   "google/gemini-3-pro-image-preview": ["Gemini Pro Image", "3", "Highest-quality images"],
   "google/gemini-3.1-flash-image-preview": ["Gemini Flash Image", "3.1", "Fast image generation and edits"],
+  "google/gemini-3.1-flash-lite-image": ["Nano Banana Lite", "2", "Cheapest and fastest images"],
+  "openai/gpt-image-2": ["GPT Image", "2", "Photorealism and precise edits"],
+  "black-forest-labs/flux.2-pro": ["FLUX Pro", "2", "Top-tier detail and style"],
+  "bytedance-seed/seedream-4.5": ["Seedream", "4.5", "Vivid images, posters and edits"],
+  "x-ai/grok-imagine-image-quality": ["Grok Imagine", "", "Bold, creative images"],
+  "qwen/qwen-image-3": ["Qwen Image", "3", "Clean text and lettering in images"],
+  "recraft/recraft-v4.1": ["Recraft", "4.1", "Logos, icons and design"],
   "bytedance/seedance-2.0-fast": ["Seedance Fast", "2.0", "Video clips with sound"],
   "bytedance/seedance-2.0-mini": ["Seedance Mini", "2.0", "Cheaper draft videos"],
+  "google/veo-3.1-lite": ["Veo Lite", "3.1", "Google quality with sound"],
+  "kwaivgi/kling-v3.0-std": ["Kling", "3.0", "Lifelike motion, animates people"],
+  "alibaba/wan-3.0": ["Wan", "3.0", "Long clips, up to 1080p"],
+  "x-ai/grok-imagine-video-1.5-lite": ["Grok Imagine Video", "1.5", "Fastest and cheapest clips"],
   "google/lyria-3-clip-preview": ["Lyria Clip", "3", "30-second music clips"],
   "google/lyria-3-pro-preview": ["Lyria Pro", "3", "Full songs with vocals"],
 };

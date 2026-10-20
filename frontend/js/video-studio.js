@@ -16,10 +16,12 @@ const IDEAS = [
   "A cozy coffee shop interior, steam rising from a latte, soft morning light",
 ];
 
-// Mirrors video_credit_cost in backend/api/config.py.
-export function videoCost(duration, resolution) {
-  const weight = { "480p": 0.5, "720p": 1, "1080p": 2 }[resolution] ?? 1;
-  return Math.max(1, Math.ceil(Math.floor(duration * weight) / 8));
+// Mirrors video_credit_cost in backend/api/config.py: the model's price per second at that
+// resolution, in video credits of `creditUsd` each.
+export function videoCost(model, duration, resolution, creditUsd = 0.75) {
+  const prices = model?.price || {};
+  const perSecond = prices[resolution] ?? Math.max(creditUsd / 8, ...Object.values(prices));
+  return Math.max(1, Math.ceil(Math.round((perSecond * duration / creditUsd) * 1e6) / 1e6));
 }
 
 function svg(d, cls = "icon") {
@@ -62,6 +64,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
   const st = {
     models: [],
     maxPrompt: 2000,
+    creditUsd: 0.75,
     model: null,
     duration: saved.duration ?? 8,
     aspect: saved.aspect ?? "16:9",
@@ -80,7 +83,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
   let tickTimer = 0;
 
   const spec = () => st.models.find((m) => m.id === st.model) || st.models[0] || null;
-  const cost = () => videoCost(st.duration, st.resolution);
+  const cost = () => videoCost(spec(), st.duration, st.resolution, st.creditUsd);
   const paid = () => PAID_PLANS.some((k) => st.profile?.[k]);
   const pending = () => st.items.some((v) => v.status === "pending" || v.status === "processing");
 
@@ -217,6 +220,8 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
             class: `vs-model${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => pickModel(x.id),
           }, mark(x.id, "sm"), h("span", { class: "vs-model-text" }, h("strong", {}, x.name), h("small", {}, x.note)),
+          // Price hint: credits for an 8-second clip (or the closest length) at the model's lowest resolution.
+          h("span", { class: "ms-model-cost" }, `${videoCost(x, x.durations.reduce((a, b) => (Math.abs(b - 8) < Math.abs(a - 8) ? b : a)), x.resolutions[0], st.creditUsd)} cr`),
           selected && h("span", { class: "vs-check" }, icon("check")));
         }))),
 
@@ -425,6 +430,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
       const res = await api.videoModels();
       st.models = res?.result || [];
       st.maxPrompt = res?.max_prompt || st.maxPrompt;
+      st.creditUsd = res?.credit_usd || st.creditUsd;
       if (!saved.duration && res?.defaults?.duration) st.duration = res.defaults.duration;
       if (!st.models.some((m) => m.id === st.model)) st.model = st.models[0]?.id || null;
       clampToModel();

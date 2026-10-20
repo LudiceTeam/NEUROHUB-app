@@ -1,3 +1,4 @@
+import math
 import os
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -204,11 +205,28 @@ FREE_MODELS = [m for m in models if m != "auto" and m not in expensive_models an
 image_generation_models = [
     "google/gemini-3-pro-image-preview",
     "google/gemini-3.1-flash-image-preview",
+    "google/gemini-3.1-flash-lite-image",
+    "openai/gpt-image-2",
+    "black-forest-labs/flux.2-pro",
+    "bytedance-seed/seedream-4.5",
+    "x-ai/grok-imagine-image-quality",
+    "qwen/qwen-image-3",
+    "recraft/recraft-v4.1",
 ]
+# These return only an image (no text part), so they need modalities ["image"].
+IMAGE_ONLY_MODELS = {
+    "openai/gpt-image-2",
+    "black-forest-labs/flux.2-pro",
+    "bytedance-seed/seedream-4.5",
+    "x-ai/grok-imagine-image-quality",
+    "qwen/qwen-image-3",
+    "recraft/recraft-v4.1",
+}
 
 # Video studio models and the settings OpenRouter accepts for each (GET /api/v1/videos/models).
 VIDEO_MODEL_SPECS = {
     "bytedance/seedance-2.0-fast": {
+        "price": {"480p": 0.04, "720p": 0.091},
         "name": "Seedance 2.0 Fast",
         "note": "Fast, sharp motion, with sound",
         "resolutions": ["480p", "720p"],
@@ -218,6 +236,7 @@ VIDEO_MODEL_SPECS = {
         "audio": True,
     },
     "bytedance/seedance-2.0-mini": {
+        "price": {"480p": 0.034, "720p": 0.076},
         "name": "Seedance 2.0 Mini",
         "note": "Lighter and cheaper, great for drafts",
         "resolutions": ["480p", "720p"],
@@ -227,6 +246,48 @@ VIDEO_MODEL_SPECS = {
         "audio": True,
     },
 }
+VIDEO_MODEL_SPECS.update({
+    "google/veo-3.1-lite": {
+        "price": {"720p": 0.05, "1080p": 0.08},
+        "name": "Veo 3.1 Lite",
+        "note": "Google quality with sound, great value",
+        "resolutions": ["720p", "1080p"],
+        "aspect_ratios": ["16:9", "9:16"],
+        "durations": [4, 6, 8],
+        "frames": ["first_frame", "last_frame"],
+        "audio": True,
+    },
+    "kwaivgi/kling-v3.0-std": {
+        "price": {"720p": 0.126},
+        "name": "Kling 3.0",
+        "note": "Lifelike motion, animates photos of people",
+        "resolutions": ["720p"],
+        "aspect_ratios": ["16:9", "9:16", "1:1"],
+        "durations": list(range(3, 16)),
+        "frames": ["first_frame", "last_frame"],
+        "audio": True,
+    },
+    "alibaba/wan-3.0": {
+        "price": {"480p": 0.05, "720p": 0.10, "1080p": 0.20},
+        "name": "Wan 3.0",
+        "note": "Long clips up to 15 s, up to 1080p",
+        "resolutions": ["480p", "720p", "1080p"],
+        "aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "durations": list(range(2, 16)),
+        "frames": ["first_frame", "last_frame"],
+        "audio": True,
+    },
+    "x-ai/grok-imagine-video-1.5-lite": {
+        "price": {"480p": 0.02, "720p": 0.03, "1080p": 0.14},
+        "name": "Grok Imagine Video",
+        "note": "Fastest and cheapest, for quick ideas",
+        "resolutions": ["480p", "720p", "1080p"],
+        "aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "durations": list(range(2, 16)),
+        "frames": ["first_frame"],
+        "audio": False,
+    },
+})
 video_generation_models = list(VIDEO_MODEL_SPECS)
 # Music studio (Google Lyria 3 on OpenRouter). Paid with premium requests: OpenRouter charges
 # $0.04 per 30-second clip and $0.08 per full song.
@@ -251,10 +312,15 @@ VIDEO_DEFAULTS = {"duration": 8, "aspect_ratio": "9:16", "resolution": "720p", "
 MAX_VIDEO_PROMPT = 2000
 
 
-def video_credit_cost(duration:int, resolution:str) -> int:
-    """Video credits for one clip: an 8-second 720p clip costs 1, longer or sharper clips cost more."""
-    weight = {"480p": 0.5, "720p": 1, "1080p": 2}.get(resolution, 1)
-    return max(1, -(-int(duration * weight) // 8))
+# One video credit is worth this much OpenRouter spend; a clip costs as many credits as it needs.
+VIDEO_CREDIT_USD = 0.75
+
+
+def video_credit_cost(model:str, duration:int, resolution:str) -> int:
+    """Video credits for one clip, from the model's price per second at that resolution."""
+    prices = VIDEO_MODEL_SPECS.get(model, {}).get("price") or {}
+    per_second = prices.get(resolution) or max(prices.values(), default = VIDEO_CREDIT_USD / 8)
+    return max(1, math.ceil(round(per_second * duration / VIDEO_CREDIT_USD, 6)))
 
 
 # Text-to-speech models (OpenRouter /audio/speech). Every entry is one voice of a speech
