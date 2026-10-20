@@ -60,7 +60,18 @@ async def create_first_payment(value:str, description:str, return_url:str, email
     }
     if (r := receipt(email, description, value)):
         body["receipt"] = r
-    return await _request("POST", "/payments", body)
+    if os.getenv("YOOKASSA_SAVE_CARD", "1") != "1":
+        body.pop("save_payment_method")
+        return await _request("POST", "/payments", body)
+    try:
+        return await _request("POST", "/payments", body)
+    except YooKassaError as e:
+        # Until YooKassa enables recurring payments for the shop it refuses save_payment_method.
+        # Take a one-off payment instead: the plan simply won't renew automatically.
+        if "recurring" not in str(e).lower():
+            raise
+        body.pop("save_payment_method")
+        return await _request("POST", "/payments", body)
 
 
 async def create_recurring_payment(value:str, description:str, payment_method_id:str, email:str, metadata:dict, idempotence_key:str) -> dict:

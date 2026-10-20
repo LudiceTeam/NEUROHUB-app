@@ -100,12 +100,27 @@ export function openPortal() {
           } catch (e) { toast(errorText(e)); toggle.disabled = false; }
         },
       }, sub.auto_renew ? "Turn off auto-renewal" : "Turn auto-renewal back on");
+      async function unlink() {
+        if (!(await confirmModal("Unlink card?",
+          `The card will be removed from Veora and won't be charged again. Your plan stays active until ${date(sub.period_end)}.`,
+          { confirm: "Unlink", danger: true }))) return;
+        try {
+          await api.yookassaUnlink();
+          toast("Card unlinked", "ok");
+          load();
+        } catch (e) { toast(errorText(e)); }
+      }
+
       body.replaceChildren(
         h("div", { class: "sub-card" },
           h("div", { class: "sub-head" }, h("strong", {}, plan?.name || sub.plan), sub.price && h("span", {}, `${rubles(sub.price)} / month`)),
           h("div", { class: "sub-rows" },
             h("div", {}, h("span", {}, sub.auto_renew ? "Next charge" : "Active until"), h("strong", {}, date(sub.period_end))),
-            sub.card && h("div", {}, h("span", {}, "Card"), h("strong", {}, sub.card)),
+            h("div", { class: "sub-card-row" }, h("span", {}, "Card"),
+              sub.card || sub.can_renew
+                ? h("span", { class: "sub-card-value" }, h("strong", {}, sub.card || "Linked"),
+                  h("button", { class: "link-btn danger-text", type: "button", onclick: unlink }, "Unlink card"))
+                : h("strong", { class: "muted" }, "Not linked")),
             h("div", {}, h("span", {}, "Auto-renewal"), h("strong", { class: sub.auto_renew ? "ok-text" : "muted" }, sub.auto_renew ? "On" : "Off")))),
         h("p", { class: "muted small" }, sub.auto_renew
           ? "The plan renews every 30 days. You can turn auto-renewal off at any time: the plan stays until the end of the paid period."

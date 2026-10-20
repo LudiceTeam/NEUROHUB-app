@@ -1998,4 +1998,7 @@ textarea.improving {
 .sub-rows > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .sub-rows span { color: var(--muted); }
 .ok-text { color: var(--ok); }
+.sub-card-value { display: inline-flex; align-items: baseline; gap: 10px; }
+.link-btn { padding: 0; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.link-btn:hover { opacity: .8; }
 

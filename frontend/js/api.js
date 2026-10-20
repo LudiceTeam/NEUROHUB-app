@@ -153,6 +153,7 @@ export const api = {
   yookassaSubscription: () => request("/yookassa/subscription"),
   yookassaCancel: () => post("/yookassa/cancel", {}),
   yookassaResume: () => post("/yookassa/resume", {}),
+  yookassaUnlink: () => post("/yookassa/unlink", {}),
   imageList: () => request("/images/list"),
   generateImages: (form) => request("/images/generate", { method: "POST", form }),
   deleteImages: (image_id) => post("/images/delete", { image_id }),

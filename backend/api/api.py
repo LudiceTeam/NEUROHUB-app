@@ -4793,6 +4793,17 @@ async def yookassa_cancel_handler(request:Request, user_data:dict = Depends(get_
     return {"message": "Ok"}
 
 
+@app.post("/yookassa/unlink")
+@limiter.limit("10/minute")
+async def yookassa_unlink_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    """Forgets the saved card: no more automatic charges, the paid period stays."""
+    sub = await get_subscription(user_data["user_id"])
+    if not sub or not sub.get("payment_method_id"):
+        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "No linked card")
+    await upsert_subscription(user_data["user_id"], payment_method_id = None, card_title = None, auto_renew = False)
+    return {"message": "Ok"}
+
+
 @app.post("/yookassa/resume")
 @limiter.limit("10/minute")
 async def yookassa_resume_handler(request:Request, user_data:dict = Depends(get_current_user)):
