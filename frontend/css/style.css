@@ -1887,4 +1887,6 @@ textarea.improving {
 .model-chip .model-mark { width: 16px; height: 16px; font-size: 9px; }
 .model-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 0; color: var(--muted); }
 .model-empty p { margin: 0; }
+.model-chip-row:not(.scroll) { flex-wrap: wrap; align-items: center; }
+.model-chip-sep { width: 1px; height: 16px; margin: 0 2px; background: color-mix(in srgb, var(--text) 12%, transparent); }
 

@@ -154,6 +154,8 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   // Filters: what the model is for, and which company makes it. Combined with the search.
   let kindFilter = "all";
   let companyFilter = null;
+  let priceFilter = null;   // null | "free" | "paid"
+  const PRICE_FILTERS = [["free", "Free models"], ["paid", "Paid models"]];
   const KIND_FILTERS = [["all", "All"], ["chat", "Chat"], ["image", "Photo"], ["video", "Video"], ["voice", "Voice"]];
   const COMPANIES = [...new Set(MODEL_GROUPS.flatMap(([, ids]) => ids).filter((id) => id !== "auto").map((id) => provider(id).name))];
   const filters = h("div", { class: "model-filters" });
@@ -165,7 +167,13 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   function renderFilters() {
     filters.replaceChildren(
       h("div", { class: "model-chip-row", role: "group", "aria-label": "Type" },
-        KIND_FILTERS.map(([key, label]) => chip(label, kindFilter === key, () => { kindFilter = key; renderFilters(); renderList(); }))),
+        KIND_FILTERS.map(([key, label]) => chip(label, kindFilter === key, () => { kindFilter = key; renderFilters(); renderList(); })),
+        h("span", { class: "model-chip-sep", "aria-hidden": "true" }),
+        PRICE_FILTERS.map(([key, label]) => chip(label, priceFilter === key, () => {
+          priceFilter = priceFilter === key ? null : key;
+          renderFilters();
+          renderList();
+        }))),
       h("div", { class: "model-chip-row scroll", role: "group", "aria-label": "Company" },
         COMPANIES.map((name) => {
           const sample = MODEL_GROUPS.flatMap(([, ids]) => ids).find((id) => id !== "auto" && provider(id).name === name);
@@ -180,6 +188,7 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   const passesFilters = (id) => {
     if (kindFilter !== "all" && (id === "auto" || purpose(id)[1] !== kindFilter)) return false;
     if (companyFilter && (id === "auto" || provider(id).name !== companyFilter)) return false;
+    if (priceFilter && (access(id)[1] === "free" ? "free" : "paid") !== priceFilter) return false;
     return true;
   };
 
@@ -272,7 +281,7 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
     const q = search.value.trim().toLowerCase();
     const sections = [];
     // Custom GPTs are chat assistants: shown unless the filters point elsewhere.
-    const mine = (kindFilter === "all" || kindFilter === "chat") && !companyFilter ? gptGroup(q) : null;
+    const mine = (kindFilter === "all" || kindFilter === "chat") && !companyFilter && !priceFilter ? gptGroup(q) : null;
     if (mine) sections.push(mine);
     for (const [group, ids] of MODEL_GROUPS) {
       const matches = ids.filter((id) => passesFilters(id) && (!q || id.toLowerCase().includes(q) || modelLabel(id).toLowerCase().includes(q)
@@ -284,8 +293,8 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
     }
     list.replaceChildren(...(sections.length ? sections : [h("div", { class: "model-empty" },
       h("p", {}, "No models found"),
-      (kindFilter !== "all" || companyFilter) && h("button", { class: "model-chip", type: "button",
-        onclick: () => { kindFilter = "all"; companyFilter = null; renderFilters(); renderList(); } }, "Reset filters"))]));
+      (kindFilter !== "all" || companyFilter || priceFilter) && h("button", { class: "model-chip", type: "button",
+        onclick: () => { kindFilter = "all"; companyFilter = null; priceFilter = null; renderFilters(); renderList(); } }, "Reset filters"))]));
     items = [...list.querySelectorAll(".model-option")];
     items.forEach((b, i) => b.style.setProperty("--i", String(Math.min(i, 14))));
     setActive(Math.max(0, items.findIndex((b) => (activeGpt ? b.dataset.gpt === activeGpt : b.dataset.id === current))), false);
