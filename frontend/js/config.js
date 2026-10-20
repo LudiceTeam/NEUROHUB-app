@@ -15,7 +15,7 @@ export const config = {
 // Mirrors backend/api/config.py. Video models are omitted: /change_model rejects them.
 export const MODEL_GROUPS = [
   ["Smart", ["auto"]],
-  ["OpenAI", ["openai/gpt-6.1-sol", "openai/gpt-6-luna", "openai/gpt-5.4-mini", "openai/gpt-4o", "openai/gpt-4o-mini"]],
+  ["OpenAI", ["openai/gpt-6.1-sol", "openai/gpt-6-luna", "openai/gpt-5.4-mini", "openai/gpt-4o"]],
   ["Anthropic", ["anthropic/claude-opus-4.6", "anthropic/claude-sonnet-4.6"]],
   ["Google Gemini", [
     "google/gemini-3-flash-preview",
@@ -41,7 +41,7 @@ export const MODEL_GROUPS = [
     "meta-llama/llama-4-maverick",
     "meta-llama/llama-4-scout",
   ]],
-  ["Mistral", ["mistralai/mistral-large", "mistralai/mistral-small-2603"]],
+  ["Mistral", ["mistralai/mistral-large-4-0", "mistralai/mistral-small-2603"]],
   ["Other", [
     "rekaai/reka-edge",
     "bytedance-seed/seed-2.0-mini",
@@ -100,7 +100,7 @@ export const PREMIUM_MODELS = new Set([
   "anthropic/claude-opus-4.6",
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-4o",
-  "mistralai/mistral-large",
+  "mistralai/mistral-large-4-0",
   "google/gemini-3-pro-image-preview",
   "google/gemini-3.1-flash-image-preview",
 ]);

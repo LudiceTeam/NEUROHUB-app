@@ -70,11 +70,11 @@ models_default = {
     "google/gemini-2.5-flash": 0,
     "openai/gpt-5.4-mini": 0,
     "openai/gpt-4o": 0,
-    "openai/gpt-4o-mini": 0,
+    "openai/gpt-6-luna": 0,
     "google/gemma-4-26b-a4b-it": 0,
     "anthropic/claude-opus-4.6": 0,
     "anthropic/claude-sonnet-4.6": 0,
-    "mistralai/mistral-large": 0,
+    "mistralai/mistral-large-4-0": 0,
     "google/gemini-3-pro-image-preview": 0,
 
     "google/gemini-2.5-flash-lite": 0,

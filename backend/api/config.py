@@ -63,7 +63,7 @@ MODEL_CREDITS = {
 def model_credits(model:str) -> int:
     return MODEL_CREDITS.get(model, 1)
 
-FREE_DEFAULT_MODEL = "openai/gpt-4o-mini"
+FREE_DEFAULT_MODEL = "openai/gpt-6-luna"
 PAID_DEFAULT_MODEL = "google/gemini-3-flash-preview"
 
 # Cost caps that the limits above are calculated with.
@@ -147,7 +147,6 @@ models = [
     "openai/gpt-6.1-sol",
     "openai/gpt-5.4-mini",
     "openai/gpt-4o",
-    "openai/gpt-4o-mini",
 
     # ===== ANTHROPIC =====
     "anthropic/claude-opus-4.6",
@@ -178,7 +177,7 @@ models = [
     "meta-llama/llama-4-scout",
 
     # ===== MISTRAL =====
-    "mistralai/mistral-large",
+    "mistralai/mistral-large-4-0",
     "mistralai/mistral-small-2603",
 
     # ===== OTHER =====
@@ -195,7 +194,7 @@ expensive_models = [
     "anthropic/claude-opus-4.6",
     "anthropic/claude-sonnet-4.6",
     "openai/gpt-4o",
-    "mistralai/mistral-large",
+    "mistralai/mistral-large-4-0",
 ]
 
 
