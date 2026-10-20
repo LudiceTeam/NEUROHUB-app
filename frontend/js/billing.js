@@ -1,75 +1,56 @@
-import { api } from "./api.js";
-import { h, modal, toast, errorText } from "./dom.js";
+import { h, modal, toast } from "./dom.js";
 import { lang } from "./i18n.js";
+import { PLANS, rubles } from "./plans.js";
+import { CONTACT_EMAIL } from "./legal.js";
 
-const PLAN_NAMES = { starter: "Starter", basic: "Basic", plus: "Plus", premium: "Premium", max: "Max", elite: "Elite" };
-const POPULAR = "plus";
+const PLAN_NAMES = Object.fromEntries(PLANS.map((p) => [p.id, p.name]));
+// Online payment is being moved to YooKassa; until it's live the buttons show a "coming soon" notice.
+const PAYMENTS_READY = false;
 
-function price(plan) {
-  if (plan.amount == null) return "—";
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: plan.currency.toUpperCase() }).format(plan.amount / 100);
-}
-
-/** Pricing dialog: picks a plan and sends the user to Stripe Checkout. */
+/** Pricing dialog with the ruble prices. */
 export function openPlans(profile) {
-  const currentPlan = Object.keys(PLAN_NAMES).find((id) => profile?.[PLAN_NAMES[id]]);
+  const currentPlan = PLANS.find((p) => profile?.[p.name])?.id;
   return modal("Choose your plan", () => {
-    const grid = h("div", { class: "plans-grid" },
-      Array.from({ length: 6 }, () => h("div", { class: "plan-card skeleton" }, h("span", { class: "skel" }), h("span", { class: "skel" }))));
     const note = h("p", { class: "muted small" },
       currentPlan
         ? `You're on ${PLAN_NAMES[currentPlan]}. To switch plans, cancel it in "Manage subscription" first.`
-        : "Billed monthly through Stripe. Cancel anytime.");
+        : "Prices in rubles for 30 days. Cancel anytime.");
+    const soon = !PAYMENTS_READY && h("div", { class: "plans-soon", role: "status" },
+      h("strong", {}, "Online payment is coming very soon"),
+      h("span", {}, "We're connecting payment by Russian cards and SBP. Subscriptions will open in the next few days."));
 
-    api.stripePlans().then((res) => {
-      const plans = res?.result || [];
-      if (!plans.length) { grid.replaceChildren(h("p", { class: "muted" }, "Plans are unavailable right now.")); return; }
-      grid.replaceChildren(...plans.map((plan) => {
-        const current = plan.id === currentPlan;
-        const btn = h("button", {
-          class: `btn ${plan.id === POPULAR ? "primary" : ""} block`, type: "button", disabled: Boolean(currentPlan) || plan.amount == null,
-          onclick: async () => {
-            btn.disabled = true;
-            btn.textContent = "Opening checkout…";
-            try {
-              const { payment_url } = await api.checkout(plan.id);
-              location.href = payment_url;
-            } catch (e) {
-              toast(errorText(e));
-              btn.disabled = false;
-              btn.textContent = `Choose ${PLAN_NAMES[plan.id]}`;
-            }
-          },
-        }, current ? "Current plan" : `Choose ${PLAN_NAMES[plan.id] || plan.id}`);
-        return h("div", { class: `plan-card${plan.id === POPULAR ? " popular" : ""}${current ? " current" : ""}` },
-          h("div", { class: "plan-head" }, h("h3", {}, PLAN_NAMES[plan.id] || plan.id),
-            plan.id === POPULAR && h("span", { class: "plan-badge" }, "Popular")),
-          h("div", { class: "plan-price" }, h("strong", {}, price(plan)), plan.interval && h("span", {}, `/ ${plan.interval}`)),
-          h("ul", {},
-            h("li", {}, `${plan.requests} credits / day · all models`),
-            h("li", {}, `${plan.premium_requests} premium requests / month`),
-            h("li", {}, plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : "No video generation"),
-            h("li", {}, plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : "No voice cloning"),
-            h("li", {}, `${plan.photos ?? 5} photos per message`),
-            plan.voices ? h("li", {}, "Custom themes & message colors") : null),
-          btn);
-      }));
-    }).catch((e) => grid.replaceChildren(h("p", { class: "muted" }, errorText(e))));
+    const grid = h("div", { class: "plans-grid" }, PLANS.map((plan) => {
+      const current = plan.id === currentPlan;
+      const btn = h("button", {
+        class: `btn ${plan.popular ? "primary" : ""} block`, type: "button", disabled: current,
+        onclick: () => {
+          if (!PAYMENTS_READY) {
+            toast("Online payment is coming very soon. Subscriptions will open in the next few days.", "info");
+            return;
+          }
+        },
+      }, current ? "Current plan" : PAYMENTS_READY ? `Choose ${plan.name}` : "Coming soon");
+      return h("div", { class: `plan-card${plan.popular ? " popular" : ""}${current ? " current" : ""}` },
+        h("div", { class: "plan-head" }, h("h3", {}, plan.name),
+          plan.popular && h("span", { class: "plan-badge" }, "Popular")),
+        h("div", { class: "plan-price" }, h("strong", {}, rubles(plan.rub)), h("span", {}, "/ month")),
+        h("ul", {},
+          h("li", {}, `${plan.requests} credits / day · all models`),
+          h("li", {}, `${plan.premium} premium requests / month`),
+          h("li", {}, plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : "No video generation"),
+          h("li", {}, plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : "No voice cloning"),
+          h("li", {}, `${plan.photos} photos per message`),
+          plan.voices ? h("li", {}, "Custom themes & message colors") : null),
+        btn);
+    }));
 
-    return h("div", { class: "stack" }, grid, note, plansConsent());
+    return h("div", { class: "stack" }, soon, grid, note, plansConsent());
   }, { wide: true });
 }
 
-/** Opens the Stripe Customer Portal (cancel, change card, invoices). */
-export async function openPortal(button) {
-  if (button) { button.disabled = true; button.textContent = "Opening…"; }
-  try {
-    const { portal_url } = await api.portal();
-    location.href = portal_url;
-  } catch (e) {
-    toast(errorText(e));
-    if (button) { button.disabled = false; button.textContent = "Manage subscription"; }
-  }
+/** Subscription management: a placeholder until YooKassa subscriptions are live. */
+export async function openPortal() {
+  toast(`Subscription management is coming soon. If you need help with your plan, write to ${CONTACT_EMAIL}.`, "info");
 }
 
 /**

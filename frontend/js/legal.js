@@ -1,4 +1,5 @@
 import { h, icon } from "./dom.js";
+import { PLANS, rubles } from "./plans.js";
 
 // Seller details: shown on the landing page and in every legal document.
 export const CONTACT_EMAIL = "svd2yar@gmail.com";
@@ -17,14 +18,15 @@ export const SELLER = {
 };
 const EFFECTIVE = "16 октября 2026 г.";
 
-// Mirrors the plans on the landing page (rubles per 30 days).
+// Plan descriptions for the offer; prices come from plans.js (rubles per 30 days).
+const price = (name) => rubles(PLANS.find((p) => p.name === name).rub).replace("\u00a0", " ");
 const PRICES = [
-  ["Starter", "499 ₽", "40 кредитов в день, 8 премиум-запросов в месяц"],
-  ["Basic", "890 ₽", "80 кредитов в день, 18 премиум-запросов в месяц, 1 собственный голос"],
-  ["Plus", "1 890 ₽", "150 кредитов в день, 40 премиум-запросов и 2 видео в месяц, 3 собственных голоса"],
-  ["Premium", "2 990 ₽", "260 кредитов в день, 75 премиум-запросов и 4 видео в месяц, 5 собственных голосов"],
-  ["Max", "5 990 ₽", "520 кредитов в день, 150 премиум-запросов и 8 видео в месяц, 10 собственных голосов"],
-  ["Elite", "12 990 ₽", "1 100 кредитов в день, 330 премиум-запросов и 18 видео в месяц, 15 собственных голосов"],
+  ["Starter", price("Starter"), "40 кредитов в день, 8 премиум-запросов в месяц"],
+  ["Basic", price("Basic"), "80 кредитов в день, 18 премиум-запросов в месяц, 1 собственный голос"],
+  ["Plus", price("Plus"), "150 кредитов в день, 40 премиум-запросов и 2 видео в месяц, 3 собственных голоса"],
+  ["Premium", price("Premium"), "260 кредитов в день, 75 премиум-запросов и 4 видео в месяц, 5 собственных голосов"],
+  ["Max", price("Max"), "520 кредитов в день, 150 премиум-запросов и 8 видео в месяц, 10 собственных голосов"],
+  ["Elite", price("Elite"), "1 100 кредитов в день, 330 премиум-запросов и 18 видео в месяц, 15 собственных голосов"],
 ];
 
 const mail = `<a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>`;

@@ -2789,6 +2789,7 @@ async def change_name_handle(
         ban_info = await get_ban_info(
             user_id = user_id
         )
+
     
         if ban_info is not None:
             if ban_info["unban_date"] > datetime.now().date():
@@ -2797,9 +2798,14 @@ async def change_name_handle(
                 await unban_user(
                     user_id = user_id
                 )
+        if len(req.new_name.strip()) > 15 or len(req.new_name.strip()) < 3:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = "New name is too short or too long"
+            )
         await change_name(
             user_id = user_data["user_id"],
-            new_name = req.new_name
+            new_name = req.new_name.strip()
         )
     except HTTPException:
         raise

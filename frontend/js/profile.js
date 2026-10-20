@@ -27,13 +27,25 @@ export function openProfile(state, { logout, onChange }) {
     });
     const avatar = h("button", { class: "avatar-lg", type: "button", title: "Change avatar", onclick: () => avatarInput.click() }, avatarImg(p));
 
-    const nameInput = h("input", { class: "input", value: p.Name || "", maxlength: "60", "aria-label": "Name" });
+    // Mirrors /change/name: 3 to 15 characters.
+    const NAME_MIN = 3;
+    const NAME_MAX = 15;
+    const nameInput = h("input", {
+      class: "input", value: p.Name || "", maxlength: String(NAME_MAX), "aria-label": "Name",
+      oninput: () => nameInput.removeAttribute("aria-invalid"),
+    });
     const nameForm = h("form", {
       class: "row",
       onsubmit: async (e) => {
         e.preventDefault();
         const name = nameInput.value.trim();
-        if (!name || name === p.Name) return;
+        if (name === p.Name) return;
+        if (name.length < NAME_MIN || name.length > NAME_MAX) {
+          nameInput.setAttribute("aria-invalid", "true");
+          nameInput.focus();
+          toast(`Name must be ${NAME_MIN} to ${NAME_MAX} characters.`, "info");
+          return;
+        }
         try {
           await api.changeName(name);
           await onChange();

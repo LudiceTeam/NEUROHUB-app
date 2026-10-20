@@ -1784,3 +1784,12 @@ textarea.improving {
 .streak-restores small { font-size: 12px; }
 .streak-restores .streak-resume-dots { margin: 0; flex: none; }
 
+/* payments placeholder */
+.plans-soon {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.plans-soon strong { font-size: 14px; }
+.plans-soon span { font-size: 13px; color: var(--muted); }
+.input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent); }
+
