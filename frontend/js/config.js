@@ -34,7 +34,6 @@ export const MODEL_GROUPS = [
   ["Qwen", [
     "qwen/qwen2.5-vl-72b-instruct",
     "qwen/qwen3-vl-8b-instruct",
-    "qwen/qwen3-vl-8b-thinking",
     "qwen/qwen3-vl-30b-a3b-instruct",
     "qwen/qwen3-vl-30b-a3b-thinking",
   ]],
@@ -87,7 +86,6 @@ export const MODEL_GROUPS = [
 export const MODEL_CREDITS = {
   "openai/gpt-5.4-mini": 5,
   "google/gemini-3-flash-preview": 4,
-  "qwen/qwen3-vl-8b-thinking": 4,
   "qwen/qwen3-vl-30b-a3b-thinking": 4,
   "google/gemini-2.5-flash": 3,
   "moonshotai/kimi-k2.5": 3,

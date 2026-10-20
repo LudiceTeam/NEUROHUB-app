@@ -52,7 +52,6 @@ FREE_PLAN = {"requests": 25, "nano_req": 0, "video": 0, "photos": 1}
 MODEL_CREDITS = {
     "openai/gpt-5.4-mini": 5,
     "google/gemini-3-flash-preview": 4,
-    "qwen/qwen3-vl-8b-thinking": 4,
     "qwen/qwen3-vl-30b-a3b-thinking": 4,
     "google/gemini-2.5-flash": 3,
     "moonshotai/kimi-k2.5": 3,
@@ -169,7 +168,6 @@ models = [
     # ===== QWEN =====
     "qwen/qwen2.5-vl-72b-instruct",
     "qwen/qwen3-vl-8b-instruct",
-    "qwen/qwen3-vl-8b-thinking",
     "qwen/qwen3-vl-30b-a3b-instruct",
     "qwen/qwen3-vl-30b-a3b-thinking",
 

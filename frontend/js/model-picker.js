@@ -67,7 +67,6 @@ const MODEL_INFO = {
   "google/gemma-4-31b-it:free": ["Gemma 31B", "4", "Strongest open Gemma"],
   "qwen/qwen2.5-vl-72b-instruct": ["Qwen VL 72B", "2.5", "Reads documents and images"],
   "qwen/qwen3-vl-8b-instruct": ["Qwen VL 8B", "3", "Light model that sees images"],
-  "qwen/qwen3-vl-8b-thinking": ["Qwen VL 8B Thinking", "3", "Thinks step by step"],
   "qwen/qwen3-vl-30b-a3b-instruct": ["Qwen VL 30B", "3", "Images, charts and screenshots"],
   "qwen/qwen3-vl-30b-a3b-thinking": ["Qwen VL 30B Thinking", "3", "Math and logic, step by step"],
   "meta-llama/llama-4-maverick": ["Llama Maverick", "4", "Creative writing and chat"],

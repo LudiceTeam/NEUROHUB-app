@@ -1349,6 +1349,34 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
         return ""
 
 
+async def generate_image_via_images_api(model:str, prompt:str, images_base64:List | None = None) -> bytes | str:
+    """POST /api/v1/images: returns the image bytes, or a short error text like the chat path does."""
+    body = {"model": model, "prompt": prompt or "An image"}
+    # Attached photos become references for editing.
+    if images_base64:
+        body["input_references"] = [
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}}
+            for image in images_base64
+        ]
+    headers = {"Authorization": f"Bearer {OPEN_AI_KEY}", "Content-Type": "application/json"}
+    async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = 180)) as session:
+        async with session.post("https://openrouter.ai/api/v1/images", json = body, headers = headers) as response:
+            if response.status >= 300:
+                logger.error(f"IMAGES API ERROR {model} {response.status}: {(await response.text())[:500]}")
+                return "No image in response"
+            result = await response.json()
+        for item in result.get("data") or []:
+            if item.get("b64_json"):
+                return base64.b64decode(item["b64_json"])
+            # Some providers may answer with a link instead of base64.
+            if item.get("url"):
+                async with session.get(item["url"]) as image_response:
+                    if image_response.status == 200:
+                        return await image_response.read()
+    logger.error(f"IMAGES API: no image for {model}: {str(result)[:300]}")
+    return "No image in response"
+
+
 async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
     try:
         req = ""
@@ -1382,6 +1410,11 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
 
 
 
+
+        # Image-only models (GPT Image, FLUX, Seedream, Recraft, Qwen, Grok) are served by the
+        # dedicated Images API; the Gemini image models keep using chat completions below.
+        if user_model in IMAGE_ONLY_MODELS:
+            return await generate_image_via_images_api(user_model, req, images_base64)
 
         if user_model in image_generation_models:
             response = await client.chat.completions.create(
