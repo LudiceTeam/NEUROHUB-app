@@ -47,6 +47,7 @@ from backend.api.config import IMAGE_MODEL_SPECS,IMAGE_ASPECT_RATIOS,IMAGE_RESOL
 from backend.database.images_db.images_core import migrate_images_table,create_image_job,set_image_job_result,get_user_image_jobs,get_image_job,delete_image_job
 from backend.database.payments_db.payments_core import migrate_payments_tables,save_payment,get_payment as get_yk_payment,claim_payment,set_payment_status,get_subscription,upsert_subscription,due_subscriptions
 from backend.api import yookassa_client
+from backend.api.images_util import to_model_format,data_url,UnsupportedImage
 from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
@@ -986,7 +987,9 @@ async def image_generate_handler(
             if len(data) > MAX_IMAGE_SIZE:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Image is too large")
             mime = magic.from_buffer(data[:8192], mime = True)
-            if mime not in VIDEO_FRAME_TYPES:
+            try:
+                data, mime = await asyncio.to_thread(to_model_format, data, mime)
+            except UnsupportedImage:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported image type")
             reference_urls.append(f"data:{mime};base64,{base64.b64encode(data).decode()}")
 
@@ -1347,7 +1350,9 @@ async def read_frame(upload:UploadFile | None, frame_type:str) -> dict | None:
     if len(data) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Image is too large")
     mime = magic.from_buffer(data[:8192], mime = True)
-    if mime not in VIDEO_FRAME_TYPES:
+    try:
+        data, mime = await asyncio.to_thread(to_model_format, data, mime)
+    except UnsupportedImage:
         raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported image type")
     return {"frame_type": frame_type, "url": f"data:{mime};base64,{base64.b64encode(data).decode()}"}
 
@@ -1487,7 +1492,7 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
             body["seed"] = seed
         # Chat: the first attached photo becomes the first frame. Studio: frames come ready as data URLs.
         if images_list and not frames:
-            frames = [{"frame_type": "first_frame", "url": f"data:image/jpeg;base64,{images_list[0]}"}]
+            frames = [{"frame_type": "first_frame", "url": data_url(images_list[0])}]
         if frames:
             body["frame_images"] = [{
                 "type": "image_url",
@@ -1569,7 +1574,7 @@ async def images_api_request(model:str, prompt:str, references:List | None = Non
 async def generate_image_via_images_api(model:str, prompt:str, images_base64:List | None = None) -> bytes | str:
     """Chat path: the image bytes, or a short error text the chat handlers already understand."""
     try:
-        image, _ = await images_api_request(model, prompt, [f"data:image/jpeg;base64,{i}" for i in images_base64 or []])
+        image, _ = await images_api_request(model, prompt, [data_url(i) for i in images_base64 or []])
         return image
     except Exception:
         logger.exception("IMAGES API ERROR")
@@ -1602,7 +1607,7 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
                     {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/jpeg;base64,{image}"
+                                "url": data_url(image)
                             }
                     }
                 )
@@ -2290,6 +2295,12 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             if len(image_bytes) > MAX_IMAGE_SIZE:
                 raise HTTPException(status_code=413, detail="Image too large")
+
+            # Models only take PNG/JPEG/GIF/WebP: iPhone HEIC, BMP, TIFF… become JPEG.
+            try:
+                image_bytes, mime = await asyncio.to_thread(to_model_format, image_bytes, mime)
+            except UnsupportedImage:
+                raise HTTPException(status_code=400, detail="Unsupported image format")
 
             image_bytes_sum += len(image_bytes)
 

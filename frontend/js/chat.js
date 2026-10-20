@@ -12,6 +12,7 @@ import { createPhotoStudio } from "./photo-studio.js";
 import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
 import { creditsMeter } from "./credits-meter.js";
+import { isImageFile, prepareImage } from "./image-prep.js";
 import { shareChatModal } from "./share.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
@@ -152,7 +153,7 @@ export function renderApp(root, logout) {
     },
   });
   const fileInput = h("input", {
-    type: "file", accept: "image/*", multiple: true, hidden: true,
+    type: "file", accept: "image/*,.heic,.heif", multiple: true, hidden: true,
     onchange: () => { addFiles([...fileInput.files]); fileInput.value = ""; },
   });
   const previews = h("div", { class: "previews" });
@@ -237,7 +238,7 @@ export function renderApp(root, logout) {
   main.addEventListener("drop", (e) => {
     e.preventDefault();
     main.classList.remove("dragging");
-    addFiles([...e.dataTransfer.files].filter((f) => f.type.startsWith("image/")));
+    addFiles([...e.dataTransfer.files].filter(isImageFile));
   });
 
   // ---------- rendering ----------
@@ -601,7 +602,9 @@ export function renderApp(root, logout) {
     previews.replaceChildren(...state.attachments.map((file, i) => {
       const url = URL.createObjectURL(file);
       return h("div", { class: "preview" },
-        h("img", { src: url, alt: file.name, onload: () => URL.revokeObjectURL(url) }),
+        h("img", { src: url, alt: file.name, onload: () => URL.revokeObjectURL(url),
+          // HEIC can't be shown in Chrome/Firefox: show the file type instead (the server converts it).
+          onerror: (e) => { URL.revokeObjectURL(url); e.target.replaceWith(h("span", { class: "preview-file" }, (file.name.split(".").pop() || "IMG").slice(0, 4).toUpperCase())); } }),
         h("button", { type: "button", "aria-label": "Remove image", onclick: () => { state.attachments.splice(i, 1); renderPreviews(); } }, icon("close")));
     }));
   }
@@ -1099,13 +1102,15 @@ export function renderApp(root, logout) {
     setTimeout(() => ids.forEach((id) => arrived.delete(id)), 600);
   }
 
-  function addFiles(files) {
+  async function addFiles(files) {
     if (VOICE_MODELS.has(state.model)) {
       if (files.length) toast("Voice models don't accept images. Pick another model to send photos.");
       return;
     }
-    for (const f of files) {
-      if (!f.type.startsWith("image/")) continue;
+    for (const original of files) {
+      if (!isImageFile(original)) continue;
+      // Big photos are scaled down to JPEG first, so a 12 MB phone photo still fits the 5 MB limit.
+      const f = await prepareImage(original);
       if (f.size > MAX_IMAGE_SIZE) { toast(`${f.name} is larger than 5 MB`); continue; }
       const maxImages = Object.entries(PLAN_PHOTOS).find(([plan]) => state.profile?.[plan])?.[1] ?? 1;
       if (state.attachments.length >= maxImages) {

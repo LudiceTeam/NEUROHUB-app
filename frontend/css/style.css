@@ -2035,4 +2035,5 @@ textarea.improving {
 .sub-card-value { display: inline-flex; align-items: baseline; gap: 10px; }
 .link-btn { padding: 0; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-btn:hover { opacity: .8; }
+.preview-file { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-soft); color: var(--muted); font-size: 12px; font-weight: 700; }
 

@@ -49,3 +49,5 @@ rq
 
 stripe
 web3
+Pillow
+pillow-heif
