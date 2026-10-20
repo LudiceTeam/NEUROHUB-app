@@ -2037,3 +2037,9 @@ textarea.improving {
 .link-btn:hover { opacity: .8; }
 .preview-file { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-soft); color: var(--muted); font-size: 12px; font-weight: 700; }
 
+/* math formulas (KaTeX) */
+.md .math-block { margin: 10px 0; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+.md .katex { font-size: 1.08em; }
+.md .katex-display { margin: 0; }
+.md .math-raw { white-space: pre-wrap; }
+

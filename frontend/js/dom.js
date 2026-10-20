@@ -170,10 +170,52 @@ function enhanceCodeBlock(pre) {
   block.append(pre);
 }
 
+// ---- math (LaTeX) ----
+// Models write formulas as \( … \), \[ … \], $ … $ or $$ … $$. Markdown would eat the backslashes,
+// so formulas are cut out before parsing, rendered with KaTeX and put back afterwards.
+const MATH_RE = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<![\\$\w])\$(?!\s)([^$\n]+?)(?<!\s)\$(?!\d)/g;
+const CODE_RE = /```[\s\S]*?(?:```|$)|`[^`\n]+`/g;
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function extractMath(text) {
+  const formulas = [];
+  // Code keeps its dollars and backslashes: hide it while looking for formulas.
+  const code = [];
+  let out = text.replace(CODE_RE, (m) => `\u0000C${code.push(m) - 1}\u0000`);
+  out = out.replace(MATH_RE, (m, dd, sq, rd, d) => {
+    const display = dd != null || sq != null;
+    formulas.push({ tex: (dd ?? sq ?? rd ?? d).trim(), display, raw: m });
+    // A display formula on its own line becomes its own paragraph.
+    return display ? `\n\nMATHPH${formulas.length - 1}X\n\n` : `MATHPH${formulas.length - 1}X`;
+  });
+  out = out.replace(/\u0000C(\d+)\u0000/g, (_, i) => code[+i]);
+  return { text: out, formulas };
+}
+
+function renderMath(f) {
+  const { katex } = window;
+  if (!katex) return `<code class="math-raw">${escapeHtml(f.raw)}</code>`;
+  try {
+    // trust:false (the default) blocks \href, \url and other commands that could inject links.
+    return katex.renderToString(f.tex, { displayMode: f.display, throwOnError: false, output: "html", strict: "ignore" });
+  } catch {
+    return `<code class="math-raw">${escapeHtml(f.raw)}</code>`;
+  }
+}
+
 export function markdown(text) {
   const { marked, DOMPurify } = window;
   if (!marked || !DOMPurify) return h("div", { class: "md" }, h("p", {}, text));
-  const html = DOMPurify.sanitize(marked.parse(text, { breaks: true, gfm: true }));
+  const { text: prepared, formulas } = extractMath(text);
+  let html = DOMPurify.sanitize(marked.parse(prepared, { breaks: true, gfm: true }));
+  if (formulas.length) {
+    // KaTeX output is built from escaped TeX, so it's inserted after sanitizing (DOMPurify would strip its markup).
+    html = html.replace(/<p>\s*MATHPH(\d+)X\s*<\/p>/g, (_, i) => `<div class="math-block">${renderMath(formulas[+i])}</div>`)
+      .replace(/MATHPH(\d+)X/g, (_, i) => renderMath(formulas[+i]));
+  }
   const el = h("div", { class: "md", html });
   el.querySelectorAll("a").forEach((a) => { a.target = "_blank"; a.rel = "noopener noreferrer"; });
   el.querySelectorAll("pre").forEach(enhanceCodeBlock);

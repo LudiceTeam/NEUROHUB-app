@@ -2870,22 +2870,55 @@ async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(
 
 
 
-async def translate_google(text: str, target: str) -> str:
-    url = "https://translate.googleapis.com/translate_a/single"
-    params = {
-        "client": "gtx",
-        "sl": "auto",
-        "tl": target,
-        "dt": "t",
-        "q": text,
-    }
+TRANSLATE_MODEL = "mistralai/mistral-small-2603"   # fast, cheap, good at languages, no reasoning
+MAX_TRANSLATE_CHARS = 12000
+LANGUAGE_NAMES = {
+    "ru": "Russian", "en": "English", "de": "German", "fr": "French", "es": "Spanish", "it": "Italian",
+    "pt": "Portuguese", "uk": "Ukrainian", "be": "Belarusian", "kk": "Kazakh", "uz": "Uzbek", "tr": "Turkish",
+    "pl": "Polish", "zh": "Chinese (Simplified)", "ja": "Japanese", "ko": "Korean", "ar": "Arabic", "hi": "Hindi",
+}
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params) as response:
-            data = await response.json()
+
+async def translate_llm(text:str, target:str) -> str:
+    """Translation that keeps Markdown, LaTeX formulas and code intact."""
+    language = LANGUAGE_NAMES.get(target.lower(), target)
+    response = await client.chat.completions.create(
+        model = TRANSLATE_MODEL,
+        messages = [
+            {"role": "system", "content": (
+                f"Translate the user's text into {language}. Keep the Markdown formatting, LaTeX formulas "
+                "(anything inside \\( \\), \\[ \\], $ $ or $$ $$), code blocks, inline code, links and numbers exactly as they are. "
+                "Translate only the human-language text. Reply with the translation only, without comments."
+            )},
+            {"role": "user", "content": text},
+        ],
+        max_tokens = 4000,
+        temperature = 0.2,
+    )
+    result = (response.choices[0].message.content or "").strip()
+    if not result:
+        raise Exception("Empty translation")
+    return result
+
+
+async def translate_google(text: str, target: str) -> str:
+    """Fallback: Google's free endpoint. It rate-limits (429 with an HTML page), so it's only a backup."""
+    url = "https://translate.googleapis.com/translate_a/single"
+    async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = 20)) as session:
+        # POST keeps long texts out of the URL.
+        async with session.post(url, params = {"client": "gtx", "sl": "auto", "tl": target, "dt": "t"}, data = {"q": text}) as response:
+            if response.status != 200:
+                raise Exception(f"Google translate {response.status}")
+            data = await response.json(content_type = None)
             return "".join(chunk[0] for chunk in data[0] if chunk and chunk[0])
 
-    return "Error while translating"
+
+async def translate_text(text:str, target:str) -> str:
+    try:
+        return await translate_llm(text, target)
+    except Exception:
+        logger.exception("TRANSLATION (LLM) FAILED, trying Google")
+    return await translate_google(text, target)
 
 
 
@@ -2912,7 +2945,17 @@ async def translate_handler(request:Request,req:TranslateText,user_data:dict = D
                     user_id = user_id
                 )
                 
-        result_text:str = await translate_google(req.text,req.target_language)
+        text = (req.text or "").strip()
+        target = (req.target_language or "").strip()[:10]
+        if not text or not target:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Nothing to translate")
+        if len(text) > MAX_TRANSLATE_CHARS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Text is too long to translate")
+        try:
+            result_text:str = await translate_text(text, target)
+        except Exception:
+            logger.exception("TRANSLATION ERROR")
+            raise HTTPException(status_code = status.HTTP_503_SERVICE_UNAVAILABLE, detail = "Translation is temporarily unavailable")
 
         return result_text
 
