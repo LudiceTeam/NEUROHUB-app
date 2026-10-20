@@ -1,11 +1,12 @@
-import { h, icon, modal, toast } from "./dom.js";
+import { api } from "./api.js";
+import { h, icon, modal, toast, errorText, confirmModal } from "./dom.js";
 import { lang } from "./i18n.js";
 import { PLANS, rubles } from "./plans.js";
 import { CONTACT_EMAIL } from "./legal.js";
 
 const PLAN_NAMES = Object.fromEntries(PLANS.map((p) => [p.id, p.name]));
-// Online payment is being moved to YooKassa; until it's live the buttons show a "coming soon" notice.
-const PAYMENTS_READY = false;
+// Payments go through YooKassa (Russian cards and SBP). false shows a "coming soon" notice instead.
+const PAYMENTS_READY = true;
 
 /** Pricing dialog with the ruble prices. */
 export function openPlans(profile) {
@@ -15,7 +16,7 @@ export function openPlans(profile) {
       currentPlan
         ? `You're on ${PLAN_NAMES[currentPlan]}. To switch plans, cancel it in "Manage subscription" first.`
         : "Prices in rubles for 30 days. Cancel anytime.");
-    const soon = !PAYMENTS_READY && h("div", { class: "plans-soon", role: "status" },
+    const soon = (!PAYMENTS_READY || null) && h("div", { class: "plans-soon", role: "status" },
       h("span", { class: "plans-soon-icon", "aria-hidden": "true" }, icon("spark")),
       h("span", { class: "plans-soon-text" },
         h("strong", {}, "Online payment is coming very soon"),
@@ -23,15 +24,28 @@ export function openPlans(profile) {
 
     const grid = h("div", { class: "plans-grid" }, PLANS.map((plan) => {
       const current = plan.id === currentPlan;
+      const label = current ? "Current plan" : PAYMENTS_READY ? `Choose ${plan.name}` : "Coming soon";
       const btn = h("button", {
-        class: `plan-btn${plan.popular ? " primary" : ""}${PAYMENTS_READY || current ? "" : " soon"}`, type: "button", disabled: current,
-        onclick: () => {
+        class: `plan-btn${plan.popular ? " primary" : ""}${PAYMENTS_READY || current ? "" : " soon"}`, type: "button",
+        // One plan at a time: switching means turning off auto-renewal and waiting for the period to end.
+        disabled: current || (PAYMENTS_READY && Boolean(currentPlan)),
+        onclick: async () => {
           if (!PAYMENTS_READY) {
             toast("Online payment is coming very soon. Subscriptions will open in the next few days.", "info");
             return;
           }
+          btn.disabled = true;
+          btn.textContent = "Opening payment…";
+          try {
+            const { payment_url } = await api.yookassaCheckout(plan.id);
+            location.href = payment_url;
+          } catch (e) {
+            toast(errorText(e));
+            btn.disabled = false;
+            btn.textContent = label;
+          }
         },
-      }, current ? "Current plan" : PAYMENTS_READY ? `Choose ${plan.name}` : "Coming soon");
+      }, label);
       return h("div", { class: `plan-card${plan.popular ? " popular" : ""}${current ? " current" : ""}` },
         h("div", { class: "plan-head" }, h("h3", {}, plan.name),
           plan.popular && h("span", { class: "plan-badge" }, "Popular")),
@@ -59,13 +73,54 @@ export function openPlans(profile) {
   }, { wide: true });
 }
 
-/** Subscription management: a placeholder until YooKassa subscriptions are live. */
-export async function openPortal() {
-  toast(`Subscription management is coming soon. If you need help with your plan, write to ${CONTACT_EMAIL}.`, "info");
+/** Subscription management: next charge, saved card, turn auto-renewal off or back on. */
+export function openPortal() {
+  return modal("Subscription", (close) => {
+    const body = h("div", { class: "stack sub-manage" }, h("span", { class: "skel" }), h("span", { class: "skel skel-small" }));
+    const date = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+
+    async function load() {
+      let sub = null;
+      try { sub = (await api.yookassaSubscription())?.result; } catch (e) { body.replaceChildren(h("p", { class: "muted" }, errorText(e))); return; }
+      if (!sub) {
+        body.replaceChildren(h("p", { class: "muted" }, `No online subscription found. If you paid another way or need help, write to ${CONTACT_EMAIL}.`));
+        return;
+      }
+      const plan = PLANS.find((p) => p.id === sub.plan);
+      const toggle = h("button", {
+        class: `btn ${sub.auto_renew ? "ghost danger-text" : "primary"}`, type: "button", disabled: !sub.auto_renew && !sub.can_renew,
+        onclick: async () => {
+          if (sub.auto_renew && !(await confirmModal("Turn off auto-renewal?",
+            `Your plan stays active until ${date(sub.period_end)}, then it switches to Free. No more charges.`, { confirm: "Turn off", danger: true }))) return;
+          toggle.disabled = true;
+          try {
+            await (sub.auto_renew ? api.yookassaCancel() : api.yookassaResume());
+            toast(sub.auto_renew ? "Auto-renewal is off" : "Auto-renewal is on", "ok");
+            load();
+          } catch (e) { toast(errorText(e)); toggle.disabled = false; }
+        },
+      }, sub.auto_renew ? "Turn off auto-renewal" : "Turn auto-renewal back on");
+      body.replaceChildren(
+        h("div", { class: "sub-card" },
+          h("div", { class: "sub-head" }, h("strong", {}, plan?.name || sub.plan), sub.price && h("span", {}, `${rubles(sub.price)} / month`)),
+          h("div", { class: "sub-rows" },
+            h("div", {}, h("span", {}, sub.auto_renew ? "Next charge" : "Active until"), h("strong", {}, date(sub.period_end))),
+            sub.card && h("div", {}, h("span", {}, "Card"), h("strong", {}, sub.card)),
+            h("div", {}, h("span", {}, "Auto-renewal"), h("strong", { class: sub.auto_renew ? "ok-text" : "muted" }, sub.auto_renew ? "On" : "Off")))),
+        h("p", { class: "muted small" }, sub.auto_renew
+          ? "The plan renews every 30 days. You can turn auto-renewal off at any time: the plan stays until the end of the paid period."
+          : "Auto-renewal is off. When the paid period ends, your account switches to the Free plan."),
+        h("div", { class: "row end" }, h("button", { class: "btn ghost", type: "button", onclick: () => close() }, "Close"), toggle));
+    }
+
+    load();
+    return body;
+  });
 }
 
 /**
- * Handles ?checkout=success|cancel and ?portal=return after Stripe redirects back.
+ * Handles ?checkout=success|cancel and ?portal=return after the payment page sends the user back.
+ * YooKassa returns here even if the payment page was just closed, so success is confirmed by polling.
  * The plan is switched on by the webhook, so on success we poll the profile until it shows up.
  */
 export async function handleBillingReturn({ reloadProfile, hasPlan }) {
@@ -78,13 +133,13 @@ export async function handleBillingReturn({ reloadProfile, hasPlan }) {
   if (checkout === "cancel") { toast("Checkout canceled — no charge was made.", "info"); return; }
   if (portal) { await reloadProfile(); toast("Subscription settings updated.", "info"); return; }
 
-  toast("Payment received — activating your plan…", "info");
+  toast("Checking your payment…", "info");
   for (let i = 0; i < 10; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     await reloadProfile();
     if (hasPlan()) { toast("Your plan is active. Enjoy Veora!", "ok"); return; }
   }
-  toast("Payment received. Your plan will appear in a minute — refresh if it doesn't.", "info");
+  toast("We couldn't confirm the payment yet. If you paid, the plan will appear in a minute; if you closed the payment page, nothing was charged.", "info");
 }
 
 // Required before paying: the offer, auto-renewal and refunds (opens in a new tab so checkout isn't lost).

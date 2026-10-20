@@ -1988,3 +1988,14 @@ textarea.improving {
 @media (max-width: 900px) { .ps-gallery { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; } }
 @media (prefers-reduced-motion: reduce) { .ps-tile.working { animation: none; } }
 
+/* subscription management */
+.sub-manage { min-width: min(420px, 80vw); }
+.sub-card { padding: 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); background: color-mix(in srgb, var(--text) 3%, var(--bg-elev)); }
+.sub-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.sub-head strong { font-size: 20px; }
+.sub-head span { color: var(--muted); font-size: 14px; }
+.sub-rows { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
+.sub-rows > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.sub-rows span { color: var(--muted); }
+.ok-text { color: var(--ok); }
+

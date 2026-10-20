@@ -211,6 +211,11 @@ image_generation_models = [
     "qwen/qwen-image-3",
     "recraft/recraft-v4.1",
 ]
+# YooKassa: plan prices in rubles for 30 days (mirror frontend/js/plans.js).
+PLAN_PRICES_RUB = {"starter": 499, "basic": 890, "plus": 1890, "premium": 2990, "max": 5990, "elite": 12990}
+PLAN_TITLES = {"starter": "Starter", "basic": "Basic", "plus": "Plus", "premium": "Premium", "max": "Max", "elite": "Elite"}
+RENEWAL_RETRIES = 3          # failed auto-renewal attempts (one a day) before the plan ends
+
 # Photo studio: every image model goes through OpenRouter's Images API (POST /api/v1/images).
 # One image costs 1 premium request (2 at high resolution).
 IMAGE_MODEL_SPECS = {

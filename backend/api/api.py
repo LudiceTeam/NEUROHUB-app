@@ -45,6 +45,9 @@ from backend.database.user_voices.voice_core import create_voice,delete_voice,ge
 from backend.api.config import MUSIC_MODEL_SPECS,music_generation_models,MAX_MUSIC_PROMPT,MAX_MUSIC_LYRICS,IMAGE_ONLY_MODELS,VIDEO_CREDIT_USD
 from backend.api.config import IMAGE_MODEL_SPECS,IMAGE_ASPECT_RATIOS,IMAGE_RESOLUTIONS,IMAGE_MAX_VARIANTS,IMAGE_MAX_REFERENCES,MAX_IMAGE_PROMPT
 from backend.database.images_db.images_core import migrate_images_table,create_image_job,set_image_job_result,get_user_image_jobs,get_image_job,delete_image_job
+from backend.database.payments_db.payments_core import migrate_payments_tables,save_payment,get_payment as get_yk_payment,claim_payment,set_payment_status,get_subscription,upsert_subscription,due_subscriptions
+from backend.api import yookassa_client
+from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -115,7 +118,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def run_migrations():
     # Adds columns that create_all can't add to existing tables. Safe to run every start (IF NOT EXISTS).
-    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table, migrate_links_table, migrate_music_table, migrate_images_table):
+    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table, migrate_links_table, migrate_music_table, migrate_images_table, migrate_payments_tables):
         try:
             await migrate()
         except Exception:
@@ -4600,6 +4603,204 @@ async def stripe_webhook(request:Request):
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
     return {"ok": True}
+
+
+# --- YOOKASSA ---
+# First payment: redirect to YooKassa with save_payment_method, the plan is turned on by the webhook.
+# Renewals: renewal_loop charges the saved card when the paid period ends (retries daily, then ends the plan).
+
+SITE_URL = os.getenv("SITE_URL", "https://web.nexi.center")
+
+
+def plan_value(plan:str) -> str:
+    return f"{PLAN_PRICES_RUB[plan]:.2f}"
+
+
+def plan_description(plan:str) -> str:
+    return f"Подписка Veora {PLAN_TITLES[plan]} на 30 дней"
+
+
+async def end_yookassa_subscription(user_id:str, sub:dict):
+    """Turns the plan off and marks the subscription ended."""
+    if sub.get("plan"):
+        await unsubscribe(user_id, sub["plan"], force = True)
+    await upsert_subscription(user_id, status = "ended", auto_renew = False)
+    try:
+        email = await get_user_email_by_user_id(user_id)
+        if email:
+            await send_email_sub_over(email)
+    except Exception:
+        logger.exception("YOOKASSA: subscription-ended email failed")
+
+
+async def apply_yookassa_payment(payment:dict):
+    """Applies a payment as returned by the YooKassa API (never trust the webhook body itself)."""
+    payment_id = payment["id"]
+    metadata = payment.get("metadata") or {}
+    user_id, plan, kind = metadata.get("user_id"), metadata.get("plan"), metadata.get("kind", "initial")
+    if not user_id or plan not in PLAN_PRICES_RUB:
+        logger.warning("YOOKASSA: payment %s has no user/plan metadata", payment_id)
+        return
+    if not await get_yk_payment(payment_id):
+        await save_payment(payment_id, user_id, plan, payment.get("amount", {}).get("value", ""), kind)
+
+    today = datetime.now().date()
+    if payment.get("status") == "succeeded" and payment.get("paid"):
+        if not await claim_payment(payment_id, "succeeded"):
+            return   # already applied
+        if has_paid_plan(await get_user_state(user_id)):
+            await renew_sub(user_id)
+        elif not await subscribe(user_id = user_id, sub_type = plan):
+            logger.error("YOOKASSA: subscribe() refused for %s (%s) after payment %s", user_id, plan, payment_id)
+        values = {"plan": plan, "status": "active", "period_end": today + timedelta(days = 30), "retries": 0, "last_attempt": None}
+        method = payment.get("payment_method") or {}
+        if kind == "initial":
+            saved = bool(method.get("saved"))
+            values.update(payment_method_id = method.get("id") if saved else None, auto_renew = saved,
+                          card_title = method.get("title") or (f"*{method['card']['last4']}" if method.get("card", {}).get("last4") else None))
+        await upsert_subscription(user_id, **values)
+
+    elif payment.get("status") == "canceled":
+        await set_payment_status(payment_id, "canceled")
+        if kind == "renewal":
+            sub = await get_subscription(user_id) or {}
+            retries = (sub.get("retries") or 0) + 1
+            await upsert_subscription(user_id, retries = retries, last_attempt = today)
+            reason = (payment.get("cancellation_details") or {}).get("reason")
+            logger.warning("YOOKASSA: renewal for %s failed (%s), attempt %s", user_id, reason, retries)
+            # A revoked card can't be charged again; otherwise give up after a few daily attempts.
+            if retries >= RENEWAL_RETRIES or reason == "permission_revoked":
+                await end_yookassa_subscription(user_id, sub)
+
+
+async def renewal_tick():
+    today = datetime.now().date()
+    for sub in await due_subscriptions(today):
+        user_id = sub["user_id"]
+        try:
+            can_charge = sub.get("auto_renew") and sub.get("payment_method_id") and (sub.get("retries") or 0) < RENEWAL_RETRIES
+            if not can_charge:
+                await end_yookassa_subscription(user_id, sub)
+                continue
+            if sub.get("last_attempt") == today or sub.get("plan") not in PLAN_PRICES_RUB:
+                continue
+            await upsert_subscription(user_id, last_attempt = today)
+            plan = sub["plan"]
+            payment = await yookassa_client.create_recurring_payment(
+                plan_value(plan), plan_description(plan), sub["payment_method_id"],
+                await get_user_email_by_user_id(user_id),
+                {"user_id": user_id, "plan": plan, "kind": "renewal"},
+                idempotence_key = f"renew-{user_id}-{sub['period_end']}-{sub.get('retries') or 0}",
+            )
+            await save_payment(payment["id"], user_id, plan, plan_value(plan), "renewal")
+            if payment.get("status") in ("succeeded", "canceled"):
+                await apply_yookassa_payment(payment)
+        except Exception:
+            logger.exception("YOOKASSA RENEWAL ERROR for %s", user_id)
+
+
+async def renewal_loop():
+    while True:
+        try:
+            await renewal_tick()
+        except Exception:
+            logger.exception("YOOKASSA RENEWAL LOOP ERROR")
+        await asyncio.sleep(30 * 60)
+
+
+_renewal_task = None
+
+
+@app.on_event("startup")
+async def start_renewals():
+    global _renewal_task
+    if os.getenv("YOOKASSA_SHOP_ID") and os.getenv("YOOKASSA_SECRET_KEY"):
+        _renewal_task = asyncio.create_task(renewal_loop())
+
+
+class YooKassaCheckout(BaseModel):
+    plan:str
+
+
+@app.post("/yookassa/checkout")
+@limiter.limit("10/minute")
+async def yookassa_checkout_handler(request:Request, req:YooKassaCheckout, user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+        await check_ban(user_id)
+        if req.plan not in PLAN_PRICES_RUB:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unknown plan")
+        if has_paid_plan(await get_user_state(user_id)):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Already subscribed")
+        email = await get_user_email_by_user_id(user_id)
+        if not email:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Account not found")
+        payment = await yookassa_client.create_first_payment(
+            plan_value(req.plan), plan_description(req.plan), f"{SITE_URL}/?checkout=success", email,
+            {"user_id": user_id, "plan": req.plan, "kind": "initial"},
+        )
+        await save_payment(payment["id"], user_id, req.plan, plan_value(req.plan), "initial")
+        return {"payment_url": payment["confirmation"]["confirmation_url"]}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("YOOKASSA CHECKOUT ERROR")
+        raise HTTPException(status_code = status.HTTP_502_BAD_GATEWAY, detail = "Payment service is unavailable")
+
+
+@app.post("/yookassa/webhook")
+async def yookassa_webhook(request:Request):
+    try:
+        event = await request.json()
+        payment_id = (event.get("object") or {}).get("id")
+    except Exception:
+        raise HTTPException(status_code = 400)
+    if not payment_id or not str(event.get("event", "")).startswith("payment."):
+        return {"ok": True}
+    try:
+        # The notification body isn't signed: read the payment from the API with our own keys instead.
+        await apply_yookassa_payment(await yookassa_client.get_payment(payment_id))
+    except Exception:
+        # A 500 makes YooKassa resend the notification later.
+        logger.exception("YOOKASSA WEBHOOK ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+    return {"ok": True}
+
+
+@app.get("/yookassa/subscription")
+@limiter.limit("30/minute")
+async def yookassa_subscription_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    sub = await get_subscription(user_data["user_id"])
+    if not sub or sub.get("status") != "active":
+        return {"result": None}
+    return {"result": {
+        "plan": sub.get("plan"),
+        "auto_renew": bool(sub.get("auto_renew")),
+        "can_renew": bool(sub.get("payment_method_id")),
+        "period_end": sub["period_end"].isoformat() if sub.get("period_end") else None,
+        "card": sub.get("card_title"),
+        "price": PLAN_PRICES_RUB.get(sub.get("plan")),
+    }}
+
+
+@app.post("/yookassa/cancel")
+@limiter.limit("10/minute")
+async def yookassa_cancel_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    sub = await get_subscription(user_data["user_id"])
+    if not sub or sub.get("status") != "active":
+        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "No active subscription")
+    await upsert_subscription(user_data["user_id"], auto_renew = False)
+    return {"message": "Ok"}
+
+
+@app.post("/yookassa/resume")
+@limiter.limit("10/minute")
+async def yookassa_resume_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    sub = await get_subscription(user_data["user_id"])
+    if not sub or sub.get("status") != "active" or not sub.get("payment_method_id"):
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Auto-renewal can't be turned on")
+    await upsert_subscription(user_data["user_id"], auto_renew = True, retries = 0)
+    return {"message": "Ok"}
 
 
 VOICE_ENCODING_KEY = os.getenv("VOICE_ENCODING_KEY")
