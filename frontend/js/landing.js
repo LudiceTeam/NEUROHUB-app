@@ -76,7 +76,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
       <section class="l-hero">
         <div class="l-hero-copy">
           <span class="l-eyebrow"><span class="l-dot"></span>${modelCount} models · images · video · voice</span>
-          <h1><span class="l-line"><span>All AI.</span></span><span class="l-line"><span class="l-gradient">One place.</span></span></h1>
+          <h1><span class="l-line"><span class="l-gradient">Veora</span></span></h1>
           <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.</p>
           <div class="l-cta">
             <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
@@ -189,7 +189,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
 
       <section class="l-final reveal">
         <img src="logo.png" alt="" width="72" height="72">
-        <h2>Your AI, all in one place.</h2>
+        <h2>Veora</h2>
         <p>Join Veora and get 25 free credits every day.</p>
         <div class="l-cta center">
           <button class="l-btn primary lg" type="button" data-action="signup">Create free account ${ARROW}</button>
@@ -212,7 +212,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
     <footer class="l-footer">
       <div class="l-brand"><img src="logo.png" alt="" width="24" height="24"><span>Veora</span></div>
       <nav aria-label="Footer"><a href="#features">Features</a><a href="#models">Models</a><a href="#plans">Plans</a><a href="#faq">FAQ</a><a href="#requisites">Seller details</a><a href="#offer">Public offer</a><a href="#privacy">Privacy policy</a><a href="#refund">Refund policy</a><a href="mailto:${CONTACT_EMAIL}">Contact us</a></nav>
-      <span>© ${new Date().getFullYear()} Veora. All AI in one place.</span>
+      <span>© ${new Date().getFullYear()} Veora</span>
     </footer>`;
 
   root.replaceChildren(page);

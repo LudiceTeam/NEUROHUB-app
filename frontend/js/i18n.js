@@ -34,7 +34,7 @@ const RU = {
   // ---------- landing ----------
   "Features": "Возможности", "Models": "Модели", "Plans": "Тарифы", "FAQ": "Вопросы",
   "Log in": "Войти", "Sign up": "Регистрация",
-  "All AI.": "Весь ИИ.", "One place.": "В одном месте.",
+
   "Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.":
     "Общайтесь с GPT, Claude, Gemini, Llama и десятками других моделей. Создавайте картинки, видео и живую речь — всё в одном простом и красивом месте.",
   "Get started — it's free": "Начать бесплатно", "I have an account": "У меня есть аккаунт",
@@ -59,7 +59,7 @@ const RU = {
   "Vision & encrypted history": "Распознавание фото и шифрование истории", "Images & voice": "Картинки и озвучка",
   "Billed monthly through Stripe. Cancel anytime.": "Оплата ежемесячно через Stripe. Отменить можно в любой момент.",
   "Questions, answered.": "Ответы на вопросы.",
-  "Your AI, all in one place.": "Весь ваш ИИ — в одном месте.",
+
   "Join Veora and get 25 free credits every day.": "Присоединяйтесь к Veora и получайте 25 бесплатных кредитов каждый день.",
   "Create free account": "Создать аккаунт бесплатно",
   "Most popular": "Популярный", "Popular": "Популярный",
@@ -348,7 +348,6 @@ const PATTERNS = [
   [/^All (\d+\+?) models$/, (m) => `Все ${m[1]} моделей`],
   [/^(\d+) credits a day with fast models \(GPT-6 Luna, Llama 4, Gemma, Mistral\)\. Every paid plan unlocks all models\.$/, (m) =>
     `${credits(+m[1])} в день на быстрые модели (GPT-6 Luna, Llama 4, Gemma, Mistral). Любой платный тариф открывает все модели.`],
-  [/^© (\d+) Veora\. All AI in one place\.$/, (m) => `© ${m[1]} Veora. Весь ИИ в одном месте.`],
   [/^Choose (\w+)$/, (m) => `Выбрать ${m[1]}`],
   [/^Get (Starter|Basic|Plus|Premium|Max|Elite)$/, (m) => `Оформить ${m[1]}`],
   [/^Translate · (.+)$/, (m) => `Перевести · ${m[1]}`],
@@ -455,7 +454,7 @@ export function languageSwitch(extraClass = "") {
 export function startI18n() {
   document.documentElement.lang = lang;
   if (lang !== "ru") return;
-  document.title = "Veora — весь ИИ в одном месте";
+  document.title = "Veora";
   document.querySelector('meta[name="description"]')?.setAttribute("content",
     "Общайтесь с 30+ ИИ-моделями от OpenAI, Anthropic, Google, Meta, Mistral и других в одном месте.");
   translateTree(document.body);

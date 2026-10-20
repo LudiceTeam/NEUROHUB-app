@@ -2870,7 +2870,9 @@ async def get_user_avatar_name_handler(request:Request,user_data:dict = Depends(
 
 
 
-TRANSLATE_MODEL = "mistralai/mistral-small-2603"   # fast, cheap, good at languages, no reasoning
+# OpenRouter tries these in order when one is rate-limited (429) or down, so one busy provider
+# no longer breaks translation. Different vendors on purpose: they don't share a provider pool.
+TRANSLATE_MODELS = ["openai/gpt-5.4-mini", "mistralai/mistral-small-2603", "qwen/qwen3-vl-30b-a3b-instruct"]
 MAX_TRANSLATE_CHARS = 12000
 LANGUAGE_NAMES = {
     "ru": "Russian", "en": "English", "de": "German", "fr": "French", "es": "Spanish", "it": "Italian",
@@ -2882,23 +2884,32 @@ LANGUAGE_NAMES = {
 async def translate_llm(text:str, target:str) -> str:
     """Translation that keeps Markdown, LaTeX formulas and code intact."""
     language = LANGUAGE_NAMES.get(target.lower(), target)
-    response = await client.chat.completions.create(
-        model = TRANSLATE_MODEL,
-        messages = [
-            {"role": "system", "content": (
-                f"Translate the user's text into {language}. Keep the Markdown formatting, LaTeX formulas "
-                "(anything inside \\( \\), \\[ \\], $ $ or $$ $$), code blocks, inline code, links and numbers exactly as they are. "
-                "Translate only the human-language text. Reply with the translation only, without comments."
-            )},
-            {"role": "user", "content": text},
-        ],
-        max_tokens = 4000,
-        temperature = 0.2,
-    )
-    result = (response.choices[0].message.content or "").strip()
-    if not result:
-        raise Exception("Empty translation")
-    return result
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = await client.chat.completions.create(
+                model = TRANSLATE_MODELS[0],
+                extra_body = {"models": TRANSLATE_MODELS},
+                messages = [
+                    {"role": "system", "content": (
+                        f"Translate the user's text into {language}. Keep the Markdown formatting, LaTeX formulas "
+                        "(anything inside \\( \\), \\[ \\], $ $ or $$ $$), code blocks, inline code, links and numbers exactly as they are. "
+                        "Translate only the human-language text. Reply with the translation only, without comments."
+                    )},
+                    {"role": "user", "content": text},
+                ],
+                max_tokens = 4000,
+                temperature = 0.2,
+            )
+            result = (response.choices[0].message.content or "").strip()
+            if result:
+                return result
+            last_error = Exception("Empty translation")
+        except Exception as e:
+            last_error = e
+        # Every model in the list was busy at once: wait a moment and try the whole list again.
+        await asyncio.sleep(1.5)
+    raise last_error
 
 
 async def translate_google(text: str, target: str) -> str:
