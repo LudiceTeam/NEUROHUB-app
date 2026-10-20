@@ -395,6 +395,32 @@ async def minus_one_req(user_id:str):
                 return
 
 
+async def take_premium_requests(user_id: str, amount: int) -> bool:
+    """Takes `amount` premium requests in one step; False when the user doesn't have enough."""
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                res = await conn.execute(main_table.update().where(
+                    main_table.c.user_id == user_id,
+                    main_table.c.nano_req >= amount
+                ).values(nano_req = main_table.c.nano_req - amount))
+                return res.rowcount > 0
+            except Exception:
+                logger.exception("MAIN SQL Error")
+                return False
+
+
+async def refund_premium_requests(user_id: str, amount: int):
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin():
+            try:
+                await conn.execute(main_table.update().where(main_table.c.user_id == user_id).values(
+                    nano_req = main_table.c.nano_req + amount
+                ))
+            except Exception:
+                logger.exception("MAIN SQL Error")
+
+
 async def minus_one_req_nano(user_id: str):
 
     async with AsyncSession(async_engine) as conn:

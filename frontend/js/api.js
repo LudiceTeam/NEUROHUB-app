@@ -147,6 +147,10 @@ export const api = {
   // video jobs: status is "pending" | "processing" | "completed" (+ url) | "failed"
   videoStatus: (task_id, message_id) => post("/videos/task/status", { task_id, message_id }),
   videoModels: () => request("/videos/models"),
+  musicModels: () => request("/music/models"),
+  musicList: () => request("/music/list"),
+  generateMusic: (body) => post("/music/generate", body),
+  deleteMusic: (music_id) => post("/music/delete", { music_id }),
   createShare: (chat_id) => post("/share/create", { chat_id, read_only: true }),
   deleteShare: (link_id) => post("/share/delete", { link_id }),
   share: (link_id) => request(`/share/${encodeURIComponent(link_id)}`, { apiKey: true }),

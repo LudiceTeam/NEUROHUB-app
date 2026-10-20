@@ -1400,8 +1400,8 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 
 /* ---------- video studio ---------- */
 .vs { flex: 1; display: none; min-height: 0; }
-.main.video-mode .chat-view { display: none; }
-.main.video-mode .vs { display: grid; grid-template-columns: 380px minmax(0, 1fr); }
+.main.video-mode .chat-view, .main.music-mode .chat-view { display: none; }
+.main.video-mode .vs:not(.ms), .main.music-mode .vs.ms { display: grid; grid-template-columns: 380px minmax(0, 1fr); }
 
 .vs-panel { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--bg); }
 .vs-panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 12px; display: flex; flex-direction: column; gap: 20px; }
@@ -1558,7 +1558,7 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 .vs-viewer { width: 100%; max-height: 70vh; border-radius: 12px; background: #000; }
 
 @media (max-width: 900px) {
-  .main.video-mode .vs { display: flex; flex-direction: column; overflow-y: auto; }
+  .main.video-mode .vs:not(.ms), .main.music-mode .vs.ms { display: flex; flex-direction: column; overflow-y: auto; }
   .vs-panel { flex: none; border-right: 0; border-bottom: 1px solid var(--border); }
   .vs-panel-scroll { flex: none; overflow: visible; padding: 16px; }
   .vs-footer { position: sticky; bottom: 0; z-index: 2; padding: 12px 16px; }
@@ -1889,4 +1889,40 @@ textarea.improving {
 .model-empty p { margin: 0; }
 .model-chip-row:not(.scroll) { flex-wrap: wrap; align-items: center; }
 .model-chip-sep { width: 1px; height: 16px; margin: 0 2px; background: color-mix(in srgb, var(--text) 12%, transparent); }
+
+/* ---------- music studio ---------- */
+.ms-lyrics { min-height: 110px; }
+.ms-model-cost { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.ms-list { display: flex; flex-direction: column; gap: 12px; max-width: 820px; }
+.ms-track {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent); background: color-mix(in srgb, var(--text) 3%, var(--bg-elev));
+}
+.ms-track.skeleton { gap: 8px; }
+.ms-track-head { display: flex; align-items: center; gap: 12px; }
+.ms-cover {
+  display: grid; place-items: center; width: 46px; height: 46px; flex: none; border-radius: 12px; color: rgb(255 255 255 / .9);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08);
+}
+.ms-cover .icon { width: 20px; height: 20px; }
+.ms-cover.spin .icon { animation: spin 3s linear infinite; }
+.ms-track-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ms-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-track-text small { font-size: 12px; }
+.ms-track .vs-actions { margin: 0; flex: none; }
+.ms-track .icon-btn.active { color: var(--accent); }
+.ms-player .audio-card { margin: 0; }
+.ms-working, .ms-failed { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--text) 4%, transparent); font-size: 13px; }
+.ms-failed { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.ms-failed .icon { width: 16px; height: 16px; color: var(--danger); }
+.ms-eq { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; }
+.ms-eq i { width: 3px; height: 100%; border-radius: 2px; background: var(--accent); animation: eq 1s ease-in-out infinite; transform-origin: bottom; }
+.ms-eq i:nth-child(2) { animation-delay: .15s; } .ms-eq i:nth-child(3) { animation-delay: .3s; } .ms-eq i:nth-child(4) { animation-delay: .45s; } .ms-eq i:nth-child(5) { animation-delay: .6s; }
+@keyframes eq { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+.ms-lyrics-text {
+  margin: 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--text) 4%, transparent);
+  font: inherit; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; max-height: 320px; overflow-y: auto;
+}
+.model-kind.music { color: #a78bfa; }
+@media (prefers-reduced-motion: reduce) { .ms-eq i, .ms-cover.spin .icon { animation: none; } }
 

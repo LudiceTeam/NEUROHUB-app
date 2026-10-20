@@ -228,6 +228,24 @@ VIDEO_MODEL_SPECS = {
     },
 }
 video_generation_models = list(VIDEO_MODEL_SPECS)
+# Music studio (Google Lyria 3 on OpenRouter). Paid with premium requests: OpenRouter charges
+# $0.04 per 30-second clip and $0.08 per full song.
+MUSIC_MODEL_SPECS = {
+    "google/lyria-3-clip-preview": {
+        "name": "Lyria 3 Clip",
+        "note": "30-second clips, quick ideas",
+        "cost": 1,
+    },
+    "google/lyria-3-pro-preview": {
+        "name": "Lyria 3 Pro",
+        "note": "Full songs with vocals",
+        "cost": 2,
+    },
+}
+music_generation_models = list(MUSIC_MODEL_SPECS)
+MAX_MUSIC_PROMPT = 1500
+MAX_MUSIC_LYRICS = 3000
+
 # What a video sent from the chat gets (the studio lets the user pick).
 VIDEO_DEFAULTS = {"duration": 8, "aspect_ratio": "9:16", "resolution": "720p", "generate_audio": True}
 MAX_VIDEO_PROMPT = 2000

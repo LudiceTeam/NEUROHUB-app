@@ -53,6 +53,8 @@ export const MODEL_GROUPS = [
   ["Image generation", ["google/gemini-3-pro-image-preview", "google/gemini-3.1-flash-image-preview"]],
   // Open the video studio (backend VIDEO_MODEL_SPECS); use the monthly video credits, not premium requests.
   ["Video", ["bytedance/seedance-2.0-fast", "bytedance/seedance-2.0-mini"]],
+  // Open the music studio (backend MUSIC_MODEL_SPECS); paid with premium requests.
+  ["Music", ["google/lyria-3-clip-preview", "google/lyria-3-pro-preview"]],
   // Mirrors tts_models in backend/api/config.py: "<model>:<voice>".
   ["Voice", [
     "google/gemini-3.8-flash-tts:kore",
@@ -88,7 +90,7 @@ export const PREMIUM_MODELS = new Set([
 ]);
 
 // The free plan gets every 1-credit text model; everything else is PLUS (any paid plan).
-const NON_CHAT_GROUPS = new Set(["Smart", "Image generation", "Video", "Voice"]);
+const NON_CHAT_GROUPS = new Set(["Smart", "Image generation", "Video", "Music", "Voice"]);
 export const FREE_MODELS = new Set(MODEL_GROUPS
   .filter(([group]) => !NON_CHAT_GROUPS.has(group))
   .flatMap(([, ids]) => ids)

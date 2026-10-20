@@ -22,6 +22,7 @@ const PROVIDERS = {
 export const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
 export const VIDEO_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Video")?.[1] || []);
 export const VOICE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Voice")?.[1] || []);
+export const MUSIC_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Music")?.[1] || []);
 
 export function modelLabel(id) {
   if (!id) return "";
@@ -78,6 +79,8 @@ const MODEL_INFO = {
   "google/gemini-3.1-flash-image-preview": ["Gemini Flash Image", "3.1", "Fast image generation and edits"],
   "bytedance/seedance-2.0-fast": ["Seedance Fast", "2.0", "Video clips with sound"],
   "bytedance/seedance-2.0-mini": ["Seedance Mini", "2.0", "Cheaper draft videos"],
+  "google/lyria-3-clip-preview": ["Lyria Clip", "3", "30-second music clips"],
+  "google/lyria-3-pro-preview": ["Lyria Pro", "3", "Full songs with vocals"],
 };
 
 // Menu columns: [name, version, purpose].
@@ -94,7 +97,7 @@ function info(id) {
 
 // Cost per message: "×N" daily credits; models paid with premium requests or video credits show "–".
 function cost(id) {
-  if (id === "auto" || PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id) || VIDEO_MODELS.has(id) || VOICE_MODELS.has(id)) {
+  if (id === "auto" || PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id) || VIDEO_MODELS.has(id) || VOICE_MODELS.has(id) || MUSIC_MODELS.has(id)) {
     return ["–", id === "auto" ? "Depends on the model it picks"
       : VIDEO_MODELS.has(id) ? "Uses video credits" : "Uses premium requests"];
   }
@@ -115,6 +118,7 @@ function purpose(id) {
   if (IMAGE_MODELS.has(id)) return ["Photo", "image"];
   if (VIDEO_MODELS.has(id)) return ["Video", "video"];
   if (VOICE_MODELS.has(id)) return ["Voice", "voice"];
+  if (MUSIC_MODELS.has(id)) return ["Music", "music"];
   if (id === "auto") return ["Any task", "smart"];
   return ["Chat", "chat"];
 }
@@ -156,7 +160,7 @@ export function createModelPicker({ value = "auto", onSelect, isLocked = () => f
   let companyFilter = null;
   let priceFilter = null;   // null | "free" | "paid"
   const PRICE_FILTERS = [["free", "Free models"], ["paid", "Paid models"]];
-  const KIND_FILTERS = [["all", "All"], ["chat", "Chat"], ["image", "Photo"], ["video", "Video"], ["voice", "Voice"]];
+  const KIND_FILTERS = [["all", "All"], ["chat", "Chat"], ["image", "Photo"], ["video", "Video"], ["music", "Music"], ["voice", "Voice"]];
   const COMPANIES = [...new Set(MODEL_GROUPS.flatMap(([, ids]) => ids).filter((id) => id !== "auto").map((id) => provider(id).name))];
   const filters = h("div", { class: "model-filters" });
 

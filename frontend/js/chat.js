@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS } from "./model-picker.js";
+import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS, MUSIC_MODELS } from "./model-picker.js";
 import { FREE_MODELS } from "./config.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
@@ -7,6 +7,7 @@ import { streakInfo } from "./streak.js";
 import { setupSidebar } from "./sidebar.js";
 import { createTtsStudio } from "./tts-studio.js";
 import { createVideoStudio } from "./video-studio.js";
+import { createMusicStudio } from "./music-studio.js";
 import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
 import { shareChatModal } from "./share.js";
@@ -197,8 +198,14 @@ export function renderApp(root, logout) {
     onChange: () => loadProfile(),
     getProfile: () => state.profile,
   });
+  // Music models get the music studio (Lyria): prompt, genre, vocals, tracks.
+  const musicStudio = createMusicStudio({
+    onSelectModel: async (id) => { await onModelChange(id); picker.setValue(id); },
+    onChange: () => loadProfile(),
+    getProfile: () => state.profile,
+  });
   const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
-  const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el);
+  const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el, musicStudio.el);
   // Shown only if the first load takes longer than a moment, so fast loads don't flash.
   const splash = h("div", { class: "boot-splash", hidden: true, role: "status", "aria-live": "polite" },
     h("div", { class: "boot-inner" },
@@ -658,6 +665,16 @@ export function renderApp(root, logout) {
       videoStudio.hide();
       renderThread();
     }
+    const music = MUSIC_MODELS.has(state.model);
+    const wasMusic = main.classList.contains("music-mode");
+    main.classList.toggle("music-mode", music);
+    if (music) {
+      musicStudio.setModel(state.model);
+      if (!wasMusic) musicStudio.show();
+    } else if (wasMusic) {
+      musicStudio.hide();
+      renderThread();
+    }
     textarea.placeholder = voice ? "Text to read aloud…"
       : VIDEO_MODELS.has(state.model) ? "Describe the video you want — attach a photo to animate it…"
       : activeGpt() ? `Message ${activeGpt().gpt_name}…`
@@ -716,6 +733,8 @@ export function renderApp(root, logout) {
     if (state.profile) studio.setPlan(state.profile);
     videoStudio.setCredits(state.profile?.["Video Credits"] ?? null);
     if (state.profile) videoStudio.setPlan(state.profile);
+    musicStudio.setCredits(state.profile?.["Nano Requests"] ?? null);
+    if (state.profile) musicStudio.setPlan(state.profile);
     if (!state.messages.length) renderThread();
   }
 
@@ -860,6 +879,8 @@ export function renderApp(root, logout) {
       studio.focus();
     } else if (VIDEO_MODELS.has(state.model)) {
       videoStudio.focus();
+    } else if (MUSIC_MODELS.has(state.model)) {
+      musicStudio.focus();
     } else {
       textarea.focus();
     }

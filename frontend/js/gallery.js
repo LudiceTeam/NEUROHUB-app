@@ -7,7 +7,7 @@ import { modelLabel } from "./model-picker.js";
 const PAGE = 200;   // backend caps /galery at 200 per request
 const FILTERS = [["all", "All"], ["image", "Images"], ["video", "Videos"], ["audio", "Audio"]];
 
-const kindOf = (url) => (/\.mp4(\?|$)/i.test(url) ? "video" : /\.(mp3|wav|ogg|m4a)(\?|$)/i.test(url) ? "audio" : "image");
+const kindOf = (url) => (/\.mp4(\?|$)/i.test(url) ? "video" : /\.(mp3|wav|ogg|m4a|flac)(\?|$)/i.test(url) ? "audio" : "image");
 
 function dayLabel(iso) {
   if (!iso) return "Earlier";
@@ -149,9 +149,10 @@ export function openGallery({ onOpenChat = () => {} } = {}) {
     if (reset) { st.items = []; st.offset = 0; }
     render();
     try {
-      const [res, studio] = await Promise.all([
+      const [res, studio, music] = await Promise.all([
         api.gallery(PAGE, st.offset),
         reset ? api.videoList().catch(() => null) : null,
+        reset ? api.musicList().catch(() => null) : null,
       ]);
       const rows = Array.isArray(res) ? res : res?.result || [];
       st.offset += rows.length;
@@ -159,8 +160,10 @@ export function openGallery({ onOpenChat = () => {} } = {}) {
       const fresh = rows.map((r) => ({ ...r, kind: kindOf(r.url) }));
       const clips = (studio?.result || []).filter((v) => v.status === "completed" && v.url)
         .map((v) => ({ id: `studio-${v.id}`, url: v.url, prompt: v.prompt, model: v.model, created_at: v.created_at, kind: "video", studio: true }));
+      const tracks = (music?.result || []).filter((t) => t.status === "completed" && t.url)
+        .map((t) => ({ id: `music-${t.id}`, url: t.url, prompt: t.prompt, model: t.model, created_at: t.created_at, kind: "audio", studio: true }));
       const seen = new Set();
-      st.items = [...st.items, ...fresh, ...clips].filter((x) => !seen.has(x.url) && seen.add(x.url))
+      st.items = [...st.items, ...fresh, ...clips, ...tracks].filter((x) => !seen.has(x.url) && seen.add(x.url))
         .sort((a, b) => (Date.parse(b.created_at || 0) || 0) - (Date.parse(a.created_at || 0) || 0));
     } catch (e) {
       st.error = errorText(e);

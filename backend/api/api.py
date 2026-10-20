@@ -19,7 +19,7 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from backend.api.auth import create_access_token,create_refresh_token
-from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,take_video_credits,refund_video_credits,minus_requests,migrate_table as migrate_main_table
+from backend.database.main_database.main_core import create_user,subscribe,unsubscribe,minus_one_req,minus_one_req_nano,profile,get_user_data_for_jwt,get_user_state,get_user_email_by_user_id,get_user_avatar_and_name,renew_sub,refil_all_requests,update_user_avatar,get_user_profile_pict_url,change_name,get_user_plan,minus_one_video,plus_one_video,take_video_credits,refund_video_credits,take_premium_requests,refund_premium_requests,minus_requests,migrate_table as migrate_main_table
 from backend.database.jwt_database.jwt_core import create_refresh_token_db,get_user_refresh_token,update_refresh_token,delete_jwt_tokens
 from backend.database.email_code_db.email_core import create_code,check_code
 from backend.database.chats_database.chats_core import create_chat,delete_chat,get_user_chats,update_chat_last_message_date,get_chats_order,add_chat_to_folder,get_folder_chats,delete_folder,delete_chat_from_folder,update_chat_name,get_chat_name,pin_unpin_chat,get_pinned_chats_order
@@ -42,6 +42,8 @@ from backend.database.ban_db.ban_core import ban_user,get_ban_info,unban_user
 from backend.database.custom_gpt_db.custom_core import create_custom_gpt,get_user_custom_gpts,change_gpt_name,change_gpt_promt,delete_gpt,get_custom_gpts_ids,get_gpt_settings
 from backend.database.custom_gpt_select_db.select_core import select_user_custom_gpt,get_user_gpt,unselect_user_custom_gpt
 from backend.database.user_voices.voice_core import create_voice,delete_voice,get_user_voices,rename_voice,get_user_voices_amount,set_eleven_voice_id,migrate_table as migrate_voices_table
+from backend.api.config import MUSIC_MODEL_SPECS,music_generation_models,MAX_MUSIC_PROMPT,MAX_MUSIC_LYRICS
+from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
@@ -111,7 +113,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def run_migrations():
     # Adds columns that create_all can't add to existing tables. Safe to run every start (IF NOT EXISTS).
-    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table, migrate_links_table):
+    for migrate in (migrate_main_table, migrate_voices_table, migrate_streak_table, migrate_videos_table, migrate_links_table, migrate_music_table):
         try:
             await migrate()
         except Exception:
@@ -844,6 +846,245 @@ async def check_videos_status_hadler(request:Request,req:VideoStatus,user_data:d
     except Exception as e:
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
+# --- MUSIC STUDIO ---
+
+MUSIC_TIMEOUT_SECONDS = 6 * 60
+_music_jobs:set = set()
+
+
+def music_error_text(raw:str) -> str:
+    low = raw.lower()
+    if "copyright" in low or "recitation" in low:
+        return "The song sounded too close to existing music. Remove artist or song names and try again."
+    if any(word in low for word in ("moderat", "safety", "policy", "sensitive", "violat", "blocked")):
+        return "Blocked by the model's safety filter. Try rephrasing the prompt or the lyrics."
+    if "timed out" in low or "timeout" in low:
+        return "The model took too long. Please try again."
+    return "The track couldn't be generated. Please try again."
+
+
+def sniff_audio(data:bytes) -> tuple:
+    """(bytes, extension, content type) for whatever container the model returned."""
+    if data[:3] == b"ID3" or data[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
+        return data, "mp3", "audio/mpeg"
+    if data[:4] == b"RIFF":
+        return data, "wav", "audio/wav"
+    if data[:4] == b"fLaC":
+        return data, "flac", "audio/flac"
+    if data[:4] == b"OggS":
+        return data, "ogg", "audio/ogg"
+    # No header: raw 16-bit PCM.
+    return pcm_to_wav(data, 48000), "wav", "audio/wav"
+
+
+async def generate_music_audio(model:str, prompt:str) -> tuple:
+    """Streams a Lyria completion from OpenRouter. Returns (audio bytes, text the model wrote, e.g. lyrics)."""
+    headers = {"Authorization": f"Bearer {OPEN_AI_KEY}", "Content-Type": "application/json"}
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "modalities": ["text", "audio"],
+        "audio": {"format": "mp3"},
+        "stream": True,   # OpenRouter only returns audio output when streaming
+    }
+    chunks:List = []
+    text:List = []
+    buffer = b""
+
+    def handle(line:bytes):
+        line = line.strip()
+        if not line.startswith(b"data:"):
+            return False
+        data = line[5:].strip()
+        if data == b"[DONE]":
+            return True
+        event = json.loads(data)
+        if event.get("error"):
+            raise Exception(f"Music stream error: {event['error']}")
+        for choice in event.get("choices", []):
+            delta = choice.get("delta") or choice.get("message") or {}
+            audio = delta.get("audio") or {}
+            if audio.get("data"):
+                chunks.append(audio["data"])
+            if audio.get("transcript"):
+                text.append(audio["transcript"])
+            if isinstance(delta.get("content"), str):
+                text.append(delta["content"])
+        return False
+
+    async with aiohttp.ClientSession(timeout = aiohttp.ClientTimeout(total = MUSIC_TIMEOUT_SECONDS)) as session:
+        async with session.post(f"{OPENROUTER_URL}/chat/completions", json = body, headers = headers) as response:
+            if response.status >= 300:
+                raise Exception(f"Music create error {response.status}: {await response.text()}")
+            # SSE lines with audio can be very long, so split the raw stream ourselves.
+            done = False
+            async for piece in response.content.iter_any():
+                buffer += piece
+                while b"\n" in buffer and not done:
+                    line, buffer = buffer.split(b"\n", 1)
+                    done = handle(line)
+                if done:
+                    break
+            if buffer and not done:
+                handle(buffer)
+
+    if not chunks:
+        raise Exception("Music stream had no audio")
+    try:
+        audio = b"".join(base64.b64decode(c) for c in chunks)
+    except Exception:
+        audio = base64.b64decode("".join(chunks))
+    return audio, "".join(text).strip()
+
+
+async def process_music_task(task_id:str, user_id:str, model:str, prompt:str, cost:int):
+    try:
+        await set_music_result(task_id, "processing")
+        audio, words = await generate_music_audio(model, prompt)
+        audio, ext, content_type = sniff_audio(audio)
+        key = await AWS_CLIENT.upload_file(file_path = f"{task_id}.{ext}", file_data = audio, content_type = content_type)
+        await set_music_result(task_id, "completed", file_key = key,
+                               lyrics = encrypt(words[:MAX_MUSIC_LYRICS], os.getenv("HASH_MESSAGES_KEY")) if words else None)
+    except Exception as e:
+        logger.exception("MUSIC GENERATION ERROR")
+        await set_music_result(task_id, "failed", error = music_error_text(str(e)))
+        await refund_premium_requests(user_id, cost)
+
+
+def music_item(row:dict) -> dict:
+    key = os.getenv("HASH_MESSAGES_KEY")
+    def plain(value):
+        try:
+            return decrypt(value, key) if value else ""
+        except Exception:
+            return ""
+    return {
+        "id": row["id"],
+        "status": row.get("status") or "pending",
+        "url": AWS_CLIENT.sign(row.get("file_key")) if row.get("file_key") else None,
+        "prompt": plain(row.get("prompt")),
+        "lyrics": plain(row.get("lyrics")),
+        "model": row.get("model"),
+        "instrumental": bool(row.get("instrumental")),
+        "cost": row.get("cost") or 1,
+        "error": row.get("error"),
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+    }
+
+
+class MusicGenerate(BaseModel):
+    prompt:str
+    model:str
+    instrumental:bool = False
+    lyrics:Optional[str] = None
+
+
+class MusicDelete(BaseModel):
+    music_id:str
+
+
+@app.get("/music/models")
+@limiter.limit("30/minute")
+async def music_models_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    return {
+        "result": [{"id": model_id, **spec} for model_id, spec in MUSIC_MODEL_SPECS.items()],
+        "max_prompt": MAX_MUSIC_PROMPT,
+        "max_lyrics": MAX_MUSIC_LYRICS,
+    }
+
+
+@app.get("/music/list")
+@limiter.limit("60/minute")
+async def music_list_handler(request:Request, user_data:dict = Depends(get_current_user)):
+    try:
+        await check_ban(user_data["user_id"])
+        return {"result": [music_item(row) for row in await get_user_music(user_data["user_id"])]}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
+@app.post("/music/generate")
+@limiter.limit("10/minute")
+async def music_generate_handler(request:Request, req:MusicGenerate, user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+        await check_ban(user_id)
+        await update_last_online(user_data["device_id"])
+        await refil_all_requests(user_id)
+
+        spec = MUSIC_MODEL_SPECS.get(req.model)
+        prompt = req.prompt.strip()
+        lyrics = (req.lyrics or "").strip()
+        if spec is None:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unknown music model")
+        if not prompt:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Describe the music")
+        if len(prompt) > MAX_MUSIC_PROMPT or len(lyrics) > MAX_MUSIC_LYRICS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Prompt is too long")
+        if not has_paid_plan(await get_user_state(user_id)):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Upgrade required")
+
+        cost = spec["cost"]
+        if not await take_premium_requests(user_id, cost):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "No premium requests left")
+
+        full_prompt = prompt
+        if req.instrumental:
+            full_prompt += "\n\nInstrumental only, no vocals."
+        elif lyrics:
+            full_prompt += f"\n\nUse these lyrics:\n{lyrics}"
+
+        task_id = str(uuid.uuid4())
+        created = await create_music_task(
+            id = task_id, user_id = user_id, model = req.model, instrumental = req.instrumental, cost = cost,
+            prompt = encrypt(prompt, os.getenv("HASH_MESSAGES_KEY")),
+            lyrics = encrypt(lyrics, os.getenv("HASH_MESSAGES_KEY")) if lyrics and not req.instrumental else None,
+        )
+        if not created:
+            await refund_premium_requests(user_id, cost)
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+        job = asyncio.create_task(process_music_task(task_id, user_id, req.model, full_prompt, cost))
+        _music_jobs.add(job)
+        job.add_done_callback(_music_jobs.discard)
+
+        row = await get_music_track(user_id, task_id)
+        return {"result": music_item(row) if row else {"id": task_id, "status": "pending"}, "cost": cost}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+
+
+@app.post("/music/delete")
+@limiter.limit("30/minute")
+async def music_delete_handler(request:Request, req:MusicDelete, user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+        await check_ban(user_id)
+        track = await get_music_track(user_id, req.music_id)
+        if not track:
+            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Track not found")
+        if track["status"] in ("pending", "processing"):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "The track is still being generated")
+        await delete_music_track(user_id, req.music_id)
+        if track.get("file_key"):
+            try:
+                await AWS_CLIENT.delete_file(track["file_key"])
+            except Exception:
+                logger.exception("MUSIC FILE DELETE ERROR")
+        return {"message": "Ok"}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
 
 
 # --- VIDEO STUDIO ---
@@ -2293,7 +2534,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
                 )
                 
                 
-        total_models = models + expensive_models + image_generation_models + video_generation_models + list(tts_models)
+        total_models = models + expensive_models + image_generation_models + video_generation_models + music_generation_models + list(tts_models)
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
         if req.model_name != "auto" and req.model_name not in FREE_MODELS and not has_paid_plan(await get_user_state(user_id)):
@@ -4403,6 +4644,7 @@ IMPROVE_HINTS = {
     "chat": "The prompt will be sent to an AI chat assistant.",
     "image": "The prompt will be sent to an image generation model: describe subject, style, composition, lighting and details.",
     "video": "The prompt will be sent to a video generation model: describe subject, action, setting, camera movement, lighting and mood in one vivid paragraph.",
+    "music": "The prompt will be sent to a music generation model: describe genre, mood, tempo, instruments, vocals and song structure in one short paragraph.",
 }
 
 

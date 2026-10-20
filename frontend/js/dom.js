@@ -51,6 +51,8 @@ export function icon(name) {
     code: "M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14",
     plane: "M21 4L10.5 13.5M21 4l-7 17-3.5-7.5L3 10z",
     mail: "M4 6h16v12H4zM4 7l8 6 8-6",
+    mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3",
+    alert: "M12 3l10 18H2zM12 10v5M12 18h.01",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
