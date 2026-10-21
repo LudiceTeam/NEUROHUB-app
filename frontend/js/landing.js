@@ -59,7 +59,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
   const page = document.createElement("div");
   page.className = "landing";
   page.innerHTML = `
-    <div class="l-bg" aria-hidden="true"><span class="l-orb a"></span><span class="l-orb b"></span><span class="l-grid"></span></div>
+    <div class="l-bg" aria-hidden="true"><span class="l-orb a"></span><span class="l-orb b"></span><span class="l-orb c"></span><span class="l-orb d"></span><span class="l-orb e"></span><span class="l-grid"></span></div>
 
     <header class="l-nav">
       <a class="l-brand" href="#top"><img src="logo.png" alt="" width="30" height="30"><span>Veora</span></a>
