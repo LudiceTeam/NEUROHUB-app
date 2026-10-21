@@ -60,7 +60,7 @@ export const MODEL_GROUPS = [
     "qwen/qwen-image-3",
     "recraft/recraft-v4.1",
   ]],
-  // Open the video studio (backend VIDEO_MODEL_SPECS); use the monthly video credits, not premium requests.
+  // Open the video studio (backend VIDEO_MODEL_SPECS); use the monthly video credits, not Pro requests.
   ["Video", [
     "bytedance/seedance-2.0-fast",
     "bytedance/seedance-2.0-mini",
@@ -69,7 +69,7 @@ export const MODEL_GROUPS = [
     "alibaba/wan-3.0",
     "x-ai/grok-imagine-video-1.5-lite",
   ]],
-  // Open the music studio (backend MUSIC_MODEL_SPECS); paid with premium requests.
+  // Open the music studio (backend MUSIC_MODEL_SPECS); paid with Pro requests.
   ["Music", ["google/lyria-3-clip-preview", "google/lyria-3-pro-preview"]],
   // Mirrors tts_models in backend/api/config.py: "<model>:<voice>".
   ["Voice", [

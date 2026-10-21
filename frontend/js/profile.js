@@ -64,7 +64,7 @@ export function openProfile(state, { logout, onChange }) {
     body.append(h("div", { class: "stats" },
       stat("Plan", planName(p).replace(" plan", "")),
       creditsMeter(p, "card"),
-      stat("Premium / month", p["Nano Requests"] ?? 0),
+      stat("Pro requests / month", p["Nano Requests"] ?? 0),
       stat("Videos / month", p["Video Credits"] ?? 0)));
     body.append(streakCard(state, { onChange }));
     const subscribed = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"].some((k) => p[k]);

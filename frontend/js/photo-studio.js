@@ -149,7 +149,7 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
     const locked = st.profile && !paid();
     const short = st.credits != null && st.credits < c;
     costLine.replaceChildren(...[
-      h("span", { class: "vs-cost-main" }, icon("gallery"), `${c} premium request${c === 1 ? "" : "s"}`),
+      h("span", { class: "vs-cost-main" }, icon("gallery"), `${c} Pro request${c === 1 ? "" : "s"}`),
       st.credits != null && h("small", {}, `${st.credits} left`),
     ].filter(Boolean));
     genBtn.replaceChildren(st.busy ? h("span", { class: "spinner" }) : icon("spark"),
@@ -170,7 +170,7 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
     if (st.busy) return;
     if (st.profile && !paid()) { openPlans(st.profile); return; }
     if (st.credits != null && st.credits < cost()) {
-      toast(st.count > 1 ? "Not enough premium requests. Try fewer variants or Standard quality." : "Not enough premium requests for this image.", "info");
+      toast(st.count > 1 ? "Not enough Pro requests. Try fewer variants or Standard quality." : "Not enough Pro requests for this image.", "info");
       return;
     }
     const text = prompt.value.trim();
@@ -235,7 +235,7 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
     } else {
       tiles = [h("div", { class: "ps-failed" }, icon("alert"),
         h("span", {}, j.error || "The image couldn't be generated. Please try again."),
-        h("small", { class: "muted" }, "Premium requests were refunded."))];
+        h("small", { class: "muted" }, "Pro requests were refunded."))];
     }
     return h("article", { class: `ps-job ${j.status}` },
       h("div", { class: `ps-tiles n${Math.min(tiles.length, 4)}` }, tiles),

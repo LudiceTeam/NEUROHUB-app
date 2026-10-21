@@ -440,3 +440,19 @@ html.landing-mode #app { height: auto; }
 .lang-switch.l-lang button { color: var(--l-muted); }
 .lang-switch.l-lang button.active { background: rgba(255, 255, 255, .12); color: var(--l-text); }
 
+
+/* ---------- phone polish ---------- */
+.l-btn { white-space: nowrap; }
+@media (max-width: 760px) {
+  .l-model-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .l-group { padding: 16px; }
+  .l-footer nav { flex-wrap: wrap; justify-content: center; gap: 10px 18px; }
+}
+@media (max-width: 420px) {
+  .l-nav { gap: 8px; }
+  .l-brand { font-size: 16px; }
+  .l-actions { gap: 6px; }
+  .l-actions .l-btn { padding: 8px 12px; font-size: 13px; }
+  /* The hero already has "I have an account". */
+  .l-actions .l-btn[data-action="login"] { display: none; }
+}

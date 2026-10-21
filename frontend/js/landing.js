@@ -37,8 +37,8 @@ const FEATURES = [
 const FAQ = [
   ["Is there a free plan?", "Yes. Every account gets 25 credits a day with fast models like GPT-6 Luna, Llama 4, Gemma and Mistral. Any paid plan unlocks all 30+ models, images, video and voice."],
   ["What are credits?", "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model."],
-  ["What is a premium request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use monthly premium requests. Videos have their own monthly credits."],
-  ["When do they refill?", "Credits refill every day; premium requests and videos every month — automatically, up to your plan's limit."],
+  ["What is a Pro request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use monthly Pro requests. Videos have their own monthly credits."],
+  ["When do they refill?", "Credits refill every day; Pro requests and videos every month — automatically, up to your plan's limit."],
   ["Where do I subscribe?", "Right here on the site: open your account and pick a plan. Payments go through Stripe, and you can cancel anytime."],
   ["Is my chat history private?", "Messages are encrypted before they're saved to our database, and you can delete any chat — including its images — at any time."],
   ["Do I need a password?", "No. Sign in with Google or with a one-time code sent to your email. Sign in with Apple is coming to the web soon."],
@@ -151,7 +151,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
         <div class="l-head reveal">
           <span class="l-kicker">Plans</span>
           <h2>Start free. Upgrade when you're ready.</h2>
-          <p>Credits refill every day; premium requests and videos every month. Every paid plan unlocks all 30+ models.</p>
+          <p>Credits refill every day; Pro requests and videos every month. Every paid plan unlocks all 30+ models.</p>
         </div>
         <div class="l-free reveal">
           <div><strong>Free</strong><b class="l-free-price">${rubles(0)}</b><span>${FREE_PLAN.requests} credits a day with fast models (GPT-6 Luna, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>
@@ -165,7 +165,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <p class="l-plan-note">${p.note}</p>
               <div class="l-plan-price"><strong>${rubles(p.rub)}</strong><span>/ month</span></div>
               <div class="l-plan-num small"><strong>${p.requests}</strong><span>credits / day</span></div>
-              <div class="l-plan-num small"><strong>${p.premium}</strong><span>premium / month</span></div>
+              <div class="l-plan-num small"><strong>${p.premium}</strong><span>Pro requests / month</span></div>
               <ul>
                 <li>All ${modelCount} models</li>
                 <li>${p.voices ? `${p.voices} cloned voice${p.voices === 1 ? "" : "s"} & custom themes` : "Vision & encrypted history"}</li>

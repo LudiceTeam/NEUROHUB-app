@@ -2043,3 +2043,27 @@ textarea.improving {
 .md .katex-display { margin: 0; }
 .md .math-raw { white-space: pre-wrap; }
 
+
+/* ---------- phone polish ---------- */
+/* Tables scroll sideways instead of breaking words letter by letter. */
+.md table { max-width: 100%; overflow-wrap: normal; }
+.md th, .md td { min-width: 72px; }
+@media (max-width: 820px) {
+  /* iOS zooms the page into any field under 16px; keep them at 16px on phones. */
+  .composer-input, .input, .model-search, .vs-prompt-input, .tts-editor, textarea, select { font-size: 16px; }
+}
+@media (max-width: 640px) {
+  /* The reply uses the full width; the model name above it still says who answered. */
+  .msg.assistant > .avatar { display: none; }
+  .md th, .md td { white-space: nowrap; }
+  /* Filter chips: one swipeable row instead of a ragged wrap. */
+  .model-chip-row:not(.scroll) {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -10px; padding: 0 10px;
+  }
+  .model-chip-row:not(.scroll)::-webkit-scrollbar { display: none; }
+  .model-chip-sep { flex: none; }
+  /* Composer meter fits on one line without the bar. */
+  .credits-meter { gap: 4px 8px; }
+  .credits-meter .credits-bar { display: none; }
+  .credits-extra::before { margin-right: 8px; }
+}

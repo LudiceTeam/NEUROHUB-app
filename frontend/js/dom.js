@@ -69,6 +69,7 @@ export function icon(name) {
 
 const ERRORS = {
   "Doesnt have requests": "You're out of requests for this model. They refill automatically, or upgrade your plan.",
+  "No premium requests left": "No Pro requests left",
   "Access denied": "Your account is temporarily restricted.",
   "Invalid google token": "Google sign-in failed. Try again or use email.",
   "Email is not verified": "Your Google account email isn't verified.",

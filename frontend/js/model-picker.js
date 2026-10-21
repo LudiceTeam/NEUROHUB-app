@@ -110,11 +110,11 @@ function info(id) {
   return [modelLabel(id), "", id];
 }
 
-// Cost per message: "×N" daily credits; models paid with premium requests or video credits show "–".
+// Cost per message: "×N" daily credits; models paid with Pro requests or video credits show "–".
 function cost(id) {
   if (id === "auto" || PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id) || VIDEO_MODELS.has(id) || VOICE_MODELS.has(id) || MUSIC_MODELS.has(id)) {
     return ["–", id === "auto" ? "Depends on the model it picks"
-      : VIDEO_MODELS.has(id) ? "Uses video credits" : "Uses premium requests"];
+      : VIDEO_MODELS.has(id) ? "Uses video credits" : "Uses Pro requests"];
   }
   const n = modelCredits(id);
   return [`×${n}`, `${n} credit${n === 1 ? "" : "s"} per message`];
@@ -123,7 +123,7 @@ function cost(id) {
 // Who can use it: [label, css kind].
 function access(id) {
   if (id === "auto" || FREE_MODELS.has(id)) return ["Free", "free"];
-  if (PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id)) return ["Premium", "premium"];
+  if (PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id)) return ["Pro", "premium"];
   if (VIDEO_MODELS.has(id)) return ["Plus+", "paid"];
   return ["Paid", "paid"];
 }

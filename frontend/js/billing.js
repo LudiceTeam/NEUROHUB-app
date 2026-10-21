@@ -53,7 +53,7 @@ export function openPlans(profile) {
         h("div", { class: "plan-price" }, h("strong", {}, rubles(plan.rub)), h("span", {}, "/ month")),
         h("ul", {},
           h("li", {}, `${plan.requests} credits / day · all models`),
-          h("li", {}, `${plan.premium} premium requests / month`),
+          h("li", {}, `${plan.premium} Pro requests / month`),
           h("li", {}, plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : "No video generation"),
           h("li", {}, plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : "No voice cloning"),
           h("li", {}, `${plan.photos} photos per message`),
@@ -135,7 +135,7 @@ export function openPortal() {
           sub.price && h("div", { class: "sub-price" }, h("strong", {}, rubles(sub.price)), h("span", {}, "/ month")),
           plan && h("div", { class: "sub-limits" },
             h("span", {}, `${plan.requests} credits / day`),
-            h("span", {}, `${plan.premium} premium / month`),
+            h("span", {}, `${plan.premium} Pro requests / month`),
             plan.videos > 0 && h("span", {}, `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month`))),
 
         h("div", { class: "sub-rows" },

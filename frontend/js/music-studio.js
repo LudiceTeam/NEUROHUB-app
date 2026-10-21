@@ -118,7 +118,7 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
             class: `vs-model${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => pickModel(x.id),
           }, mark(x.id, "sm"), h("span", { class: "vs-model-text" }, h("strong", {}, x.name), h("small", {}, x.note)),
-          h("span", { class: "ms-model-cost" }, `${x.cost} premium`),
+          h("span", { class: "ms-model-cost" }, `${x.cost} Pro`),
           selected && h("span", { class: "vs-check" }, icon("check")));
         })) : h("span", { class: "skel" })),
     ].filter(Boolean));
@@ -133,7 +133,7 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
     const locked = st.profile && !paid();
     const short = st.credits != null && st.credits < cost;
     costLine.replaceChildren(...[
-      h("span", { class: "vs-cost-main" }, icon("music"), `${cost} premium request${cost === 1 ? "" : "s"}`),
+      h("span", { class: "vs-cost-main" }, icon("music"), `${cost} Pro request${cost === 1 ? "" : "s"}`),
       st.credits != null && h("small", {}, `${st.credits} left`),
     ].filter(Boolean));
     genBtn.replaceChildren(st.busy ? h("span", { class: "spinner" }) : icon("spark"),
@@ -154,7 +154,7 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
     if (st.busy) return;
     if (st.profile && !paid()) { openPlans(st.profile); return; }
     const cost = spec()?.cost ?? 1;
-    if (st.credits != null && st.credits < cost) { toast("Not enough premium requests for this track.", "info"); return; }
+    if (st.credits != null && st.credits < cost) { toast("Not enough Pro requests for this track.", "info"); return; }
     const text = prompt.value.trim();
     if (!text) { prompt.focus(); return; }
     // Genre and mood go into the prompt in English, which the model follows best.
@@ -196,7 +196,7 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
     } else {
       body = h("div", { class: "ms-failed" }, icon("alert"),
         h("span", {}, t.error || "The track couldn't be generated. Please try again."),
-        h("small", { class: "muted" }, t.cost > 1 ? `${t.cost} premium requests were refunded.` : "Your premium request was refunded."));
+        h("small", { class: "muted" }, t.cost > 1 ? `${t.cost} Pro requests were refunded.` : "Your Pro request was refunded."));
     }
 
     return h("article", { class: `ms-track ${t.status}` },

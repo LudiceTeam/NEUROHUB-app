@@ -8,7 +8,7 @@ export function dailyLimit(profile) {
 
 /**
  * Thin progress bar of today's credits. variant "compact" (under the composer) adds
- * the premium requests and videos as quiet text; "card" is for the account dialog.
+ * the Pro requests and videos as quiet text; "card" is for the account dialog.
  */
 export function creditsMeter(profile, variant = "compact") {
   const left = Math.max(0, Number(profile?.Requests) || 0);
@@ -31,6 +31,6 @@ export function creditsMeter(profile, variant = "compact") {
   return h("div", { class: "credits-meter" },
     bar,
     h("span", { class: "credits-text" }, `${left} of ${limit} credits today`),
-    premium > 0 && h("span", { class: "credits-extra" }, `${premium} premium`),
+    premium > 0 && h("span", { class: "credits-extra" }, `${premium} Pro`),
     videos > 0 && h("span", { class: "credits-extra" }, `${videos} video${videos === 1 ? "" : "s"}`));
 }
