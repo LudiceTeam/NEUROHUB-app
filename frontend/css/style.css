@@ -1844,7 +1844,7 @@ textarea.improving {
 
 /* model menu rows: icon · name + purpose · version · cost | access · kind (quiet, no outlines) */
 .model-option.model-row {
-  display: grid; grid-template-columns: 32px minmax(0, 1fr) 34px 26px 1px 104px 64px 16px; align-items: center; column-gap: 12px;
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) 34px 26px 1px 116px 64px 16px; align-items: center; column-gap: 12px;
 }
 .model-row .model-option-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .model-row .model-option-desc { margin-top: 1px; }
@@ -1868,7 +1868,7 @@ textarea.improving {
 .model-kind.image { color: #e46fa8; } .model-kind.video { color: #e8894a; } .model-kind.voice { color: #3cc4bb; }
 .model-option.model-row.locked .model-version, .model-option.model-row.locked .model-cost { opacity: .55; }
 @media (max-width: 640px) {
-  .model-option.model-row { grid-template-columns: 30px minmax(0, 1fr) 26px 100px 16px; column-gap: 8px; }
+  .model-option.model-row { grid-template-columns: 30px minmax(0, 1fr) 26px 108px 16px; column-gap: 8px; }
   .model-row .model-version, .model-row .model-sep, .model-row .model-kind { display: none; }
 }
 

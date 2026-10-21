@@ -125,7 +125,7 @@ function access(id) {
   if (id === "auto" || FREE_MODELS.has(id)) return ["Free", "free"];
   if (PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id)) return ["Pro requests", "premium"];
   if (VIDEO_MODELS.has(id)) return ["Plus+", "paid"];
-  return ["Paid", "paid"];
+  return ["With subscription", "paid"];
 }
 
 // What it's for: [label, css kind].
