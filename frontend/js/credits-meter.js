@@ -31,6 +31,6 @@ export function creditsMeter(profile, variant = "compact") {
   return h("div", { class: "credits-meter" },
     bar,
     h("span", { class: "credits-text" }, `${left} of ${limit} credits today`),
-    premium > 0 && h("span", { class: "credits-extra" }, `${premium} Pro`),
+    premium > 0 && h("span", { class: "credits-extra" }, `${premium} Pro request${premium === 1 ? "" : "s"}`),
     videos > 0 && h("span", { class: "credits-extra" }, `${videos} video${videos === 1 ? "" : "s"}`));
 }

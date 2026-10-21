@@ -118,7 +118,7 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
             class: `vs-model${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => pickModel(x.id),
           }, mark(x.id, "sm"), h("span", { class: "vs-model-text" }, h("strong", {}, x.name), h("small", {}, x.note)),
-          h("span", { class: "ms-model-cost" }, `${x.cost} Pro`),
+          h("span", { class: "ms-model-cost" }, `${x.cost} Pro request${x.cost === 1 ? "" : "s"}`),
           selected && h("span", { class: "vs-check" }, icon("check")));
         })) : h("span", { class: "skel" })),
     ].filter(Boolean));
