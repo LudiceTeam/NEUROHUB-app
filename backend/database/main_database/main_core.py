@@ -641,5 +641,15 @@ async def get_user_plan(user_id:str) -> Dict | None:
             logger.exception("MAIN SQL ERORR")
             return None
 
-async def get_user_sub_end(user_id:str):
-    pass
+async def get_user_sub_end(user_id:str) -> str | None:
+    async with AsyncSession(async_engine) as conn:
+        async with conn.begin(0):
+            try:
+                stmt = select(main_table.c.date).where(
+                    main_table.c.user_id == user_id
+                )
+                res = await conn.execute(stmt)
+                return res.scalar_one_or_none()
+            except Exception:
+                logger.exception("MAIN SQL ERROR")
+                return None
