@@ -63,6 +63,11 @@ MODEL_CREDITS = {
 def model_credits(model:str) -> int:
     return MODEL_CREDITS.get(model, 1)
 
+# Web search (OpenRouter "web" plugin, Exa engine: ~$0.004 per result, so ~$0.012 per search).
+# Charged on top of the model's credits; premium models still take one premium request.
+WEB_SEARCH_RESULTS = 3
+WEB_SEARCH_CREDITS = 5
+
 FREE_DEFAULT_MODEL = "openai/gpt-6-luna"
 PAID_DEFAULT_MODEL = "google/gemini-3-flash-preview"
 

@@ -197,8 +197,9 @@ export const api = {
   translate: (text, target_language) => post("/translate", { text, target_language }),
 
   // voice_id: one of the user's own voices — the text is spoken in that voice with voice_model.
-  askText: (chat_id, text, voice_id = null, voice_model = null) => post("/ask_text", {
-    chat_id, request: text, ...(voice_id ? { voice_id, voice_model } : {}),
+  // web_search: the model searches the web first (costs extra credits).
+  askText: (chat_id, text, voice_id = null, voice_model = null, web_search = false) => post("/ask_text", {
+    chat_id, request: text, ...(voice_id ? { voice_id, voice_model } : {}), ...(web_search ? { web_search } : {}),
   }),
 
   // own (cloned) voices
@@ -215,10 +216,11 @@ export const api = {
   },
   renameVoice: (voice_id, new_name) => post("/voice/rename", { voice_id, new_name }),
   deleteVoice: (voice_id) => request("/voice/delete", { method: "DELETE", body: { voice_id } }),
-  askPhoto: (chat_id, text, files) => {
+  askPhoto: (chat_id, text, files, web_search = false) => {
     const form = new FormData();
     if (chat_id) form.append("chat_id_form", chat_id);
     if (text) form.append("request_text", text);
+    if (web_search) form.append("web_search", "true");
     for (const f of files) form.append("image_list", f);
     return request("/ask_photo", { method: "POST", form });
   },

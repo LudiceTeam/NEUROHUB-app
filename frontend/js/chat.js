@@ -158,11 +158,27 @@ export function renderApp(root, logout) {
   });
   const previews = h("div", { class: "previews" });
   const attachBtn = h("button", { class: "icon-btn", type: "button", "aria-label": "Attach images", onclick: () => fileInput.click() }, icon("clip"));
+  // Web search toggle: remembered per browser, sent with every text answer while it's on.
+  const WEB_SEARCH_KEY = "veora_web_search";
+  let webSearch = false;
+  try { webSearch = localStorage.getItem(WEB_SEARCH_KEY) === "1"; } catch { /* ignore */ }
+  const webBtn = h("button", {
+    class: "icon-btn web-btn", type: "button", "aria-label": "Search the web", title: "Search the web",
+    onclick: () => {
+      webSearch = !webSearch;
+      webBtn.classList.toggle("on", webSearch);
+      webBtn.setAttribute("aria-pressed", String(webSearch));
+      try { localStorage.setItem(WEB_SEARCH_KEY, webSearch ? "1" : "0"); } catch { /* ignore */ }
+      toast(webSearch ? "Web search on: answers use fresh results from the internet." : "Web search off.", "info");
+    },
+  }, icon("globe"));
+  webBtn.classList.toggle("on", webSearch);
+  webBtn.setAttribute("aria-pressed", String(webSearch));
   const sendBtn = h("button", { class: "send-btn", type: "submit", "aria-label": "Send" }, icon("send"));
   const composer = h("form", { class: "composer", onsubmit: (e) => { e.preventDefault(); send(); } },
     previews,
     h("div", { class: "composer-row" },
-      attachBtn, textarea, fileInput, sendBtn),
+      attachBtn, webBtn, textarea, fileInput, sendBtn),
   );
   const quota = h("div", { class: "quota" });
 
@@ -1135,7 +1151,8 @@ export function renderApp(root, logout) {
       role: "assistant", pending: true, fresh: true,
       pendingLabel: VIDEO_MODELS.has(state.model) ? "Starting your video"
         : files.length ? "Looking at your images"
-        : IMAGE_MODELS.has(state.model) ? "Creating your image" : "Thinking",
+        : IMAGE_MODELS.has(state.model) ? "Creating your image"
+        : webSearch ? "Searching the web" : "Thinking",
     };
     state.messages.push(userMsg, reply);
     textarea.value = "";
@@ -1146,8 +1163,8 @@ export function renderApp(root, logout) {
 
     try {
       const res = files.length
-        ? await api.askPhoto(state.chatId, text, files)
-        : await api.askText(state.chatId, text);
+        ? await api.askPhoto(state.chatId, text, files, webSearch)
+        : await api.askText(state.chatId, text, null, null, webSearch);
       applyReply(reply, res);
     } catch (e) {
       reply.error = errorText(e);

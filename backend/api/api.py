@@ -48,7 +48,7 @@ from backend.database.images_db.images_core import migrate_images_table,create_i
 from backend.database.payments_db.payments_core import migrate_payments_tables,save_payment,get_payment as get_yk_payment,claim_payment,set_payment_status,get_subscription,upsert_subscription,due_subscriptions
 from backend.api import yookassa_client
 from backend.api.images_util import to_model_format,data_url,UnsupportedImage
-from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS
+from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS,WEB_SEARCH_RESULTS,WEB_SEARCH_CREDITS
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1581,7 +1581,23 @@ async def generate_image_via_images_api(model:str, prompt:str, images_base64:Lis
         return "No image in response"
 
 
-async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
+def web_sources_markdown(message) -> str:
+    """The pages the web plugin used (url_citation annotations), as a Markdown list."""
+    sources = {}
+    for annotation in getattr(message, "annotations", None) or []:
+        annotation = annotation if isinstance(annotation, dict) else annotation.model_dump()
+        if annotation.get("type") != "url_citation":
+            continue
+        citation = annotation.get("url_citation") or {}
+        url = citation.get("url")
+        if url and url not in sources:
+            sources[url] = (citation.get("title") or url).replace("[", "(").replace("]", ")")
+    if not sources:
+        return ""
+    return "\n\n**Sources:**\n" + "\n".join(f"- [{title}]({url})" for url, title in sources.items())
+
+
+async def ask_chat_gpt(request: str | List, user_model:str, web_search:bool = False) -> str | bytes:
     try:
         req = ""
         images_base64 = None
@@ -1663,6 +1679,13 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
 
 
 
+        extra_body = {}
+        if user_model in REASONING_MODELS:
+            extra_body["reasoning"] = {"effort": REASONING_MODELS[user_model]}
+        if web_search:
+            # OpenRouter searches the web and puts the results into the model's context.
+            extra_body["plugins"] = [{"id": "web", "engine": "exa", "max_results": WEB_SEARCH_RESULTS}]
+
         response = await client.chat.completions.create(  # <-- ВАЖНО: используем chat.completions
             model=user_model,  # <-- ПРАВИЛЬНОЕ имя модели
             messages=[
@@ -1671,13 +1694,17 @@ async def ask_chat_gpt(request: str | List, user_model:str) -> str | bytes:
             # Caps the cost of one answer (plan limits are calculated with it).
             # Thinking models spend part of it on reasoning, so they get more room.
             max_tokens = MAX_OUTPUT_TOKENS * 2 if "thinking" in user_model or user_model in REASONING_MODELS else MAX_OUTPUT_TOKENS,
-            **({"extra_body": {"reasoning": {"effort": REASONING_MODELS[user_model]}}} if user_model in REASONING_MODELS else {})
+            **({"extra_body": extra_body} if extra_body else {})
         )
 
 
-        result = response.choices[0].message.content.strip()
+        message = response.choices[0].message
+        result = (message.content or "").strip()
         if not result:
             return "No text result."
+
+        if web_search:
+            result += web_sources_markdown(message)
 
         return result
 
@@ -1859,15 +1886,12 @@ class AskText(BaseModel):
     request:Optional[str] = None
     voice_id:Optional[str] = None      # the user's own voice from /voices/get; forces text-to-speech
     voice_model:Optional[str] = None   # key of CLONE_MODELS for voice_id (see /voices/models)
+    web_search:Optional[bool] = False  # let the model search the web (costs WEB_SEARCH_CREDITS extra)
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
 async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depends(get_current_user)):
-
-
-
     try:
-
         user_id = user_data_jwt["user_id"]
         
         ban_info = await get_ban_info(
@@ -2134,7 +2158,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             } #  либо текст, либо url картинки
         expensive_models_full = expensive_models + image_generation_models + video_generation_models
         # Daily credits: every model costs its weight (MODEL_CREDITS).
-        credits = model_credits(user_model)
+        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if req.web_search else 0)
         if user_model not in expensive_models_full and (user_data["requests"] or 0) < credits:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests" if (user_data["requests"] or 0) <= 0 else "Not enough credits")
 
@@ -2145,7 +2169,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-        response = await ask_chat_gpt(promt,user_model)
+        response = await ask_chat_gpt(promt,user_model,bool(req.web_search))
 
         if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
@@ -2195,7 +2219,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text:Optional[str] = Form(None),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user)):
+    request_text:Optional[str] = Form(None),web_search:bool = Form(False),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user)):
 
 
 
@@ -2272,7 +2296,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-        credits = model_credits(user_model)
+        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if web_search else 0)
         if len(image_list) > plan_of(user_data).get("photos", 5):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Too many photos for your plan")
         if (user_data["requests"] or 0) < credits and user_model not in expensive_full_models:
@@ -2462,7 +2486,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             } #  либо текст, либо url картинк
 
 
-        response = await ask_chat_gpt([promt,image_base64_list],user_model)
+        response = await ask_chat_gpt([promt,image_base64_list],user_model,web_search)
 
         if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
