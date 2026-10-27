@@ -53,6 +53,8 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
 
   const spec = () => st.models.find((m) => m.id === st.model) || st.models[0] || null;
   const paid = () => PAID_PLANS.some((k) => st.profile?.[k]);
+  // The free plan gets one Pro request a month; it's locked only once that's spent.
+  const locked = () => Boolean(st.profile) && !paid() && !(st.credits > 0);
   const pending = () => st.items.some((t) => t.status === "pending" || t.status === "processing");
   const save = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ genre: st.genre, mood: st.mood, vocals: st.vocals })); } catch { /* private mode */ } };
 
@@ -130,15 +132,14 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
     counter.textContent = `${n} / ${st.maxPrompt}`;
     counter.classList.toggle("over", n > st.maxPrompt);
     const cost = spec()?.cost ?? 1;
-    const locked = st.profile && !paid();
     const short = st.credits != null && st.credits < cost;
     costLine.replaceChildren(...[
       h("span", { class: "vs-cost-main" }, icon("music"), `${cost} Pro request${cost === 1 ? "" : "s"}`),
       st.credits != null && h("small", {}, `${st.credits} left`),
     ].filter(Boolean));
     genBtn.replaceChildren(st.busy ? h("span", { class: "spinner" }) : icon("spark"),
-      locked ? "Unlock music" : st.busy ? "Starting…" : "Create music");
-    genBtn.disabled = st.busy || !spec() || (!locked && !short && (!prompt.value.trim() || n > st.maxPrompt || lyrics.value.length > st.maxLyrics));
+      locked() ? "Unlock music" : st.busy ? "Starting…" : "Create music");
+    genBtn.disabled = st.busy || !spec() || (!locked() && !short && (!prompt.value.trim() || n > st.maxPrompt || lyrics.value.length > st.maxLyrics));
   }
 
   async function pickModel(id) {
@@ -152,7 +153,7 @@ export function createMusicStudio({ onSelectModel, onChange = () => {}, getProfi
   // ---------- generate ----------
   async function generate() {
     if (st.busy) return;
-    if (st.profile && !paid()) { openPlans(st.profile); return; }
+    if (locked()) { openPlans(st.profile); return; }
     const cost = spec()?.cost ?? 1;
     if (st.credits != null && st.credits < cost) { toast("Not enough Pro requests for this track.", "info"); return; }
     const text = prompt.value.trim();

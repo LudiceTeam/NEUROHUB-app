@@ -43,7 +43,7 @@ AsyncSessionLocal = sessionmaker(
 #   video         video generations, refilled every 30 days
 #   voices_amount own (cloned) voices
 # Sized so that even a user who spends everything with long chats stays profitable.
-FREE_PLAN = {"requests": 25, "nano_req": 0, "video": 0, "photos": 1}
+FREE_PLAN = {"requests": 25, "nano_req": 1, "video": 0, "photos": 1}
 
 # Daily limits are counted in credits: every request costs what the model really costs.
 # 1 credit = the worst-case cost of a fast model (~$0.0024 with the caps below). Models not listed
@@ -69,6 +69,10 @@ def model_credits(model:str) -> int:
 WEB_SEARCH_RESULTS = 3
 WEB_SEARCH_CREDITS = 5
 WEB_SEARCH_PLANS = ["premium", "max", "elite"]
+
+# Generated images of the free plan and of these plans get a text watermark (higher plans don't).
+WATERMARK_PLANS = ["starter", "basic"]
+WATERMARK_TEXT = "Veora · web.nexi.center"
 WEB_SEARCH_MAX_MODEL_CREDITS = 3
 
 FREE_DEFAULT_MODEL = "openai/gpt-6-luna"
@@ -394,6 +398,10 @@ CLONE_MODELS = {
 }
 # Used when the request names no (or an unavailable) model: the first available in this order.
 CLONE_MODEL_PREFERENCE = ["eleven-v4", "fish-s2.1-pro", "eleven-v4-turbo"]
+
+# The free plan's monthly Pro request (FREE_PLAN["nano_req"]) works with everything paid with
+# Pro requests: top models, images, voices and music. Video and own voices stay paid-only.
+FREE_PRO_MODELS = expensive_models + image_generation_models + list(tts_models) + music_generation_models
 
 
 

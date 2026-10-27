@@ -85,8 +85,8 @@ const RU = {
   "Share chats": "Делитесь чатами", "Send a link to any conversation in one click.": "Отправьте ссылку на любой диалог в один клик.",
   "Any device": "Любое устройство", "Works in any browser — on your laptop, tablet or phone. Your chats follow you.": "Работает в любом браузере — на ноутбуке, планшете или телефоне. Чаты всегда с вами.",
   "Is there a free plan?": "Есть ли бесплатный тариф?",
-  "Yes. Every account gets 25 credits a day with fast models like GPT-6 Luna, Llama 4, Gemma and Mistral. Any paid plan unlocks all 30+ models, images, video and voice.":
-    "Да. Каждый аккаунт получает 25 кредитов в день на быстрые модели — GPT-6 Luna, Llama 4, Gemma и Mistral. Любой платный тариф открывает все 30+ моделей, картинки, видео и голос.",
+  "Yes. Every account gets 25 credits a day with fast models like GPT-6 Luna, Llama 4, Gemma and Mistral, plus 1 Pro request a month to try a top model, an image, a voice or music. Any paid plan unlocks all 30+ models, images, video and voice.":
+    "Да. Каждый аккаунт получает 25 кредитов в день на быстрые модели — GPT-6 Luna, Llama 4, Gemma и Mistral, а также 1 Pro-запрос в месяц, чтобы попробовать топовую модель, картинку, озвучку или музыку. Любой платный тариф открывает все 30+ моделей, картинки, видео и голос.",
   "What are credits?": "Что такое кредиты?",
   "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model.":
     "Это ваш дневной лимит. Быстрые модели стоят 1 кредит за сообщение, более мощные — чуть больше: например, Gemini 3 Flash — 4, GPT-5.4 mini — 5. Цена указана рядом с каждой моделью.",
@@ -348,8 +348,8 @@ const PATTERNS = [
   [/^Choose from (\d+\+?) models or let Veora route each request to the best one\.$/, (m) => `Выберите из ${m[1]} моделей или доверьте Veora выбор лучшей для каждого запроса.`],
   [/^(\d+\+?) models · images · video · voice$/, (m) => `${m[1]} моделей · картинки · видео · голос`],
   [/^All (\d+\+?) models$/, (m) => `Все ${m[1]} моделей`],
-  [/^(\d+) credits a day with fast models \(GPT-6 Luna, Llama 4, Gemma, Mistral\)\. Every paid plan unlocks all models\.$/, (m) =>
-    `${credits(+m[1])} в день на быстрые модели (GPT-6 Luna, Llama 4, Gemma, Mistral). Любой платный тариф открывает все модели.`],
+  [/^(\d+) credits a day with fast models \(GPT-6 Luna, Llama 4, Gemma, Mistral\) and 1 Pro request a month\. Every paid plan unlocks all models\.$/, (m) =>
+    `${credits(+m[1])} в день на быстрые модели (GPT-6 Luna, Llama 4, Gemma, Mistral) и 1 Pro-запрос в месяц. Любой платный тариф открывает все модели.`],
   [/^Choose (\w+)$/, (m) => `Выбрать ${m[1]}`],
   [/^Get (Starter|Basic|Plus|Premium|Max|Elite)$/, (m) => `Оформить ${m[1]}`],
   [/^Translate · (.+)$/, (m) => `Перевести · ${m[1]}`],

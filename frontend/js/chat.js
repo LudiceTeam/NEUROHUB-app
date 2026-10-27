@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS, MUSIC_MODELS } from "./model-picker.js";
-import { FREE_MODELS, WEB_SEARCH_PLANS, webSearchModel } from "./config.js";
+import { FREE_MODELS, PREMIUM_MODELS, WEB_SEARCH_PLANS, webSearchModel } from "./config.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { streakInfo } from "./streak.js";
@@ -73,8 +73,10 @@ export function renderApp(root, logout) {
 
   const PAID_PLANS = ["Starter", "Basic", "Plus", "Premium", "Max", "Elite"];
   const isPaid = () => PAID_PLANS.some((k) => state.profile?.[k]);
-  // Free plan: only FREE_MODELS; every other model is PLUS and opens the plans dialog.
-  const isLockedModel = (id) => Boolean(state.profile) && !isPaid() && id !== "auto" && !FREE_MODELS.has(id);
+  // Free plan: FREE_MODELS, plus everything paid with Pro requests (its monthly Pro request);
+  // other models (PLUS daily-credit models, video) open the plans dialog.
+  const freeProModel = (id) => PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id) || VOICE_MODELS.has(id) || MUSIC_MODELS.has(id);
+  const isLockedModel = (id) => Boolean(state.profile) && !isPaid() && id !== "auto" && !FREE_MODELS.has(id) && !freeProModel(id);
   const picker = createModelPicker({
     value: state.model,
     onSelect: onModelChange,

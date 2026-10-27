@@ -42,6 +42,8 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
   const perImage = () => st.resolutions[st.resolution] ?? 1;
   const cost = () => perImage() * st.count;
   const paid = () => PAID_PLANS.some((k) => st.profile?.[k]);
+  // The free plan gets one Pro request a month; it's locked only once that's spent.
+  const locked = () => Boolean(st.profile) && !paid() && !(st.credits > 0);
   const pending = () => st.items.some((j) => j.status === "pending" || j.status === "processing");
   const save = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ratio: st.ratio, resolution: st.resolution, count: st.count })); } catch { /* private mode */ } };
 
@@ -146,15 +148,14 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
     counter.textContent = `${n} / ${st.maxPrompt}`;
     counter.classList.toggle("over", n > st.maxPrompt);
     const c = cost();
-    const locked = st.profile && !paid();
     const short = st.credits != null && st.credits < c;
     costLine.replaceChildren(...[
       h("span", { class: "vs-cost-main" }, icon("gallery"), `${c} Pro request${c === 1 ? "" : "s"}`),
       st.credits != null && h("small", {}, `${st.credits} left`),
     ].filter(Boolean));
     genBtn.replaceChildren(st.busy ? h("span", { class: "spinner" }) : icon("spark"),
-      locked ? "Unlock images" : st.busy ? "Starting…" : st.count > 1 ? `Create ${st.count} images` : "Create image");
-    genBtn.disabled = st.busy || !spec() || (!locked && !short && (!prompt.value.trim() || n > st.maxPrompt));
+      locked() ? "Unlock images" : st.busy ? "Starting…" : st.count > 1 ? `Create ${st.count} images` : "Create image");
+    genBtn.disabled = st.busy || !spec() || (!locked() && !short && (!prompt.value.trim() || n > st.maxPrompt));
   }
 
   async function pickModel(id) {
@@ -168,7 +169,7 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
   // ---------- generate ----------
   async function generate() {
     if (st.busy) return;
-    if (st.profile && !paid()) { openPlans(st.profile); return; }
+    if (locked()) { openPlans(st.profile); return; }
     if (st.credits != null && st.credits < cost()) {
       toast(st.count > 1 ? "Not enough Pro requests. Try fewer variants or Standard quality." : "Not enough Pro requests for this image.", "info");
       return;

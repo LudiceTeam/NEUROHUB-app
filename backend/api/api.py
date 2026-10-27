@@ -48,9 +48,10 @@ from backend.database.images_db.images_core import migrate_images_table,create_i
 from backend.database.payments_db.payments_core import migrate_payments_tables,save_payment,get_payment as get_yk_payment,claim_payment,set_payment_status,get_subscription,upsert_subscription,due_subscriptions
 from backend.api import yookassa_client
 from backend.api.images_util import to_model_format,data_url,UnsupportedImage
-from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS,WEB_SEARCH_RESULTS,WEB_SEARCH_CREDITS,WEB_SEARCH_PLANS,WEB_SEARCH_MODELS
+from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS,WEB_SEARCH_RESULTS,WEB_SEARCH_CREDITS,WEB_SEARCH_PLANS,WEB_SEARCH_MODELS,WATERMARK_PLANS
+from backend.api.watermark import add_watermark
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
-from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
+from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_PRO_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
 import random
 from openai import AsyncOpenAI
@@ -742,8 +743,34 @@ def has_paid_plan(user_state:dict) -> bool:
     return any(user_state.get(plan["column"]) for plan in SUBSCRIPTIONS.values())
 
 
+def can_use_pro(user_state:dict) -> bool:
+    """Pro-request features: any paid plan, or the free plan while its monthly Pro request is left."""
+    return has_paid_plan(user_state) or (user_state.get("nano_req") or 0) > 0
+
+
+def free_model_allowed(model:str) -> bool:
+    """Models the free plan may pick (Pro ones are then paid with its Pro request)."""
+    return model == "auto" or model in FREE_MODELS or model in FREE_PRO_MODELS
+
+
 def has_web_search(user_state:dict) -> bool:
     return any(user_state.get(SUBSCRIPTIONS[plan]["column"]) for plan in WEB_SEARCH_PLANS)
+
+
+def needs_watermark(user_state:dict) -> bool:
+    """Free plan and WATERMARK_PLANS: any higher plan removes the watermark."""
+    return not any(user_state.get(plan["column"]) for name, plan in SUBSCRIPTIONS.items() if name not in WATERMARK_PLANS)
+
+
+async def watermark_if_needed(image_bytes:bytes, user_state:dict) -> tuple[bytes, str | None]:
+    """(bytes, new content type or None when untouched). A failed watermark never fails the request."""
+    if not needs_watermark(user_state):
+        return image_bytes, None
+    try:
+        return await asyncio.to_thread(add_watermark, image_bytes)
+    except Exception:
+        logger.exception("WATERMARK ERROR")
+        return image_bytes, None
 
 
 def chat_models_for(paid:bool) -> List[str]:
@@ -902,7 +929,7 @@ def image_job_item(row:dict) -> dict:
 
 
 async def process_image_job(job_id:str, user_id:str, model:str, prompt:str, aspect_ratio:str, resolution:str,
-                            count:int, per_image:int, references:List):
+                            count:int, per_image:int, references:List, user_state:dict):
     """Makes `count` variants in parallel; failed variants are refunded."""
     await set_image_job_result(job_id, "processing")
     extra = {"aspect_ratio": aspect_ratio, "resolution": resolution}
@@ -916,6 +943,8 @@ async def process_image_job(job_id:str, user_id:str, model:str, prompt:str, aspe
             continue
         data, content_type = result
         try:
+            data, marked_type = await watermark_if_needed(data, user_state)
+            content_type = marked_type or content_type
             ext = IMAGE_EXT.get(content_type.split(";")[0], "png")
             keys.append(await AWS_CLIENT.upload_file(file_path = f"{job_id}-{i}.{ext}", file_data = data))
         except Exception as e:
@@ -986,7 +1015,8 @@ async def image_generate_handler(
         references = [r for r in references if r is not None and r.filename]
         if len(references) > IMAGE_MAX_REFERENCES:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Too many photos")
-        if not has_paid_plan(await get_user_state(user_id)):
+        user_state = await get_user_state(user_id)
+        if not can_use_pro(user_state):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Upgrade required")
 
         reference_urls = []
@@ -1011,7 +1041,7 @@ async def image_generate_handler(
             await refund_premium_requests(user_id, cost)
             raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
 
-        job = asyncio.create_task(process_image_job(job_id, user_id, model, prompt, aspect_ratio, resolution, count, per_image, reference_urls))
+        job = asyncio.create_task(process_image_job(job_id, user_id, model, prompt, aspect_ratio, resolution, count, per_image, reference_urls, user_state))
         _image_jobs.add(job)
         job.add_done_callback(_image_jobs.discard)
 
@@ -1231,7 +1261,7 @@ async def music_generate_handler(request:Request, req:MusicGenerate, user_data:d
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Describe the music")
         if len(prompt) > MAX_MUSIC_PROMPT or len(lyrics) > MAX_MUSIC_LYRICS:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Prompt is too long")
-        if not has_paid_plan(await get_user_state(user_id)):
+        if not can_use_pro(await get_user_state(user_id)):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Upgrade required")
 
         cost = spec["cost"]
@@ -1969,8 +1999,8 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         # A model removed from the catalog (or by OpenRouter) falls back to Auto instead of failing.
         if user_model != "auto" and user_model not in (models + expensive_models + image_generation_models + video_generation_models) and user_model not in tts_models:
             user_model = "auto"
-        # Free plan: PLUS models quietly fall back to Auto among the free models (older apps keep working).
-        if not paid and user_model != "auto" and user_model not in FREE_MODELS:
+        # Free plan: PLUS models (and video) quietly fall back to Auto; Pro models are paid with its Pro request.
+        if not paid and not free_model_allowed(user_model):
             user_model = "auto"
         # Web search is a perk of the top plans; Auto then picks among the cheap models it works with.
         web_search = bool(req.web_search) and has_web_search(user_data) and not req.voice_id
@@ -2134,6 +2164,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             if type(response) != bytes:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
 
+            response, _ = await watermark_if_needed(response, user_data)
 
             url = await AWS_CLIENT.upload_file(
                 file_path = str(uuid.uuid4()) + ".jpg",
@@ -2289,8 +2320,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         # A model removed from the catalog (or by OpenRouter) falls back to Auto instead of failing.
         if user_model != "auto" and user_model not in (models + expensive_models + image_generation_models + video_generation_models) and user_model not in tts_models:
             user_model = "auto"
-        # Free plan: PLUS models quietly fall back to Auto among the free models (older apps keep working).
-        if not paid and user_model != "auto" and user_model not in FREE_MODELS:
+        # Free plan: PLUS models (and video) quietly fall back to Auto; Pro models are paid with its Pro request.
+        if not paid and not free_model_allowed(user_model):
             user_model = "auto"
         web_search = web_search and has_web_search(user_data)
         if user_model == "auto":
@@ -2405,6 +2436,8 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
             if type(response) != bytes:
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
+
+            response, _ = await watermark_if_needed(response, user_data)
 
 
             encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
@@ -2835,7 +2868,7 @@ async def change_model_handler(request:Request,req:ChooseModel,user_data:dict = 
         total_models = models + expensive_models + image_generation_models + video_generation_models + music_generation_models + list(tts_models)
         if req.model_name not in total_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Invalid model name")
-        if req.model_name != "auto" and req.model_name not in FREE_MODELS and not has_paid_plan(await get_user_state(user_id)):
+        if not free_model_allowed(req.model_name) and not has_paid_plan(await get_user_state(user_id)):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Upgrade required")
 
         device_id = user_data["device_id"]

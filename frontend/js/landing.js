@@ -35,7 +35,7 @@ const FEATURES = [
 ];
 
 const FAQ = [
-  ["Is there a free plan?", "Yes. Every account gets 25 credits a day with fast models like GPT-6 Luna, Llama 4, Gemma and Mistral. Any paid plan unlocks all 30+ models, images, video and voice."],
+  ["Is there a free plan?", "Yes. Every account gets 25 credits a day with fast models like GPT-6 Luna, Llama 4, Gemma and Mistral, plus 1 Pro request a month to try a top model, an image, a voice or music. Any paid plan unlocks all 30+ models, images, video and voice."],
   ["What are credits?", "Your daily allowance. Fast models cost 1 credit per message; stronger ones cost a little more — for example Gemini 3 Flash 4 and GPT-5.4 mini 5. The cost is shown next to every model."],
   ["What is a Pro request?", "Top-tier models like Claude Opus and Sonnet, GPT-4o and Mistral Large — plus image and voice generation — use monthly Pro requests. Videos have their own monthly credits."],
   ["When do they refill?", "Credits refill every day; Pro requests and videos every month — automatically, up to your plan's limit."],
@@ -154,7 +154,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
           <p>Credits refill every day; Pro requests and videos every month. Every paid plan unlocks all 30+ models.</p>
         </div>
         <div class="l-free reveal">
-          <div><strong>Free</strong><b class="l-free-price">${rubles(0)}</b><span>${FREE_PLAN.requests} credits a day with fast models (GPT-6 Luna, Llama 4, Gemma, Mistral). Every paid plan unlocks all models.</span></div>
+          <div><strong>Free</strong><b class="l-free-price">${rubles(0)}</b><span>${FREE_PLAN.requests} credits a day with fast models (GPT-6 Luna, Llama 4, Gemma, Mistral) and 1 Pro request a month. Every paid plan unlocks all models.</span></div>
           <button class="l-btn ghost" type="button" data-action="signup">Start free</button>
         </div>
         <div class="l-plans">

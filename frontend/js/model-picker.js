@@ -123,7 +123,7 @@ function cost(id) {
 // Who can use it: [label, css kind].
 function access(id) {
   if (id === "auto" || FREE_MODELS.has(id)) return ["Free", "free"];
-  if (PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id)) return ["Pro requests", "premium"];
+  if (PREMIUM_MODELS.has(id) || IMAGE_MODELS.has(id) || VOICE_MODELS.has(id) || MUSIC_MODELS.has(id)) return ["Pro requests", "premium"];
   if (VIDEO_MODELS.has(id)) return ["Plus and up", "paid"];
   return ["With subscription", "paid"];
 }
