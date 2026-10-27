@@ -299,3 +299,6 @@ async def set_message_response(message_id:str,text:str):
             except Exception:
                 logger.exception("MESSAGES SQL ERROR")
 
+
+
+
