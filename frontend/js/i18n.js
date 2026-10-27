@@ -137,7 +137,7 @@ const RU = {
   "Message Veora…": "Сообщение для Veora…", "Message": "Сообщение", "Attach images": "Прикрепить фото", "Send": "Отправить",
   "Search the web": "Искать в интернете", "Searching the web": "Ищу в интернете", "Sources:": "Источники:",
   "Web search on: answers use fresh results from the internet.": "Поиск включён: ответы будут учитывать свежие данные из интернета.",
-  "Web search off.": "Поиск выключен.",
+  "Web search off.": "Поиск выключен.", "Web search works with fast models": "Поиск работает с быстрыми моделями",
   "Remove image": "Убрать фото", "Dictate": "Диктовать", "Dictate a message": "Надиктовать сообщение",
   "Cancel recording": "Отменить запись", "Finish and transcribe": "Готово — распознать", "Transcribing…": "Распознаём…",
   "Pick a model at the top or leave it on Auto — Veora will choose the best one for your request.":

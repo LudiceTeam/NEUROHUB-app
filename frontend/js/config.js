@@ -105,6 +105,12 @@ export const PREMIUM_MODELS = new Set([
   "google/gemini-3.1-flash-image-preview",
 ]);
 
+// Mirrors WEB_SEARCH_PLANS / WEB_SEARCH_MODELS in backend/api/config.py: web search is for the top
+// plans and only with cheap chat models (no premium models, at most 3 credits).
+export const WEB_SEARCH_PLANS = ["Premium", "Max", "Elite"];
+export const webSearchModel = (id) => id === "auto" || (!PREMIUM_MODELS.has(id) && modelCredits(id) <= 3
+  && MODEL_GROUPS.some(([group, ids]) => !["Smart", "Image generation", "Video", "Music", "Voice"].includes(group) && ids.includes(id)));
+
 // The free plan gets every 1-credit text model; everything else is PLUS (any paid plan).
 const NON_CHAT_GROUPS = new Set(["Smart", "Image generation", "Video", "Music", "Voice"]);
 export const FREE_MODELS = new Set(MODEL_GROUPS

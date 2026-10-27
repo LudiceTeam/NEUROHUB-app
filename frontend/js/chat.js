@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { createModelPicker, modelLabel, VOICE_MODELS, IMAGE_MODELS, VIDEO_MODELS, MUSIC_MODELS } from "./model-picker.js";
-import { FREE_MODELS } from "./config.js";
+import { FREE_MODELS, WEB_SEARCH_PLANS, webSearchModel } from "./config.js";
 import { h, icon, toast, errorText, markdown, promptModal, confirmModal } from "./dom.js";
 import { openProfile } from "./profile.js";
 import { streakInfo } from "./streak.js";
@@ -174,6 +174,14 @@ export function renderApp(root, logout) {
   }, icon("globe"));
   webBtn.classList.toggle("on", webSearch);
   webBtn.setAttribute("aria-pressed", String(webSearch));
+  // Only the top plans get web search, and only with cheap models; otherwise it isn't sent.
+  const canWebSearch = () => WEB_SEARCH_PLANS.some((k) => state.profile?.[k]) && webSearchModel(state.model);
+  function renderWebBtn() {
+    webBtn.hidden = !WEB_SEARCH_PLANS.some((k) => state.profile?.[k]);
+    webBtn.disabled = !webSearchModel(state.model);
+    webBtn.title = webBtn.disabled ? "Web search works with fast models" : "Search the web";
+  }
+  renderWebBtn();
   const sendBtn = h("button", { class: "send-btn", type: "submit", "aria-label": "Send" }, icon("send"));
   const composer = h("form", { class: "composer", onsubmit: (e) => { e.preventDefault(); send(); } },
     previews,
@@ -667,6 +675,7 @@ export function renderApp(root, logout) {
 
   // Voice models open the TTS studio; the chat composer also refuses images for them.
   function updateMode() {
+    renderWebBtn();
     const voice = VOICE_MODELS.has(state.model);
     const wasVoice = main.classList.contains("tts-mode");
     main.classList.toggle("tts-mode", voice);
@@ -762,6 +771,7 @@ export function renderApp(root, logout) {
     }
     renderProfileBtn();
     renderQuota();
+    renderWebBtn();
     finishBoot();
     if (state.profile) loadStreak();
     studio.setCredits(state.profile?.["Nano Requests"] ?? null);
@@ -1152,7 +1162,7 @@ export function renderApp(root, logout) {
       pendingLabel: VIDEO_MODELS.has(state.model) ? "Starting your video"
         : files.length ? "Looking at your images"
         : IMAGE_MODELS.has(state.model) ? "Creating your image"
-        : webSearch ? "Searching the web" : "Thinking",
+        : webSearch && canWebSearch() ? "Searching the web" : "Thinking",
     };
     state.messages.push(userMsg, reply);
     textarea.value = "";
@@ -1163,8 +1173,8 @@ export function renderApp(root, logout) {
 
     try {
       const res = files.length
-        ? await api.askPhoto(state.chatId, text, files, webSearch)
-        : await api.askText(state.chatId, text, null, null, webSearch);
+        ? await api.askPhoto(state.chatId, text, files, webSearch && canWebSearch())
+        : await api.askText(state.chatId, text, null, null, webSearch && canWebSearch());
       applyReply(reply, res);
     } catch (e) {
       reply.error = errorText(e);

@@ -48,7 +48,7 @@ from backend.database.images_db.images_core import migrate_images_table,create_i
 from backend.database.payments_db.payments_core import migrate_payments_tables,save_payment,get_payment as get_yk_payment,claim_payment,set_payment_status,get_subscription,upsert_subscription,due_subscriptions
 from backend.api import yookassa_client
 from backend.api.images_util import to_model_format,data_url,UnsupportedImage
-from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS,WEB_SEARCH_RESULTS,WEB_SEARCH_CREDITS
+from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS,WEB_SEARCH_RESULTS,WEB_SEARCH_CREDITS,WEB_SEARCH_PLANS,WEB_SEARCH_MODELS
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -742,6 +742,10 @@ def has_paid_plan(user_state:dict) -> bool:
     return any(user_state.get(plan["column"]) for plan in SUBSCRIPTIONS.values())
 
 
+def has_web_search(user_state:dict) -> bool:
+    return any(user_state.get(SUBSCRIPTIONS[plan]["column"]) for plan in WEB_SEARCH_PLANS)
+
+
 def chat_models_for(paid:bool) -> List[str]:
     """Models Auto may pick: free users only get FREE_MODELS."""
     if not paid:
@@ -749,8 +753,11 @@ def chat_models_for(paid:bool) -> List[str]:
     return [m for m in models if m != "auto"] + expensive_models + image_generation_models + video_generation_models
 
 
-async def pick_auto_model(request:str, photo:bool, paid:bool) -> str:
+async def pick_auto_model(request:str, photo:bool, paid:bool, only:List[str] | None = None) -> str:
+    """only: narrows the choice further (e.g. to WEB_SEARCH_MODELS when web search is on)."""
     allowed = chat_models_for(paid)
+    if only:
+        allowed = [m for m in allowed if m in only] or list(only)
     for _ in range(3):
         try:
             choice = await decide_whick_model_is_the_best_for_request(request, photo, allowed)
@@ -759,7 +766,8 @@ async def pick_auto_model(request:str, photo:bool, paid:bool) -> str:
             break
         if choice in allowed:
             return choice
-    return PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
+    default = PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
+    return default if default in allowed else allowed[0]
 
 
 async def decide_whick_model_is_the_best_for_request(request:str,photo:bool,allowed:List[str] | None = None) -> str:
@@ -1964,8 +1972,11 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         # Free plan: PLUS models quietly fall back to Auto among the free models (older apps keep working).
         if not paid and user_model != "auto" and user_model not in FREE_MODELS:
             user_model = "auto"
+        # Web search is a perk of the top plans; Auto then picks among the cheap models it works with.
+        web_search = bool(req.web_search) and has_web_search(user_data) and not req.voice_id
         if user_model == "auto":
-            user_model = await pick_auto_model(req.request or "", False, paid)
+            user_model = await pick_auto_model(req.request or "", False, paid, WEB_SEARCH_MODELS if web_search else None)
+        web_search = web_search and user_model in WEB_SEARCH_MODELS
 
 
         if user_model == "auto" and req.request == None:
@@ -2158,7 +2169,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             } #  либо текст, либо url картинки
         expensive_models_full = expensive_models + image_generation_models + video_generation_models
         # Daily credits: every model costs its weight (MODEL_CREDITS).
-        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if req.web_search else 0)
+        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if web_search else 0)
         if user_model not in expensive_models_full and (user_data["requests"] or 0) < credits:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests" if (user_data["requests"] or 0) <= 0 else "Not enough credits")
 
@@ -2169,7 +2180,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
                 raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests")
 
 
-        response = await ask_chat_gpt(promt,user_model,bool(req.web_search))
+        response = await ask_chat_gpt(promt,user_model,web_search)
 
         if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
@@ -2281,8 +2292,10 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         # Free plan: PLUS models quietly fall back to Auto among the free models (older apps keep working).
         if not paid and user_model != "auto" and user_model not in FREE_MODELS:
             user_model = "auto"
+        web_search = web_search and has_web_search(user_data)
         if user_model == "auto":
-            user_model = await pick_auto_model(true_request or "", True, paid)
+            user_model = await pick_auto_model(true_request or "", True, paid, WEB_SEARCH_MODELS if web_search else None)
+        web_search = web_search and user_model in WEB_SEARCH_MODELS
 
 
 

@@ -1243,6 +1243,7 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 @media (prefers-reduced-motion: reduce) { .vg-frame::after, .vg-icon { animation: none; } }
 
 /* ---------- web search toggle ---------- */
+.web-btn[hidden] { display: none; }
 .web-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .web-btn.on:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, transparent); }
 
