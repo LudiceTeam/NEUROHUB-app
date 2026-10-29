@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from backend.api.psw_hash import decrypt 
 from typing import Dict 
 import asyncio
-from backend.database.main_database.main_core import get_user_state
+from backend.database.main_database.main_core import get_all_user_state
 
 
 
@@ -24,7 +24,17 @@ async def get_all_user_messages(user_id:str) -> Dict | None:
 
 
 
-async def get_user_all_info(user_id:str):
-    user_profile = await get_user_state(
+async def get_user_full_info(user_id:str) -> Dict:
+    user_profile = await get_all_user_state(
         user_id = user_id
     )
+
+    user_messages = await get_all_user_messages(
+        user_id = user_id
+    )
+
+    return {
+        "profile" : user_profile,
+        "messages" : user_messages
+    }
+

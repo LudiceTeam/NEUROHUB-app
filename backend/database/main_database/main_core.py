@@ -163,6 +163,28 @@ async def get_all_user_state(user_id:str) -> dict | None:
             logger.exception("MAIN SQL ERROR")
             return None
 
+
+async def get_all_table() -> List | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table)
+            res = await conn.execute(stmt)
+            data = [dict(row) for row in res.mappings().all()]
+            return data
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return None
+
+async def count_users() -> int | None:
+    async with  AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(func.count()).select_from(main_table)
+            res = await conn.execute(stmt)
+            return res.scalar_one()
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return None
+
         
 async def get_user_data_for_jwt(user_id:str) -> dict:
     

@@ -51,3 +51,4 @@ stripe
 web3
 Pillow
 pillow-heif
+aiogram
