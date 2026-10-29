@@ -141,10 +141,28 @@ async def get_user_state(user_id: str) -> dict:
                 return {}
 
             return dict(row._mapping)
-
         except Exception:
             logger.exception("MAIN SQL ERROR")
             return {}
+
+async def get_all_user_state(user_id:str) -> dict | None:
+    async with AsyncSession(async_engine) as conn:
+        try:
+            stmt = select(main_table).where(
+                main_table.c.user_id == user_id
+            )
+            res = await conn.execute(stmt)
+            row = res.fetchone()
+
+            if row is None:
+                return {}
+            
+            return dict(row._mapping)
+    
+        except Exception:
+            logger.exception("MAIN SQL ERROR")
+            return None
+
         
 async def get_user_data_for_jwt(user_id:str) -> dict:
     

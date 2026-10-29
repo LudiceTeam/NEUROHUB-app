@@ -1,0 +1,30 @@
+from backend.database.messages_database.messages_core import get_chat_messages_2
+from backend.database.chats_database.chats_core import get_user_chats
+import os
+from dotenv import load_dotenv
+from backend.api.psw_hash import decrypt 
+from typing import Dict 
+import asyncio
+from backend.database.main_database.main_core import get_user_state
+
+
+
+async def get_all_user_messages(user_id:str) -> Dict | None:
+    user_chats = await get_user_chats(
+        user_id = user_id
+    )
+    for chat_id in user_chats:
+        chat_messages = await get_chat_messages_2(
+            chat_id = chat_id
+        )
+        print(f"[+] CHAT ID : {chat_id}")
+        for message in chat_messages:
+            print(f"[+] MESSAGE : {message}")
+
+
+
+
+async def get_user_all_info(user_id:str):
+    user_profile = await get_user_state(
+        user_id = user_id
+    )
