@@ -10,16 +10,16 @@ from backend.database.main_database.main_core import get_all_user_state
 
 
 async def get_all_user_messages(user_id:str) -> Dict | None:
+    """{chat_id: [{"message_text", "response"}, ...]}, newest chats first (last 20 messages per chat)."""
     user_chats = await get_user_chats(
         user_id = user_id
     )
+    result = {}
     for chat_id in user_chats:
-        chat_messages = await get_chat_messages_2(
+        result[chat_id] = await get_chat_messages_2(
             chat_id = chat_id
         )
-        print(f"[+] CHAT ID : {chat_id}")
-        for message in chat_messages:
-            print(f"[+] MESSAGE : {message}")
+    return result
 
 
 
