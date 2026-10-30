@@ -1,5 +1,5 @@
 import { startI18n } from "./i18n.js";
-import { tokens, setOnLogout } from "./api.js";
+import { api, tokens, setOnLogout, setOnBanned } from "./api.js";
 import { renderLogin } from "./auth.js";
 import { renderApp } from "./chat.js";
 import { renderLanding } from "./landing.js";
@@ -7,6 +7,7 @@ import { resetAppearance, cachePerks } from "./appearance.js";
 import { renderSharedChat, SHARE_PARAM } from "./share.js";
 import { toast } from "./dom.js";
 import { renderLegal, LEGAL_ROUTES } from "./legal.js";
+import { renderBanned } from "./ban.js";
 
 const root = document.getElementById("app");
 let cleanup = null;
@@ -40,7 +41,7 @@ function start() {
 
   if (tokens.access || tokens.refresh) {
     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
-    renderApp(root, logout);
+    openApp();
     return;
   }
 
@@ -55,6 +56,30 @@ function start() {
   }
 }
 
+// A banned account sees only the ban notice. If the check itself fails (network), open the app:
+// the server still refuses every request from a banned account and that brings the notice up.
+let banned = false;
+let openRun = 0;
+async function openApp() {
+  const run = ++openRun;
+  let info = null;
+  try {
+    const res = await api.banInfo();
+    if (res?.status === "banned") info = res.ban_info;
+  } catch { /* fall through */ }
+  if (run !== openRun || !(tokens.access || tokens.refresh)) return;
+  banned = Boolean(info);
+  if (banned) renderBanned(root, info, { onLogout: logout });
+  else renderApp(root, logout);
+}
+
+function showBanned() {
+  if (banned || !(tokens.access || tokens.refresh)) return;
+  banned = true;
+  document.querySelectorAll("dialog").forEach((d) => d.remove());
+  openApp();
+}
+
 let onLegal = false;
 function leaveLegal() {
   history.replaceState(null, "", location.pathname + location.search);
@@ -67,6 +92,8 @@ function leaveShare() {
 }
 
 function logout() {
+  banned = false;
+  openRun++;
   tokens.clear();
   cachePerks(false);
   resetAppearance();
@@ -80,5 +107,6 @@ addEventListener("hashchange", () => {
 });
 
 setOnLogout(logout);
+setOnBanned(showBanned);
 startI18n();   // before the first render, so nothing flashes in English
 start();

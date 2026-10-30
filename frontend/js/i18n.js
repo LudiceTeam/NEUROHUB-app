@@ -241,6 +241,11 @@ const RU = {
   // ---------- errors (dom.js) ----------
   "You're out of requests for this model. They refill automatically, or upgrade your plan.": "Лимит на эту модель исчерпан. Он пополнится автоматически — или улучшите тариф.",
   "Your account is temporarily restricted.": "Ваш аккаунт временно ограничен.",
+  "Account restricted": "Аккаунт заблокирован",
+  "Your account has been temporarily restricted for breaking the terms of use. Chats, images and your profile are unavailable until the restriction ends.":
+    "Ваш аккаунт временно заблокирован за нарушение правил использования. Чаты, генерации и профиль будут недоступны до окончания блокировки.",
+  "Access returns": "Доступ вернётся", "Time left": "Осталось",
+  "Think this is a mistake? Write to": "Считаете, что это ошибка? Напишите на",
   "That code isn't right. Check your email and try again.": "Неверный код. Проверьте письмо и попробуйте снова.",
   "A code was already sent. Check your inbox (and spam).": "Код уже отправлен. Проверьте входящие (и спам).",
   "The model couldn't generate a response. Try again or pick another model.": "Модель не смогла ответить. Попробуйте ещё раз или выберите другую.",

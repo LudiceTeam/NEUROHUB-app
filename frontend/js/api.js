@@ -45,6 +45,10 @@ export class ApiError extends Error {
 let onLogout = () => {};
 export function setOnLogout(fn) { onLogout = fn; }
 
+// Every endpoint answers a banned account with 403 "Access denied"; the app swaps to the ban screen.
+let onBanned = () => {};
+export function setOnBanned(fn) { onBanned = fn; }
+
 async function raw(path, { method = "GET", body, form, auth = true, apiKey = false } = {}) {
   const headers = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -82,6 +86,7 @@ async function request(path, opts = {}) {
   try {
     return await raw(path, opts);
   } catch (e) {
+    if (e instanceof ApiError && e.status === 403 && e.message === "Access denied") onBanned();
     // Only a rejected access token should trigger a refresh; a 401 for a missing
     // X-API-KEY ("Invalid API key") says nothing about the session.
     const tokenRejected = e instanceof ApiError && e.status === 401
@@ -115,6 +120,7 @@ export const api = {
 
   // profile
   profile: () => request("/profile"),
+  banInfo: () => request("/ban/info"),
   changeName: (new_name) => post("/change/name", { new_name }),
   changeAvatar: (file) => {
     const form = new FormData();

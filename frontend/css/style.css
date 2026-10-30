@@ -198,6 +198,32 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .auth-switch { text-align: center; font-size: 14px; }
 .auth-switch a { color: var(--accent); font-weight: 600; text-decoration: none; }
 .auth-switch a:hover { text-decoration: underline; }
+
+/* ---------- ban notice ---------- */
+.ban-card { align-items: stretch; }
+.ban-badge {
+  display: grid; place-items: center; width: 64px; height: 64px; margin: 4px auto 0; border-radius: 20px;
+  color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--danger) 6%, transparent);
+}
+.ban-badge .icon { width: 30px; height: 30px; }
+.ban-card h1 { text-align: center; }
+.ban-card > .muted { text-align: center; line-height: 1.55; }
+.ban-info {
+  display: grid; grid-template-columns: 1fr 1fr; margin: 0; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--bg-soft);
+}
+.ban-info > div { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
+.ban-info > div + div { border-left: 1px solid var(--border); }
+.ban-info dt { font-size: 12px; font-weight: 500; color: var(--muted); }
+.ban-info dd { margin: 0; font-size: 16px; font-weight: 600; }
+.ban-help { font-size: 14px; }
+.ban-help a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.ban-help a:hover { text-decoration: underline; }
+@media (max-width: 380px) {
+  .ban-info { grid-template-columns: 1fr; }
+  .ban-info > div + div { border-left: 0; border-top: 1px solid var(--border); }
+}
 .form-error { color: var(--danger); font-size: 14px; min-height: 1em; margin: 0; }
 .form-error:empty { display: none; }
 

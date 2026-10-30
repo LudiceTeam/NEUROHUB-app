@@ -674,8 +674,8 @@ class BanUser(BaseModel):
     days:int
 
 
-@limiter.limit("20/minute")
-@app.post("/user/ban")
+#@limiter.limit("20/minute")
+#@app.post("/user/ban")
 async def ban_user_handler(request:Request,req:BanUser,user_data:dict = Depends(get_current_user)):
     try:
         allowed_users = os.getenv("ALLOWED_USERS")
@@ -5344,6 +5344,31 @@ async def gallery_handler(request:Request,limit:int = 200,offset:int = 0,user_da
         logger.exception("ERROR")
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
+@app.get("/ban/info")
+@limiter.limit("20/minute")
+async def get_user_ban_info_handler(request:Request,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id_for_check = user_data["user_id"]
+        ban_info = await get_ban_info(
+                user_id = user_id_for_check
+            )
+
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                return {
+                    "status" : "banned",
+                    "ban_info":ban_info
+                }
+            else:
+                await unban_user(
+                    user_id = user_id_for_check
+                )
+        return {
+            "status" : "unbanned"
+        }
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
 
