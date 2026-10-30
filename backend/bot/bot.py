@@ -24,8 +24,10 @@ from backend.bot.data_gather import get_all_user_messages
 
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-# Who may use the bot: comma-separated Telegram IDs, e.g. TELEGRAM_ADMIN_IDS=123456789,987654321
-ADMIN_IDS = os.getenv("TELEGRAM_ADMIN_IDS")
+
+ADMIN_IDS = {
+    int(x) for x in os.getenv("TELEGRAM_ADMIN_IDS", "").strip("[] ").replace(" ", "").split(",") if x
+}
 
 PAGE_SIZE = 8
 MAX_TEXT = 4000          # Telegram's limit is 4096 characters per message
