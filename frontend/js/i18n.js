@@ -192,6 +192,11 @@ const RU = {
   "Billed monthly through Stripe. Cancel anytime.": "Оплата ежемесячно через Stripe. Отменить можно в любой момент.",
   "Plans are unavailable right now.": "Тарифы сейчас недоступны.", "No video generation": "Без генерации видео", "No voice cloning": "Без своих голосов",
   "Custom themes & message colors": "Свои темы и цвета сообщений", "/ month": "/ мес",
+  "Images, music & voice-over": "Картинки, музыка и озвучка", "Prompt improver": "Улучшение промпта",
+  "Restore a lost streak": "Восстановление потерянной серии", "Images without watermark": "Картинки без водяного знака",
+  "Images with a small watermark": "Картинки с небольшим водяным знаком", "Web search with sources": "Поиск в интернете с источниками",
+  "Custom GPTs · folders · shared chats · translation · voice input · daily streaks · encrypted history":
+    "Свои GPT · папки · ссылки на чаты · перевод · голосовой ввод · серии дней · шифрование истории",
   "Free plan": "Бесплатный тариф",
   "Payment received — activating your plan…": "Оплата получена — активируем тариф…",
   "Your plan is active. Enjoy Veora!": "Тариф активен. Приятного пользования!",

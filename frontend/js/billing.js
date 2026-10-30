@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { h, icon, modal, toast, errorText, confirmModal } from "./dom.js";
 import { lang } from "./i18n.js";
-import { PLANS, rubles } from "./plans.js";
+import { PLANS, planFeatures, rubles } from "./plans.js";
 import { CONTACT_EMAIL } from "./legal.js";
 
 const PLAN_NAMES = Object.fromEntries(PLANS.map((p) => [p.id, p.name]));
@@ -54,10 +54,7 @@ export function openPlans(profile) {
         h("ul", {},
           h("li", {}, `${plan.requests} credits / day · all models`),
           h("li", {}, `${plan.premium} Pro requests / month`),
-          h("li", {}, plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : "No video generation"),
-          h("li", {}, plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : "No voice cloning"),
-          h("li", {}, `${plan.photos} photos per message`),
-          plan.voices ? h("li", {}, "Custom themes & message colors") : null),
+          planFeatures(plan).slice(1).map((text) => h("li", {}, text))),
         btn);
     }));
     // Soft light that follows the cursor, like the cards on the landing page.

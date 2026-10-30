@@ -11,5 +11,27 @@ export const PLANS = [
   { id: "elite", name: "Elite", rub: 12990, requests: 1100, premium: 330, videos: 18, voices: 15, photos: 5, note: "No compromises" },
 ];
 
+// Everything a plan gives besides the daily credits and monthly Pro requests, best perks last.
+// Mirrors the backend gates: themes from Basic (appearance.js), prompt improver and streak restores
+// from Plus (/prompt/improve, /streak/resume), no watermark from Plus (WATERMARK_PLANS),
+// web search from Premium (WEB_SEARCH_PLANS).
+const RANK = Object.fromEntries(PLANS.map((p, i) => [p.id, i]));
+const from = (plan, id) => RANK[plan.id] >= RANK[id];
+
+export function planFeatures(plan, modelCount = "30+") {
+  return [
+    `All ${modelCount} models`,
+    "Images, music & voice-over",
+    `${plan.photos} photos per message`,
+    plan.videos ? `${plan.videos} video${plan.videos === 1 ? "" : "s"} / month` : null,
+    plan.voices ? `${plan.voices} cloned voice${plan.voices === 1 ? "" : "s"}` : null,
+    from(plan, "basic") && "Custom themes & message colors",
+    from(plan, "plus") && "Prompt improver",
+    from(plan, "plus") && "Restore a lost streak",
+    from(plan, "plus") ? "Images without watermark" : "Images with a small watermark",
+    from(plan, "premium") && "Web search with sources",
+  ].filter(Boolean);
+}
+
 // "1 890 ₽": thin space between thousands, the ruble sign never wraps away from the number.
 export const rubles = (n) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`;

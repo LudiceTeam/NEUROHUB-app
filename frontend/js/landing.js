@@ -3,7 +3,7 @@ import { mountCrystal } from "./crystal.js";
 import { enhanceLanding } from "./landing-fx.js";
 import { languageSwitch } from "./i18n.js";
 import { SELLER as S, CONTACT_EMAIL } from "./legal.js";
-import { PLANS, FREE_PLAN, rubles } from "./plans.js";
+import { PLANS, FREE_PLAN, planFeatures, rubles } from "./plans.js";
 
 // Seller details required for payments (YooKassa) and consumer law (data lives in legal.js).
 const SELLER = [
@@ -154,7 +154,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
           <p>Credits refill every day; Pro requests and videos every month. Every paid plan unlocks all 30+ models.</p>
         </div>
         <div class="l-free reveal">
-          <div><strong>Free</strong><b class="l-free-price">${rubles(0)}</b><span>${FREE_PLAN.requests} credits a day with fast models (GPT-6 Luna, Llama 4, Gemma, Mistral) and 1 Pro request a month. Every paid plan unlocks all models.</span></div>
+          <div><strong>Free</strong><b class="l-free-price">${rubles(0)}</b><span>${FREE_PLAN.requests} credits a day with fast models (GPT-6 Luna, Llama 4, Gemma, Mistral) and 1 Pro request a month. Every paid plan unlocks all models.</span><span class="l-free-perks">Custom GPTs · folders · shared chats · translation · voice input · daily streaks · encrypted history</span></div>
           <button class="l-btn ghost" type="button" data-action="signup">Start free</button>
         </div>
         <div class="l-plans">
@@ -167,9 +167,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <div class="l-plan-num small"><strong>${p.requests}</strong><span>credits / day</span></div>
               <div class="l-plan-num small"><strong>${p.premium}</strong><span>Pro requests / month</span></div>
               <ul>
-                <li>All ${modelCount} models</li>
-                <li>${p.voices ? `${p.voices} cloned voice${p.voices === 1 ? "" : "s"} & custom themes` : "Vision & encrypted history"}</li>
-                <li>${p.videos ? `${p.videos} video${p.videos === 1 ? "" : "s"} / month` : "Images & voice"}</li>
+                ${planFeatures(p, modelCount).map((text) => `<li>${text}</li>`).join("")}
               </ul>
               <button class="l-btn ${p.popular ? "primary" : "ghost"} block" type="button" data-action="signup">Get ${p.name}</button>
             </article>`).join("")}
