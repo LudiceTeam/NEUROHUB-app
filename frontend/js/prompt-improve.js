@@ -51,7 +51,8 @@ export function improveButton({ field, kind = "chat", getProfile = () => null, l
   function setUndo(on) {
     clearTimeout(undoTimer);
     btn.classList.toggle("undo", on);
-    btn.replaceChildren(on ? UNDO() : SPARK(), label ? h("span", {}, on ? "Undo" : label) : null, tip());
+    // Native replaceChildren turns null into the text "null", so only pass real nodes.
+    btn.replaceChildren(...[on ? UNDO() : SPARK(), label && h("span", {}, on ? "Undo" : label), tip()].filter(Boolean));
     btn.setAttribute("aria-label", on ? "Undo improvement" : "Improve prompt");
     if (on) undoTimer = setTimeout(() => { previous = null; setUndo(false); }, UNDO_MS);
   }

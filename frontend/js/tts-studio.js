@@ -374,7 +374,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
         own ? h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Cloning model" },
           st.cloneModels.map((m) => {
             const selected = activeCloneModel()?.id === m.id;
-            const [mark, color] = CLONE_MARKS[m.id.split("-")[0]] || ["?", "var(--muted)"];
+            const [mark] = CLONE_MARKS[m.id.split("-")[0]] || ["?"];
             return h("button", {
               class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
               onclick: () => {
@@ -382,7 +382,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
                 try { localStorage.setItem(CLONE_MODEL_KEY, m.id); } catch { /* ignore */ }
                 renderPanel();
               },
-            }, h("span", { class: "model-mark sm", style: `background:${color}` }, mark),
+            }, h("span", { class: "model-mark sm" }, mark),
             h("span", { class: "tts-option-text" }, h("strong", {}, m.name), h("small", {}, m.note)),
             m.default && !selected && h("span", { class: "tts-badge" }, "Best"),
             selected && h("span", { class: "tts-check" }, icon("check")));
@@ -394,7 +394,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
           return h("button", {
             class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => { if (!selected) choose(VOICE_IDS.find((id) => splitId(id)[0] === b)); },
-          }, h("span", { class: "model-mark sm", style: `background:${meta.color}` }, meta.mark),
+          }, h("span", { class: "model-mark sm" }, meta.mark),
           h("span", { class: "tts-option-text" }, h("strong", {}, meta.name), h("small", {}, meta.note)),
           selected && h("span", { class: "tts-check" }, icon("check")));
         }))),

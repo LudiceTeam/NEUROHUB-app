@@ -141,7 +141,8 @@ function purpose(id) {
 
 export function mark(id, size = "") {
   const p = provider(id);
-  return h("span", { class: `model-mark ${size}`, style: `background:${p.color}`, "aria-hidden": "true" }, p.mark === "spark" ? icon("spark") : p.mark);
+  // Monochrome like the rest of the UI: the letter (or Veora's spark) on a neutral tile, no brand colors.
+  return h("span", { class: `model-mark ${size}${p.mark === "spark" ? " auto" : ""}`, "aria-hidden": "true" }, p.mark === "spark" ? icon("spark") : p.mark);
 }
 
 // A custom dropdown for choosing the model. onSelect(id) may be async; throwing reverts the choice.

@@ -363,11 +363,12 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .model-picker.saving .model-trigger { opacity: .6; }
 
 .model-mark {
-  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 9px;
-  color: #fff; font-size: 14px; font-weight: 700; line-height: 1;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%;
+  color: var(--text); background: var(--bg-soft); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; line-height: 1; letter-spacing: -.01em;
 }
-.model-mark.sm { width: 26px; height: 26px; border-radius: 50%; font-size: 12px; }
+.model-mark.sm { width: 26px; height: 26px; font-size: 11.5px; }
+.model-mark.auto { color: var(--accent); }
 
 .model-panel {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 50;
@@ -1719,7 +1720,7 @@ textarea.improving {
 .gal-tile.video:hover .gal-play { opacity: 0; }
 .gal-play .icon { width: 18px; height: 18px; fill: currentColor; stroke: none; }
 .model-tag.plus .icon { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; }
-.model-mark .icon { width: 58%; height: 58%; fill: currentColor; stroke: none; color: #fff; }
+.model-mark .icon { width: 55%; height: 55%; fill: currentColor; stroke: none; }
 .vs-meta-icon { display: inline-grid; place-items: center; }
 .vs-meta-icon .icon { width: 11px; height: 11px; }
 .gal-caption {
