@@ -143,7 +143,8 @@ function purpose(id) {
 // faintly tinted with the brand color. Companies without a logo file show their initial.
 export function logoMark({ logo, mark: letter, color }, size = "") {
   const glyph = letter === "spark" ? icon("spark")
-    : logo ? h("span", { class: "model-logo", style: `--logo:url("icons/models/${logo}.svg")` })
+    // The mask is set inline: a url() inside a CSS variable resolves against style.css, not the page.
+    : logo ? h("span", { class: "model-logo", style: `-webkit-mask-image:url("icons/models/${logo}.svg");mask-image:url("icons/models/${logo}.svg")` })
     : letter;
   return h("span", {
     class: `model-mark ${size}${letter === "spark" ? " auto" : ""}`, style: `--brand:${color}`, "aria-hidden": "true",
