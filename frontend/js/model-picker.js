@@ -4,23 +4,23 @@ import { gptAvatar } from "./gpts.js";
 
 const PROVIDERS = {
   auto: { name: "Veora", color: "linear-gradient(135deg, var(--accent), var(--accent-2))", mark: "spark" },
-  openai: { name: "OpenAI", color: "#10a37f", mark: "O" },
-  anthropic: { name: "Anthropic", color: "#d97757", mark: "A" },
-  google: { name: "Google", color: "#4285f4", mark: "G" },
-  qwen: { name: "Qwen", color: "#615ced", mark: "Q" },
-  "meta-llama": { name: "Meta", color: "#0668e1", mark: "M" },
-  mistralai: { name: "Mistral", color: "#fa520f", mark: "M" },
+  openai: { name: "OpenAI", color: "#10a37f", mark: "O", logo: "openai" },
+  anthropic: { name: "Anthropic", color: "#d97757", mark: "A", logo: "claude" },
+  google: { name: "Google", color: "#4285f4", mark: "G", logo: "gemini" },
+  qwen: { name: "Qwen", color: "#615ced", mark: "Q", logo: "qwen" },
+  "meta-llama": { name: "Meta", color: "#0668e1", mark: "M", logo: "meta" },
+  mistralai: { name: "Mistral", color: "#fa520f", mark: "M", logo: "mistral" },
   rekaai: { name: "Reka", color: "#7c3aed", mark: "R" },
-  "bytedance-seed": { name: "ByteDance", color: "#325ab4", mark: "B" },
-  bytedance: { name: "ByteDance", color: "#325ab4", mark: "B" },
-  "z-ai": { name: "Z.ai", color: "#1f2937", mark: "Z" },
-  "x-ai": { name: "xAI", color: "#111111", mark: "X" },
-  moonshotai: { name: "Moonshot", color: "#111827", mark: "K" },
-  nvidia: { name: "NVIDIA", color: "#76b900", mark: "N" },
-  "black-forest-labs": { name: "Black Forest Labs", color: "#111111", mark: "F" },
-  recraft: { name: "Recraft", color: "#e5484d", mark: "R" },
-  kwaivgi: { name: "Kling", color: "#0f766e", mark: "K" },
-  alibaba: { name: "Alibaba", color: "#ff6a00", mark: "W" },
+  "bytedance-seed": { name: "ByteDance", color: "#325ab4", mark: "B", logo: "bytedance" },
+  bytedance: { name: "ByteDance", color: "#325ab4", mark: "B", logo: "bytedance" },
+  "z-ai": { name: "Z.ai", color: "#1f2937", mark: "Z", logo: "zai" },
+  "x-ai": { name: "xAI", color: "#111111", mark: "X", logo: "xai" },
+  moonshotai: { name: "Moonshot", color: "#111827", mark: "K", logo: "kimi" },
+  nvidia: { name: "NVIDIA", color: "#76b900", mark: "N", logo: "nvidia" },
+  "black-forest-labs": { name: "Black Forest Labs", color: "#111111", mark: "F", logo: "bfl" },
+  recraft: { name: "Recraft", color: "#e5484d", mark: "R", logo: "recraft" },
+  kwaivgi: { name: "Kling", color: "#0f766e", mark: "K", logo: "kling" },
+  alibaba: { name: "Alibaba", color: "#ff6a00", mark: "W", logo: "alibaba" },
 };
 
 export const IMAGE_MODELS = new Set(MODEL_GROUPS.find(([g]) => g === "Image generation")?.[1] || []);
@@ -139,11 +139,18 @@ function purpose(id) {
 }
 
 
-export function mark(id, size = "") {
-  const p = provider(id);
-  // Monochrome like the rest of the UI: the letter (or Veora's spark) on a neutral tile, no brand colors.
-  return h("span", { class: `model-mark ${size}${p.mark === "spark" ? " auto" : ""}`, "aria-hidden": "true" }, p.mark === "spark" ? icon("spark") : p.mark);
+// Glass tile with the company's logo (icons/models/<logo>.svg, drawn in the text color through a mask),
+// faintly tinted with the brand color. Companies without a logo file show their initial.
+export function logoMark({ logo, mark: letter, color }, size = "") {
+  const glyph = letter === "spark" ? icon("spark")
+    : logo ? h("span", { class: "model-logo", style: `--logo:url("icons/models/${logo}.svg")` })
+    : letter;
+  return h("span", {
+    class: `model-mark ${size}${letter === "spark" ? " auto" : ""}`, style: `--brand:${color}`, "aria-hidden": "true",
+  }, glyph);
 }
+
+export const mark = (id, size = "") => logoMark(provider(id), size);
 
 // A custom dropdown for choosing the model. onSelect(id) may be async; throwing reverts the choice.
 // isLocked(id): PLUS model the user can't pick yet; onLocked(id) runs instead of selecting it.

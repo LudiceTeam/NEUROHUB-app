@@ -28,6 +28,13 @@
   --hl-add-bg: #e6ffec;
   --hl-del-bg: #ffebe9;
   --shadow: 0 10px 40px rgba(20, 20, 40, .12);
+  /* liquid-glass tiles (model icons) */
+  --glass-top: rgba(255, 255, 255, .95);
+  --glass-bottom: rgba(255, 255, 255, .55);
+  --glass-edge: rgba(255, 255, 255, .9);
+  --glass-rim: rgba(20, 20, 40, .1);
+  --glass-drop: 0 1px 2px rgba(20, 20, 40, .08), 0 4px 12px rgba(20, 20, 40, .08);
+  --glass-tint: 16%;
   --radius: 14px;
   color-scheme: light;
 }
@@ -76,6 +83,12 @@
     --hl-add-bg: rgba(152, 195, 121, .15);
     --hl-del-bg: rgba(224, 108, 117, .15);
     --shadow: 0 10px 40px rgba(0, 0, 0, .5);
+    --glass-top: rgba(255, 255, 255, .16);
+    --glass-bottom: rgba(255, 255, 255, .04);
+    --glass-edge: rgba(255, 255, 255, .28);
+    --glass-rim: rgba(255, 255, 255, .08);
+    --glass-drop: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 16px rgba(0, 0, 0, .35);
+    --glass-tint: 30%;
     color-scheme: dark;
   }
 }
@@ -95,6 +108,12 @@
   --ok: #3ccf8e;
   --code-bg: #15151e;
   --shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  --glass-top: rgba(255, 255, 255, .16);
+  --glass-bottom: rgba(255, 255, 255, .04);
+  --glass-edge: rgba(255, 255, 255, .28);
+  --glass-rim: rgba(255, 255, 255, .08);
+  --glass-drop: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 16px rgba(0, 0, 0, .35);
+  --glass-tint: 30%;
   color-scheme: dark;
 }
 
@@ -362,13 +381,30 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .model-picker.open .chevron { transform: translateY(3px) rotate(-135deg); }
 .model-picker.saving .model-trigger { opacity: .6; }
 
+/* Liquid-glass tile: a brand-tinted glass body, a light rim on top, a specular streak, and the logo in the text color. */
 .model-mark {
-  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%;
-  color: var(--text); background: var(--bg-soft); border: 1px solid var(--border);
-  font-size: 13px; font-weight: 600; line-height: 1; letter-spacing: -.01em;
+  --brand: var(--muted);
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 10px;
+  color: var(--text); font-size: 13px; font-weight: 600; line-height: 1;
+  background:
+    linear-gradient(180deg, var(--glass-top), var(--glass-bottom)),
+    color-mix(in srgb, var(--brand) var(--glass-tint), var(--bg-elev));
+  box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px var(--glass-rim), inset 0 -6px 10px -6px color-mix(in srgb, var(--brand) 45%, transparent), var(--glass-drop);
+  -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6);
 }
-.model-mark.sm { width: 26px; height: 26px; font-size: 11.5px; }
-.model-mark.auto { color: var(--accent); }
+.model-mark::before {   /* specular highlight across the upper half */
+  content: ""; position: absolute; inset: 1px 1px 52% 1px; z-index: -1; border-radius: 9px 9px 50% 50% / 9px 9px 30% 30%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0));
+  opacity: .6; pointer-events: none;
+}
+.model-mark.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 11.5px; }
+.model-mark.sm::before { border-radius: 7px 7px 50% 50% / 7px 7px 30% 30%; }
+.model-logo {
+  width: 58%; height: 58%; background: currentColor;
+  -webkit-mask: var(--logo) center / contain no-repeat; mask: var(--logo) center / contain no-repeat;
+}
+.model-mark.auto { --brand: var(--accent); color: var(--accent); }
 
 .model-panel {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 50;
@@ -1916,7 +1952,8 @@ textarea.improving {
 }
 .model-chip:hover { color: var(--text); background: color-mix(in srgb, var(--text) 9%, transparent); }
 .model-chip.active { color: var(--bg); background: var(--text); }
-.model-chip .model-mark { width: 16px; height: 16px; font-size: 9px; }
+.model-chip .model-mark { width: 18px; height: 18px; border-radius: 6px; font-size: 9px; box-shadow: inset 0 0 0 1px var(--glass-rim); }
+.model-chip .model-mark::before { display: none; }
 .model-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 0; color: var(--muted); }
 .model-empty p { margin: 0; }
 .model-chip-row:not(.scroll) { flex-wrap: wrap; align-items: center; }

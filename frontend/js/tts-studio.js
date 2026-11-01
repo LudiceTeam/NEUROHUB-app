@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { MODEL_GROUPS } from "./config.js";
 import { h, icon, toast, errorText, promptModal, confirmModal } from "./dom.js";
 import { cloneVoiceModal } from "./voice-clone.js";
+import { mark as modelMark, logoMark } from "./model-picker.js";
 
 const MAX_CHARS = 3000;   // backend MAX_TTS_CHARS
 const SKIP_SECONDS = 10;
@@ -25,7 +26,11 @@ const voiceName = (id) => cap(splitId(id)[1]);
 // Own (cloned) voices: generated with the backend's CLONE_TTS_MODEL; messages store "<model>:custom".
 const CUSTOM_KEY = "veora_custom_voice";
 const CLONE_MODEL_KEY = "veora_clone_model";
-const CLONE_MARKS = { eleven: ["E", "#111111"], fish: ["F", "#1f6feb"], seed: ["S", "#325ab4"] };
+const CLONE_MARKS = {
+  eleven: { logo: "elevenlabs", mark: "E", color: "#111111" },
+  fish: { logo: "fishaudio", mark: "F", color: "#1f6feb" },
+  seed: { logo: "bytedance", mark: "S", color: "#325ab4" },
+};
 const isCustomModel = (id) => typeof id === "string" && id.endsWith(":custom");
 // Mirrors voices_amount in SUBSCRIPTIONS (Starter and Free have none).
 const PLAN_VOICE_LIMITS = { Elite: 15, Max: 10, Premium: 5, Plus: 3, Basic: 1 };
@@ -374,7 +379,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
         own ? h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Cloning model" },
           st.cloneModels.map((m) => {
             const selected = activeCloneModel()?.id === m.id;
-            const [mark] = CLONE_MARKS[m.id.split("-")[0]] || ["?"];
+            const brand = CLONE_MARKS[m.id.split("-")[0]] || { mark: "?", color: "var(--muted)" };
             return h("button", {
               class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
               onclick: () => {
@@ -382,7 +387,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
                 try { localStorage.setItem(CLONE_MODEL_KEY, m.id); } catch { /* ignore */ }
                 renderPanel();
               },
-            }, h("span", { class: "model-mark sm" }, mark),
+            }, logoMark(brand, "sm"),
             h("span", { class: "tts-option-text" }, h("strong", {}, m.name), h("small", {}, m.note)),
             m.default && !selected && h("span", { class: "tts-badge" }, "Best"),
             selected && h("span", { class: "tts-check" }, icon("check")));
@@ -394,7 +399,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
           return h("button", {
             class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
             onclick: () => { if (!selected) choose(VOICE_IDS.find((id) => splitId(id)[0] === b)); },
-          }, h("span", { class: "model-mark sm" }, meta.mark),
+          }, modelMark(b, "sm"),
           h("span", { class: "tts-option-text" }, h("strong", {}, meta.name), h("small", {}, meta.note)),
           selected && h("span", { class: "tts-check" }, icon("check")));
         }))),
