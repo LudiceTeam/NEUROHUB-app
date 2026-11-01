@@ -27,9 +27,9 @@ const voiceName = (id) => cap(splitId(id)[1]);
 const CUSTOM_KEY = "veora_custom_voice";
 const CLONE_MODEL_KEY = "veora_clone_model";
 const CLONE_MARKS = {
-  eleven: { logo: "elevenlabs", mark: "E", color: "#111111" },
-  fish: { logo: "fishaudio", mark: "F", color: "#1f6feb" },
-  seed: { logo: "bytedance", mark: "S", color: "#325ab4" },
+  eleven: { logo: "elevenlabs", mark: "E" },
+  fish: { logo: "fishaudio", mark: "F" },
+  seed: { logo: "bytedance", mark: "S" },
 };
 const isCustomModel = (id) => typeof id === "string" && id.endsWith(":custom");
 // Mirrors voices_amount in SUBSCRIPTIONS (Starter and Free have none).
@@ -379,7 +379,7 @@ export function createTtsStudio({ onGenerate, onSelectModel }) {
         own ? h("div", { class: "tts-options", role: "radiogroup", "aria-label": "Cloning model" },
           st.cloneModels.map((m) => {
             const selected = activeCloneModel()?.id === m.id;
-            const brand = CLONE_MARKS[m.id.split("-")[0]] || { mark: "?", color: "var(--muted)" };
+            const brand = CLONE_MARKS[m.id.split("-")[0]] || { mark: "?" };
             return h("button", {
               class: `tts-option${selected ? " selected" : ""}`, type: "button", role: "radio", "aria-checked": String(selected),
               onclick: () => {

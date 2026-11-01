@@ -28,13 +28,6 @@
   --hl-add-bg: #e6ffec;
   --hl-del-bg: #ffebe9;
   --shadow: 0 10px 40px rgba(20, 20, 40, .12);
-  /* liquid-glass tiles (model icons) */
-  --glass-top: rgba(255, 255, 255, .95);
-  --glass-bottom: rgba(255, 255, 255, .55);
-  --glass-edge: rgba(255, 255, 255, .9);
-  --glass-rim: rgba(20, 20, 40, .1);
-  --glass-drop: 0 1px 2px rgba(20, 20, 40, .08);
-  --glass-tint: 10%;
   --radius: 14px;
   color-scheme: light;
 }
@@ -83,12 +76,6 @@
     --hl-add-bg: rgba(152, 195, 121, .15);
     --hl-del-bg: rgba(224, 108, 117, .15);
     --shadow: 0 10px 40px rgba(0, 0, 0, .5);
-    --glass-top: rgba(255, 255, 255, .1);
-    --glass-bottom: rgba(255, 255, 255, .04);
-    --glass-edge: rgba(255, 255, 255, .28);
-    --glass-rim: rgba(255, 255, 255, .08);
-    --glass-drop: 0 1px 2px rgba(0, 0, 0, .3);
-    --glass-tint: 14%;
     color-scheme: dark;
   }
 }
@@ -108,12 +95,6 @@
   --ok: #3ccf8e;
   --code-bg: #15151e;
   --shadow: 0 10px 40px rgba(0, 0, 0, .5);
-  --glass-top: rgba(255, 255, 255, .1);
-  --glass-bottom: rgba(255, 255, 255, .04);
-  --glass-edge: rgba(255, 255, 255, .28);
-  --glass-rim: rgba(255, 255, 255, .08);
-  --glass-drop: 0 1px 2px rgba(0, 0, 0, .3);
-  --glass-tint: 14%;
   color-scheme: dark;
 }
 
@@ -381,31 +362,18 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
 .model-picker.open .chevron { transform: translateY(3px) rotate(-135deg); }
 .model-picker.saving .model-trigger { opacity: .6; }
 
-/* Liquid-glass tile: a brand-tinted glass body, a light rim on top, a specular streak, and the logo in the text color. */
+/* Just the company logo in the text color, no tile. */
 .model-mark {
-  --brand: var(--muted);
-  position: relative; isolation: isolate; overflow: hidden;
-  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 10px;
-  color: var(--text); font-size: 13px; font-weight: 600; line-height: 1;
-  background:
-    linear-gradient(180deg, var(--glass-top), var(--glass-bottom)),
-    color-mix(in srgb, var(--brand) var(--glass-tint), var(--bg-elev));
-  box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px var(--glass-rim), var(--glass-drop);
-  -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6);
+  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none;
+  color: var(--text); font-size: 14px; font-weight: 600; line-height: 1;
 }
-.model-mark::before {   /* specular highlight across the upper half */
-  content: ""; position: absolute; inset: 1px 1px 52% 1px; z-index: -1; border-radius: 9px 9px 50% 50% / 9px 9px 30% 30%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0));
-  opacity: .35; pointer-events: none;
-}
-.model-mark.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 11.5px; }
-.model-mark.sm::before { border-radius: 7px 7px 50% 50% / 7px 7px 30% 30%; }
+.model-mark.sm { width: 26px; height: 26px; font-size: 12px; }
 .model-logo {
-  width: 58%; height: 58%; background: currentColor;
+  width: 72%; height: 72%; background: currentColor;
   -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }
-.model-mark.auto { --brand: var(--accent); color: var(--accent); }
+.model-mark.auto { color: var(--accent); }
 
 .model-panel {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 50;
@@ -1757,7 +1725,7 @@ textarea.improving {
 .gal-tile.video:hover .gal-play { opacity: 0; }
 .gal-play .icon { width: 18px; height: 18px; fill: currentColor; stroke: none; }
 .model-tag.plus .icon { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; }
-.model-mark .icon { width: 55%; height: 55%; fill: currentColor; stroke: none; }
+.model-mark .icon { width: 72%; height: 72%; fill: currentColor; stroke: none; }
 .vs-meta-icon { display: inline-grid; place-items: center; }
 .vs-meta-icon .icon { width: 11px; height: 11px; }
 .gal-caption {
@@ -1953,8 +1921,7 @@ textarea.improving {
 }
 .model-chip:hover { color: var(--text); background: color-mix(in srgb, var(--text) 9%, transparent); }
 .model-chip.active { color: var(--bg); background: var(--text); }
-.model-chip .model-mark { width: 18px; height: 18px; border-radius: 6px; font-size: 9px; box-shadow: inset 0 0 0 1px var(--glass-rim); }
-.model-chip .model-mark::before { display: none; }
+.model-chip .model-mark { width: 16px; height: 16px; font-size: 10px; }
 .model-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 0; color: var(--muted); }
 .model-empty p { margin: 0; }
 .model-chip-row:not(.scroll) { flex-wrap: wrap; align-items: center; }

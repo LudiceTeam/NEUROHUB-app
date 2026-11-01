@@ -139,16 +139,14 @@ function purpose(id) {
 }
 
 
-// Glass tile with the company's logo (icons/models/<logo>.svg, drawn in the text color through a mask),
-// faintly tinted with the brand color. Companies without a logo file show their initial.
-export function logoMark({ logo, mark: letter, color }, size = "") {
+// The company's logo (icons/models/<logo>.svg) drawn in the text color through a mask.
+// Companies without a logo file show their initial.
+export function logoMark({ logo, mark: letter }, size = "") {
   const glyph = letter === "spark" ? icon("spark")
     // The mask is set inline: a url() inside a CSS variable resolves against style.css, not the page.
     : logo ? h("span", { class: "model-logo", style: `-webkit-mask-image:url("icons/models/${logo}.svg");mask-image:url("icons/models/${logo}.svg")` })
     : letter;
-  return h("span", {
-    class: `model-mark ${size}${letter === "spark" ? " auto" : ""}`, style: `--brand:${color}`, "aria-hidden": "true",
-  }, glyph);
+  return h("span", { class: `model-mark ${size}${letter === "spark" ? " auto" : ""}`, "aria-hidden": "true" }, glyph);
 }
 
 export const mark = (id, size = "") => logoMark(provider(id), size);
