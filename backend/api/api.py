@@ -1635,6 +1635,15 @@ def web_sources_markdown(message) -> str:
     return "\n\n**Sources:**\n" + "\n".join(f"- [{title}]({url})" for url, title in sources.items())
 
 
+
+AI_ERRORS = {
+      "No image in response",
+      "No text result.",
+      "Generation took too long. Try again.",
+      "Some error happened. Try again.",
+      "This model doesn`t support image input",
+  }
+
 async def ask_chat_gpt(request: str | List, user_model:str, web_search:bool = False) -> str | bytes:
     try:
         req = ""
@@ -2213,7 +2222,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         response = await ask_chat_gpt(promt,user_model,web_search)
 
-        if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+        if response in  AI_ERRORS:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
 
         if user_model in expensive_models_full:
@@ -2534,7 +2543,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         response = await ask_chat_gpt([promt,image_base64_list],user_model,web_search)
 
-        if response in ["No image in response","Generation took to long. Try again.","Some error happened.","This model doesnt support image input"]:
+        if response in AI_ERRORS:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
 
         if user_model in expensive_models:
