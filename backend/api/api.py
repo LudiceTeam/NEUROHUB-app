@@ -2061,7 +2061,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         if user_model == "auto" and req.request == None:
             user_model = PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
 
-        if req.files and (req.voice_id or user_model in tts_models + image_generation_models + video_generation_models):
+        if req.files and (req.voice_id or user_model in tts_models or user_model in image_generation_models + video_generation_models):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Files work with text models")
 
         if user_model in tts_models or req.voice_id:
