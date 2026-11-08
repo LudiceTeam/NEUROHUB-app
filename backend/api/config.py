@@ -78,6 +78,13 @@ WEB_SEARCH_MAX_MODEL_CREDITS = 3
 FREE_DEFAULT_MODEL = "openai/gpt-6-luna"
 PAID_DEFAULT_MODEL = "google/gemini-3-flash-preview"
 
+# Attached documents (PDF, Word, text): their text goes into the prompt, so the size is capped
+# (~30k characters ≈ 8–10k tokens for all files of one message) and a message with files costs a bit more.
+MAX_DOCS = 3
+MAX_DOC_SIZE = 10 * 1024 * 1024
+MAX_DOC_CHARS = 30000
+DOC_CREDITS = 2
+
 # Cost caps that the limits above are calculated with.
 MAX_OUTPUT_TOKENS = 1500
 MAX_HISTORY_CHARS = 24000   # ~6k tokens of chat history in the prompt

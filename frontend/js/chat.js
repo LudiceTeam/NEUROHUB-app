@@ -13,6 +13,7 @@ import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
 import { creditsMeter } from "./credits-meter.js";
 import { isImageFile, prepareImage } from "./image-prep.js";
+import { DOC_ACCEPT, MAX_DOCS, MAX_DOC_SIZE, isDocFile, splitFiles, fileChip, fileChips } from "./files.js";
 import { shareChatModal } from "./share.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
@@ -43,7 +44,8 @@ export function renderApp(root, logout) {
     messages: [],         // { role: "user"|"assistant", text?, images?, image?, video?, model?, pending?, error? }
     model: "auto",
     profile: null,
-    attachments: [],      // File[]
+    attachments: [],      // File[] (images)
+    docs: [],             // File[] (PDF, Word, text) read through /files/read
     sending: false,
     pinned: new Set(JSON.parse(localStorage.getItem(PINNED_KEY) || "[]")),
     folders: [],          // [{ folder_id, folder_name, tags }]
@@ -150,16 +152,16 @@ export function renderApp(root, logout) {
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
     },
     onpaste: (e) => {
-      const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
+      const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/") || isDocFile(f));
       if (files.length) { e.preventDefault(); addFiles(files); }
     },
   });
   const fileInput = h("input", {
-    type: "file", accept: "image/*,.heic,.heif", multiple: true, hidden: true,
+    type: "file", accept: `image/*,.heic,.heif,${DOC_ACCEPT}`, multiple: true, hidden: true,
     onchange: () => { addFiles([...fileInput.files]); fileInput.value = ""; },
   });
   const previews = h("div", { class: "previews" });
-  const attachBtn = h("button", { class: "icon-btn", type: "button", "aria-label": "Attach images", onclick: () => fileInput.click() }, icon("clip"));
+  const attachBtn = h("button", { class: "icon-btn", type: "button", "aria-label": "Attach files", title: "Attach photos or files", onclick: () => fileInput.click() }, icon("clip"));
   // Web search toggle: remembered per browser, sent with every text answer while it's on.
   const WEB_SEARCH_KEY = "veora_web_search";
   let webSearch = false;
@@ -254,7 +256,7 @@ export function renderApp(root, logout) {
   root.replaceChildren(shell);
   const sidebarCtl = setupSidebar(shell);
 
-  // Drag & drop images anywhere on the chat.
+  // Drag & drop photos and documents anywhere on the chat.
   main.addEventListener("dragover", (e) => {
     if (!e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
@@ -264,7 +266,7 @@ export function renderApp(root, logout) {
   main.addEventListener("drop", (e) => {
     e.preventDefault();
     main.classList.remove("dragging");
-    addFiles([...e.dataTransfer.files].filter(isImageFile));
+    addFiles([...e.dataTransfer.files].filter((f) => isImageFile(f) || isDocFile(f)));
   });
 
   // ---------- rendering ----------
@@ -509,9 +511,11 @@ export function renderApp(root, logout) {
 
   function renderMessage(m) {
     if (m.role === "user") {
+      const { text, files } = splitFiles(m.text);
       const el = h("div", { class: `msg user${m.fresh ? " enter" : ""}` },
         m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, fadeImg(src, "Attached image")))),
-        m.text && h("div", { class: "bubble" }, m.text));
+        fileChips(m.files || files),
+        text && h("div", { class: "bubble" }, text));
       m.fresh = false;
       return el;
     }
@@ -625,7 +629,8 @@ export function renderApp(root, logout) {
   }
 
   function renderPreviews() {
-    previews.replaceChildren(...state.attachments.map((file, i) => {
+    const docs = state.docs.map((file, i) => fileChip(file.name, () => { state.docs.splice(i, 1); renderPreviews(); }));
+    previews.replaceChildren(...docs, ...state.attachments.map((file, i) => {
       const url = URL.createObjectURL(file);
       return h("div", { class: "preview" },
         h("img", { src: url, alt: file.name, onload: () => URL.revokeObjectURL(url),
@@ -726,9 +731,10 @@ export function renderApp(root, logout) {
       : activeGpt() ? `Message ${activeGpt().gpt_name}…`
       : "Message Veora…";
     attachBtn.disabled = voice;
-    attachBtn.title = voice ? "Voice models don't accept images" : "";
-    if (voice && state.attachments.length) {
+    attachBtn.title = voice ? "Voice models don't accept files" : "Attach photos or files";
+    if (voice && (state.attachments.length || state.docs.length)) {
       state.attachments = [];
+      state.docs = [];
       renderPreviews();
     }
   }
@@ -1132,11 +1138,17 @@ export function renderApp(root, logout) {
 
   async function addFiles(files) {
     if (VOICE_MODELS.has(state.model)) {
-      if (files.length) toast("Voice models don't accept images. Pick another model to send photos.");
+      if (files.length) toast("Voice models don't accept files. Pick another model to send photos or documents.");
       return;
     }
     for (const original of files) {
-      if (!isImageFile(original)) continue;
+      if (isDocFile(original)) {
+        if (original.size > MAX_DOC_SIZE) { toast(`${original.name} is larger than 10 MB`); continue; }
+        if (state.docs.length >= MAX_DOCS) { toast(`You can attach up to ${MAX_DOCS} files.`, "info"); break; }
+        state.docs.push(original);
+        continue;
+      }
+      if (!isImageFile(original)) { toast(`${original.name}: this file type isn't supported`); continue; }
       // Big photos are scaled down to JPEG first, so a 12 MB phone photo still fits the 5 MB limit.
       const f = await prepareImage(original);
       if (f.size > MAX_IMAGE_SIZE) { toast(`${f.name} is larger than 5 MB`); continue; }
@@ -1154,14 +1166,16 @@ export function renderApp(root, logout) {
   async function send() {
     const text = textarea.value.trim();
     const files = [...state.attachments];
-    if (state.sending || (!text && !files.length)) return;
+    const docs = [...state.docs];
+    if (state.sending || (!text && !files.length && !docs.length)) return;
 
     setSending(true);
     const knownChats = new Set(state.chats.map(([id]) => id));
-    const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)), fresh: true };
+    const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)), files: docs.map((f) => f.name), fresh: true };
     const reply = {
       role: "assistant", pending: true, fresh: true,
       pendingLabel: VIDEO_MODELS.has(state.model) ? "Starting your video"
+        : docs.length ? "Reading your files"
         : files.length ? "Looking at your images"
         : IMAGE_MODELS.has(state.model) ? "Creating your image"
         : webSearch && canWebSearch() ? "Searching the web" : "Thinking",
@@ -1170,13 +1184,16 @@ export function renderApp(root, logout) {
     textarea.value = "";
     autosize();
     state.attachments = [];
+    state.docs = [];
     renderPreviews();
     renderThread();
 
     try {
+      // Documents are read into text first; the answer request carries that text.
+      const read = docs.length ? (await api.readFiles(docs)).files : null;
       const res = files.length
-        ? await api.askPhoto(state.chatId, text, files, webSearch && canWebSearch())
-        : await api.askText(state.chatId, text, null, null, webSearch && canWebSearch());
+        ? await api.askPhoto(state.chatId, text, files, webSearch && canWebSearch(), read)
+        : await api.askText(state.chatId, text, null, null, webSearch && canWebSearch(), read);
       applyReply(reply, res);
     } catch (e) {
       reply.error = errorText(e);

@@ -192,6 +192,14 @@ const RU = {
   "Billed monthly through Stripe. Cancel anytime.": "Оплата ежемесячно через Stripe. Отменить можно в любой момент.",
   "Plans are unavailable right now.": "Тарифы сейчас недоступны.", "No video generation": "Без генерации видео", "No voice cloning": "Без своих голосов",
   "Custom themes & message colors": "Свои темы и цвета сообщений", "/ month": "/ мес",
+  "Attach files": "Прикрепить файлы", "Attach photos or files": "Прикрепить фото или файлы", "Remove file": "Убрать файл",
+  "Couldn't read this file. Make sure it isn't damaged or password-protected.": "Не удалось прочитать файл. Проверьте, что он не повреждён и не защищён паролем.",
+  "There's no text in this file — it looks like a scan. Send the pages as photos instead.": "В файле нет текста — похоже, это скан. Отправьте страницы как фото.",
+  "The file is larger than 10 MB.": "Файл больше 10 МБ.", "You can attach up to 3 files.": "Можно прикрепить до 3 файлов.",
+  "Files work with chat models. Pick a chat model to ask about a document.": "Файлы работают с чат-моделями. Выберите чат-модель, чтобы спросить про документ.",
+  "Unsupported file type": "Такой тип файла не поддерживается",
+  "Reading your files": "Читаю файлы", "Voice models don't accept files": "Голосовые модели не принимают файлы",
+  "Voice models don't accept files. Pick another model to send photos or documents.": "Голосовые модели не принимают файлы. Выберите другую модель, чтобы отправить фото или документы.",
   "Images, music & voice-over": "Картинки, музыка и озвучка", "Prompt improver": "Улучшение промпта",
   "Restore a lost streak": "Восстановление потерянной серии", "Images without watermark": "Картинки без водяного знака",
   "Images with a small watermark": "Картинки с небольшим водяным знаком", "Web search with sources": "Поиск в интернете с источниками",
@@ -384,6 +392,9 @@ const PATTERNS = [
   [/^(\d+:\d\d) · ready$/, (m) => `${m[1]} · готово`],
   [/^Voice models take up to (.+) characters\.$/, (m) => `Для озвучки — до ${m[1]} символов.`],
   [/^(Back|Forward) (\d+) seconds$/, (m) => `${m[1] === "Back" ? "Назад" : "Вперёд"} на ${m[2]} с`],
+  [/^You can attach up to (\d+) files\.$/, (m) => `Можно прикрепить до ${m[1]} файлов.`],
+  [/^(.+) is larger than 10 MB$/, (m) => `${m[1]} больше 10 МБ`],
+  [/^(.+): this file type isn't supported$/, (m) => `${m[1]}: такой тип файла не поддерживается`],
   [/^Remove (.+)$/, (m) => `Удалить ${m[1]}`],
   [/^(.+) is on$/, (m) => `${m[1]} включён`],
   [/^Message (.+)…$/, (m) => `Сообщение для ${m[1]}…`],
@@ -405,7 +416,7 @@ export function t(text) {
 const SKIP = ".md, .bubble, .chat-link > span, .tts-editor, .tts-history-text > span, .model-trigger-label, .msg-model, "
   + "pre, code, textarea, input, select, .tag-chip, .profile-meta strong, .tts-player-info strong, .clone-script p, .l-model, .l-group li, "
   + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong, .gpt-chip > span, .gpt-name, .gpt-desc, "
-  + ".gal-caption p, .vs-card-prompt, .ms-title, .ms-lyrics-text, .ps-prompt, .l-req-row dd, .auth-legal, .plans-legal, .legal-doc, .legal-tabs";
+  + ".gal-caption p, .vs-card-prompt, .ms-title, .ms-lyrics-text, .ps-prompt, .l-req-row dd, .auth-legal, .plans-legal, .legal-doc, .legal-tabs, .file-chip-text";
 // Our own sample texts that sit inside otherwise-skipped elements.
 const UNSKIP = ".appearance-preview";
 const ATTRS = ["placeholder", "title", "aria-label"];

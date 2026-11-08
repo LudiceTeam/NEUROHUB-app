@@ -52,3 +52,4 @@ web3
 Pillow
 pillow-heif
 aiogram
+pypdf

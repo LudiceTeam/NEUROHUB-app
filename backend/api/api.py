@@ -50,6 +50,8 @@ from backend.api import yookassa_client
 from backend.api.images_util import to_model_format,data_url,UnsupportedImage
 from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASONING_MODELS,WEB_SEARCH_RESULTS,WEB_SEARCH_CREDITS,WEB_SEARCH_PLANS,WEB_SEARCH_MODELS,WATERMARK_PLANS
 from backend.api.watermark import add_watermark
+from backend.api.file_text import extract_text,extension,UnsupportedFile,DOC_EXTENSIONS
+from backend.api.config import MAX_DOCS,MAX_DOC_SIZE,MAX_DOC_CHARS,DOC_CREDITS
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_PRO_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1928,12 +1930,48 @@ async def text_to_speech(text:str, tts_model:str, reference_url:str | None = Non
     return audio, "mp3", "audio/mpeg"
 
 
+class AttachedFile(BaseModel):
+    name:str
+    text:str
+
+
+def attach_files(request:str, files:Optional[List[AttachedFile]]) -> str:
+    """The user's message with the text of attached files appended as <file name="..."> blocks
+    (the chat UI shows them as file chips). The files share MAX_DOC_CHARS between them."""
+    if not files:
+        return request
+    if len(files) > MAX_DOCS:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Too many files")
+    budget = MAX_DOC_CHARS
+    blocks = []
+    for f in files:
+        name = re.sub(r'["<>\n\r]', "", f.name).strip()[:120] or "file"
+        text = f.text[:budget]
+        if len(f.text) > budget:
+            text += "\n[...the rest of the file was cut off]"
+        budget -= min(len(f.text), budget)
+        blocks.append(f'<file name="{name}">\n{text}\n</file>')
+    return "\n\n".join([request, *blocks]) if request else "\n\n".join(blocks)
+
+
+FILE_BLOCK = re.compile(r'\n*<file name="([^"]*)">\n.*?\n</file>', re.S)
+
+def without_files(message):
+    """Chat titles: the message without attached file text, or the first file's name if that's all there is."""
+    if not isinstance(message, str) or "<file name=" not in message:
+        return message
+    text = FILE_BLOCK.sub("", message).strip()
+    names = FILE_BLOCK.findall(message)
+    return text or (names[0] if names else message[:100])
+
+
 class AskText(BaseModel):
     chat_id:Optional[str] = None
     request:Optional[str] = None
     voice_id:Optional[str] = None      # the user's own voice from /voices/get; forces text-to-speech
     voice_model:Optional[str] = None   # key of CLONE_MODELS for voice_id (see /voices/models)
     web_search:Optional[bool] = False  # let the model search the web (costs WEB_SEARCH_CREDITS extra)
+    files:Optional[List[AttachedFile]] = None   # text of attached documents from /files/read
 
 @app.post("/ask_text")
 @limiter.limit("20/minute")
@@ -1986,6 +2024,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             chat_id = chat_id
         )
 
+        message_text = attach_files(req.request or "", req.files)
 
         user_facts = await get_user_fact(
             user_id = user_id
@@ -1998,7 +2037,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         promt = generate_main_promt(
             current_chat_messages = current_chat_messages,
             user_facts = user_facts,
-            current_message = str(req.request),
+            current_message = message_text,
             custom_model_prompt = user_custom_gpt_promt
         )
         
@@ -2020,6 +2059,9 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
         if user_model == "auto" and req.request == None:
             user_model = PAID_DEFAULT_MODEL if paid else FREE_DEFAULT_MODEL
+
+        if req.files and (req.voice_id or user_model in tts_models + image_generation_models + video_generation_models):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Files work with text models")
 
         if user_model in tts_models or req.voice_id:
             # Voice models read the user's text as is; the chat history isn't used.
@@ -2209,7 +2251,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
             } #  либо текст, либо url картинки
         expensive_models_full = expensive_models + image_generation_models + video_generation_models
         # Daily credits: every model costs its weight (MODEL_CREDITS).
-        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if web_search else 0)
+        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if web_search else 0) + (DOC_CREDITS if req.files else 0)
         if user_model not in expensive_models_full and (user_data["requests"] or 0) < credits:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesnt have requests" if (user_data["requests"] or 0) <= 0 else "Not enough credits")
 
@@ -2232,7 +2274,7 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
         else:
             await minus_requests(user_id, credits)
 
-        encrypted_message = encrypt(req.request,os.getenv("HASH_MESSAGES_KEY"))
+        encrypted_message = encrypt(message_text,os.getenv("HASH_MESSAGES_KEY"))
         encrypted_response = encrypt(response,os.getenv("HASH_MESSAGES_KEY"))
 
         await create_message(
@@ -2267,10 +2309,45 @@ async def ask_text_handler(request:Request,req:AskText,user_data_jwt:dict = Depe
 
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
+
+@app.post("/files/read")
+@limiter.limit("20/minute")
+async def read_files_handler(request:Request,files:List[UploadFile] = File(...),user_data:dict = Depends(get_current_user)):
+    """Text of attached documents (PDF, Word, plain text and code). The chat sends it back with
+    /ask_text or /ask_photo as `files`; nothing is stored here."""
+    try:
+        await check_ban(user_data["user_id"])
+        if len(files) > MAX_DOCS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Too many files")
+        result = []
+        for f in files:
+            name = f.filename or "file"
+            if extension(name) not in DOC_EXTENSIONS:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported file type")
+            data = await f.read(MAX_DOC_SIZE + 1)
+            if len(data) > MAX_DOC_SIZE:
+                raise HTTPException(status_code = 413, detail = "File too large")
+            try:
+                text = await asyncio.to_thread(extract_text, data, name)
+            except UnsupportedFile:
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Couldn't read the file")
+            if not text:
+                # Scanned PDFs are pictures of text; there is nothing to extract without OCR.
+                raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "No text in the file")
+            result.append({"name": name, "text": text[:MAX_DOC_CHARS], "chars": len(text)})
+        return {"files": result}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+
 @app.post("/ask_photo")
 @limiter.limit("20/minute")
 async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(None),
-    request_text:Optional[str] = Form(None),web_search:bool = Form(False),image_list:List[UploadFile] = File(...),user_data_jwt:dict = Depends(get_current_user)):
+    request_text:Optional[str] = Form(None),web_search:bool = Form(False),image_list:List[UploadFile] = File(...),
+    files_json:Optional[str] = Form(None),user_data_jwt:dict = Depends(get_current_user)):
 
 
 
@@ -2311,6 +2388,12 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         chat_id = chat_id_form
         true_request = request_text if request_text is not None else ""
+        # Documents sent together with the photos: the same [{"name", "text"}] list /ask_text takes.
+        try:
+            attached = [AttachedFile(**f) for f in json.loads(files_json)] if files_json else None
+        except Exception:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Invalid files")
+        message_text = attach_files(true_request, attached)
 
 
         if chat_id_form is None:
@@ -2345,11 +2428,13 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
 
         if user_model in tts_models:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Voice models don't accept images")
+        if attached and user_model in image_generation_models + video_generation_models:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Files work with text models")
 
         if (user_model in image_generation_models or user_model in expensive_models) and user_data["nano_req"] <= 0:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
 
-        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if web_search else 0)
+        credits = model_credits(user_model) + (WEB_SEARCH_CREDITS if web_search else 0) + (DOC_CREDITS if attached else 0)
         if len(image_list) > plan_of(user_data).get("photos", 5):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Too many photos for your plan")
         if (user_data["requests"] or 0) < credits and user_model not in expensive_full_models:
@@ -2420,7 +2505,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
         promt = generate_main_promt(
             current_chat_messages = current_chat_messages,
             user_facts = user_facts,
-            current_message = true_request,
+            current_message = message_text,
             custom_model_prompt = user_custom_gpt_promt
         )
                 
@@ -2552,7 +2637,7 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
             await minus_requests(user_id, credits)
 
 
-        encrypted_message = encrypt(true_request,os.getenv("HASH_MESSAGES_KEY"))
+        encrypted_message = encrypt(message_text,os.getenv("HASH_MESSAGES_KEY"))
 
         encrypted_response = encrypt(response,os.getenv("HASH_MESSAGES_KEY"))
 
@@ -2651,7 +2736,7 @@ async def get_user_chats_handler(request:Request,user_data:dict = Depends(get_cu
             if chat_name != "":
                 result[chat_id] = chat_name
             else:
-                result[chat_id] = await get_chat_first_message(chat_id)
+                result[chat_id] = without_files(await get_chat_first_message(chat_id))
 
 
         return result

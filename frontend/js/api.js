@@ -204,9 +204,16 @@ export const api = {
 
   // voice_id: one of the user's own voices — the text is spoken in that voice with voice_model.
   // web_search: the model searches the web first (costs extra credits).
-  askText: (chat_id, text, voice_id = null, voice_model = null, web_search = false) => post("/ask_text", {
+  // files: [{ name, text }] from readFiles(): attached documents.
+  askText: (chat_id, text, voice_id = null, voice_model = null, web_search = false, files = null) => post("/ask_text", {
     chat_id, request: text, ...(voice_id ? { voice_id, voice_model } : {}), ...(web_search ? { web_search } : {}),
+    ...(files?.length ? { files: files.map(({ name, text: body }) => ({ name, text: body })) } : {}),
   }),
+  readFiles: (files) => {
+    const form = new FormData();
+    for (const f of files) form.append("files", f);
+    return request("/files/read", { method: "POST", form });
+  },
 
   // own (cloned) voices
   voices: () => request("/voices/get"),
@@ -222,11 +229,12 @@ export const api = {
   },
   renameVoice: (voice_id, new_name) => post("/voice/rename", { voice_id, new_name }),
   deleteVoice: (voice_id) => request("/voice/delete", { method: "DELETE", body: { voice_id } }),
-  askPhoto: (chat_id, text, files, web_search = false) => {
+  askPhoto: (chat_id, text, files, web_search = false, docs = null) => {
     const form = new FormData();
     if (chat_id) form.append("chat_id_form", chat_id);
     if (text) form.append("request_text", text);
     if (web_search) form.append("web_search", "true");
+    if (docs?.length) form.append("files_json", JSON.stringify(docs.map(({ name, text: body }) => ({ name, text: body }))));
     for (const f of files) form.append("image_list", f);
     return request("/ask_photo", { method: "POST", form });
   },

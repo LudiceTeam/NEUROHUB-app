@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { h, icon, toast, errorText, modal, markdown } from "./dom.js";
 import { fromHistory, voiceLabel } from "./chat.js";
 import { modelLabel } from "./model-picker.js";
+import { splitFiles, fileChips } from "./files.js";
 import { audioCard } from "./audio-card.js";
 import { openLightbox } from "./lightbox.js";
 
@@ -121,9 +122,11 @@ function fadeImg(src, alt) {
 
 function renderShared(m) {
   if (m.role === "user") {
+    const { text, files } = splitFiles(m.text);
     return h("div", { class: "msg user" },
       m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, fadeImg(src, "Attached image")))),
-      m.text && h("div", { class: "bubble" }, m.text));
+      fileChips(files),
+      text && h("div", { class: "bubble" }, text));
   }
   return h("div", { class: "msg assistant" },
     h("div", { class: "avatar" }, h("img", { src: "logo.png", alt: "" })),
