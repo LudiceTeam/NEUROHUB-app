@@ -1,6 +1,6 @@
 from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile,Form
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from pydantic import BaseModel,EmailStr
+from pydantic import BaseModel,EmailStr,Field
 import uvicorn
 import json
 import hmac
@@ -1931,8 +1931,9 @@ async def text_to_speech(text:str, tts_model:str, reference_url:str | None = Non
 
 
 class AttachedFile(BaseModel):
-    name:str
-    text:str
+    # Generous caps (attach_files trims to MAX_DOC_CHARS anyway); they only stop absurd request bodies.
+    name:str = Field(max_length = 300)
+    text:str = Field(max_length = 200000)
 
 
 def attach_files(request:str, files:Optional[List[AttachedFile]]) -> str:

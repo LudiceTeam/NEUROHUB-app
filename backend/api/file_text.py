@@ -23,6 +23,12 @@ def extension(filename:str) -> str:
     return filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
 
+# Only as much text as the prompt can take is extracted, so a 2000-page PDF doesn't tie up a worker thread.
+MAX_PAGES = 150
+MAX_CHARS = 40000
+MAX_XML_SIZE = 30 * 1024 * 1024   # unpacked word/document.xml; a bigger one is a zip bomb, not a document
+
+
 def _pdf_text(data:bytes) -> str:
     reader = PdfReader(BytesIO(data))
     if reader.is_encrypted:
@@ -30,12 +36,21 @@ def _pdf_text(data:bytes) -> str:
             reader.decrypt("")
         except Exception:
             raise UnsupportedFile("Protected PDF")
-    return "\n\n".join((page.extract_text() or "").strip() for page in reader.pages)
+    parts, size = [], 0
+    for page in reader.pages[:MAX_PAGES]:
+        text = (page.extract_text() or "").strip()
+        parts.append(text)
+        size += len(text)
+        if size >= MAX_CHARS:
+            break
+    return "\n\n".join(parts)
 
 
 def _docx_text(data:bytes) -> str:
     # A .docx is a zip; the body text lives in word/document.xml, one <w:p> per paragraph.
     with zipfile.ZipFile(BytesIO(data)) as z:
+        if z.getinfo("word/document.xml").file_size > MAX_XML_SIZE:
+            raise UnsupportedFile("Document is too large")
         root = ElementTree.fromstring(z.read("word/document.xml"))
     paragraphs = []
     for p in root.iter(f"{_W}p"):
