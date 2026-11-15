@@ -5,9 +5,9 @@ const PERKS_KEY = "veora_perks";
 const PERK_PLANS = ["Basic", "Plus", "Premium", "Max", "Elite"];   // Starter is below Basic
 
 export const BASE_THEMES = [
-  { id: "system", name: "System", preview: ["#faf9f5", "#262624", "#c96442"] },
-  { id: "light", name: "Light", preview: ["#faf9f5", "#f0eee6", "#c96442"] },
-  { id: "dark", name: "Dark", preview: ["#262624", "#30302e", "#d97757"] },
+  { id: "system", name: "System", preview: ["#f7f7f4", "#18191a", "#2f6f5e"] },
+  { id: "light", name: "Light", preview: ["#f7f7f4", "#eeeee9", "#2f6f5e"] },
+  { id: "dark", name: "Dark", preview: ["#18191a", "#232425", "#7cc4ac"] },
 ];
 
 export const CUSTOM_THEMES = [

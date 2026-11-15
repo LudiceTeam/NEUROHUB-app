@@ -1,21 +1,21 @@
-/* Warm paper palette with a terracotta accent; headings and answers use a serif. */
+/* Soft neutral palette with a sage-green accent; headings use the rounded Onest. */
 :root {
-  --bg: #faf9f5;
-  --bg-soft: #f0eee6;
+  --bg: #f7f7f4;
+  --bg-soft: #eeeee9;
   --bg-elev: #ffffff;
-  --sidebar: #f5f4ee;
-  --border: #e8e6dc;
-  --text: #1f1e1d;
-  --muted: #73716b;
-  --accent: #c96442;
-  --accent-2: #c96442;
+  --sidebar: #f1f1ed;
+  --border: #e4e4de;
+  --text: #1b1c1a;
+  --muted: #6d6e69;
+  --accent: #2f6f5e;
+  --accent-2: #2f6f5e;
   --accent-text: #ffffff;
-  --user-bubble: #f0eee6;
+  --user-bubble: #e8efe9;
   --danger: #d1453b;
   --ok: #3f8f5a;
-  --code-bg: #f5f4ee;
-  --hl-bg: #f8f7f2;
-  --hl-head: #efede5;
+  --code-bg: #f3f3ef;
+  --hl-bg: #f6f6f2;
+  --hl-head: #ecece6;
   --hl-text: #24292f;
   --hl-comment: #6e7781;
   --hl-keyword: #cf222e;
@@ -30,28 +30,28 @@
   --hl-del-bg: #ffebe9;
   --shadow: 0 2px 6px rgba(31, 30, 29, .04), 0 12px 32px rgba(31, 30, 29, .08);
   --radius: 14px;
-  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --display: Onest, Inter, system-ui, sans-serif;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #262624;
-    --bg-soft: #30302e;
-    --bg-elev: #30302e;
-    --sidebar: #1f1e1d;
-    --border: #3d3d3a;
-    --text: #f5f4ee;
-    --muted: #a6a39a;
-    --accent: #d97757;
-    --accent-2: #d97757;
-    --accent-text: #ffffff;
-    --user-bubble: #141413;
+    --bg: #18191a;
+    --bg-soft: #232425;
+    --bg-elev: #202122;
+    --sidebar: #131415;
+    --border: #313335;
+    --text: #ecedea;
+    --muted: #9c9e99;
+    --accent: #7cc4ac;
+    --accent-2: #7cc4ac;
+    --accent-text: #0f1f1a;
+    --user-bubble: #24302c;
     --danger: #ef6f63;
     --ok: #5fb97f;
-    --code-bg: #1f1e1d;
-    --hl-bg: #1f1e1d;
-    --hl-head: #2a2a28;
+    --code-bg: #131415;
+    --hl-bg: #151617;
+    --hl-head: #1e1f20;
     --hl-text: #abb2bf;
     --hl-comment: #7f848e;
     --hl-keyword: #c678dd;
@@ -70,22 +70,22 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #262624;
-  --bg-soft: #30302e;
-  --bg-elev: #30302e;
-  --sidebar: #1f1e1d;
-  --border: #3d3d3a;
-  --text: #f5f4ee;
-  --muted: #a6a39a;
-  --accent: #d97757;
-  --accent-2: #d97757;
-  --accent-text: #ffffff;
-  --user-bubble: #141413;
+  --bg: #18191a;
+  --bg-soft: #232425;
+  --bg-elev: #202122;
+  --sidebar: #131415;
+  --border: #313335;
+  --text: #ecedea;
+  --muted: #9c9e99;
+  --accent: #7cc4ac;
+  --accent-2: #7cc4ac;
+  --accent-text: #0f1f1a;
+  --user-bubble: #24302c;
   --danger: #ef6f63;
   --ok: #5fb97f;
-  --code-bg: #1f1e1d;
-  --hl-bg: #1f1e1d;
-  --hl-head: #2a2a28;
+  --code-bg: #131415;
+  --hl-bg: #151617;
+  --hl-head: #1e1f20;
   --hl-text: #abb2bf;
   --hl-comment: #7f848e;
   --hl-keyword: #c678dd;
@@ -166,7 +166,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
   width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px;
   padding: 32px; border-radius: 20px; background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow);
 }
-.auth-card h1 { font: 500 28px/1.2 var(--serif); letter-spacing: -.01em; }
+.auth-card h1 { font: 600 26px/1.2 var(--display); letter-spacing: -.02em; }
 .auth-card p { margin: 0; }
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; }
 .brand img { border-radius: 14px; }
@@ -2075,9 +2075,6 @@ textarea.improving {
   .credits-text + .credits-extra::before { display: none; }
 }
 
-/* serif for headings and the assistant's answers, like a printed page */
-.welcome h1, .modal h2, .plan-card h3, .sub-plan, .plan-price strong, .sub-price strong { font-family: var(--serif); font-weight: 500; letter-spacing: -.01em; }
-.welcome h1 { font-size: 34px; }
-.md { font-family: var(--serif); font-size: 16.5px; line-height: 1.65; }
-.md :is(pre, code, table) { font-family: "JetBrains Mono", ui-monospace, monospace; }
-.md table { font-family: Inter, system-ui, sans-serif; font-size: 14.5px; }
+/* rounded display face for headings and prices */
+.welcome h1, .modal h2, .plan-card h3, .sub-plan, .plan-price strong, .sub-price strong { font-family: var(--display); font-weight: 600; letter-spacing: -.02em; }
+.welcome h1 { font-size: 32px; }

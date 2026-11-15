@@ -108,7 +108,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <span class="l-side-chat">Workout plan</span>
             </aside>
             <div class="l-window-main">
-              <span class="l-window-model"><span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/claude.svg);mask-image:url(icons/models/claude.svg)"></span>Claude Sonnet</span>
+              <span class="l-window-model"><span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/openai.svg);mask-image:url(icons/models/openai.svg)"></span>GPT-5.4</span>
               <div class="l-msg user">Help me price a coffee subscription: 10 drinks a month.</div>
               <div class="l-msg bot">
                 <p>Start at <b>1 490 ₽ a month</b> — about 25% below buying ten drinks one by one.</p>
