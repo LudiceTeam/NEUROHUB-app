@@ -5,9 +5,9 @@ const PERKS_KEY = "veora_perks";
 const PERK_PLANS = ["Basic", "Plus", "Premium", "Max", "Elite"];   // Starter is below Basic
 
 export const BASE_THEMES = [
-  { id: "system", name: "System", preview: ["#ffffff", "#0b0b10", "#8b7dff"] },
-  { id: "light", name: "Light", preview: ["#ffffff", "#f6f6f9", "#6d5dfc"] },
-  { id: "dark", name: "Dark", preview: ["#0b0b10", "#181822", "#8b7dff"] },
+  { id: "system", name: "System", preview: ["#ffffff", "#0a0a0a", "#8f8f8f"] },
+  { id: "light", name: "Light", preview: ["#ffffff", "#f5f5f5", "#0a0a0a"] },
+  { id: "dark", name: "Dark", preview: ["#0a0a0a", "#161616", "#ededed"] },
 ];
 
 export const CUSTOM_THEMES = [
@@ -16,7 +16,7 @@ export const CUSTOM_THEMES = [
     id: "black", name: "Black", base: "dark", preview: ["#000000", "#141414", "#a3a3a3"],
     vars: {
       "--bg": "#000000", "--bg-soft": "#0d0d0d", "--bg-elev": "#141414", "--sidebar": "#080808", "--border": "#262626",
-      "--text": "#ededed", "--muted": "#8a8a8a", "--accent": "#8c8c8c", "--accent-2": "#525252", "--user-bubble": "#1f1f1f",
+      "--text": "#ededed", "--muted": "#8a8a8a", "--accent": "#8c8c8c", "--accent-2": "#525252", "--user-bubble": "#1f1f1f", "--accent-text": "#ffffff",
       "--code-bg": "#0f0f0f", "--hl-bg": "#0a0a0a", "--hl-head": "#141414",
     },
   },
@@ -24,7 +24,7 @@ export const CUSTOM_THEMES = [
     id: "midnight", name: "Midnight", base: "dark", preview: ["#0a0f1f", "#141d36", "#5b8cff"],
     vars: {
       "--bg": "#0a0f1f", "--bg-soft": "#121a30", "--bg-elev": "#141d36", "--sidebar": "#0c1326", "--border": "#1f2a48",
-      "--text": "#e6ecff", "--muted": "#8f9bbf", "--accent": "#5b8cff", "--accent-2": "#8a6bff", "--user-bubble": "#1d2a50",
+      "--text": "#e6ecff", "--muted": "#8f9bbf", "--accent": "#5b8cff", "--accent-2": "#8a6bff", "--user-bubble": "#1d2a50", "--accent-text": "#ffffff",
       "--code-bg": "#0f1730", "--hl-bg": "#0d1429", "--hl-head": "#131c38",
     },
   },
@@ -32,7 +32,7 @@ export const CUSTOM_THEMES = [
     id: "aurora", name: "Aurora", base: "dark", preview: ["#071613", "#10261f", "#2ed3a1"],
     vars: {
       "--bg": "#071613", "--bg-soft": "#0e221d", "--bg-elev": "#10261f", "--sidebar": "#0a1b17", "--border": "#1c3a32",
-      "--text": "#e3f6ef", "--muted": "#8bb3a6", "--accent": "#2ed3a1", "--accent-2": "#4fb6ff", "--user-bubble": "#13362c",
+      "--text": "#e3f6ef", "--muted": "#8bb3a6", "--accent": "#2ed3a1", "--accent-2": "#4fb6ff", "--user-bubble": "#13362c", "--accent-text": "#ffffff",
       "--code-bg": "#0b1d18", "--hl-bg": "#0a1a16", "--hl-head": "#10261f",
     },
   },
@@ -40,7 +40,7 @@ export const CUSTOM_THEMES = [
     id: "sunset", name: "Sunset", base: "dark", preview: ["#160d12", "#26161e", "#ff7a59"],
     vars: {
       "--bg": "#160d12", "--bg-soft": "#22141b", "--bg-elev": "#26161e", "--sidebar": "#1b1016", "--border": "#3a2230",
-      "--text": "#fbe9ef", "--muted": "#c49aa9", "--accent": "#ff7a59", "--accent-2": "#ff4f8b", "--user-bubble": "#3a1d2a",
+      "--text": "#fbe9ef", "--muted": "#c49aa9", "--accent": "#ff7a59", "--accent-2": "#ff4f8b", "--user-bubble": "#3a1d2a", "--accent-text": "#ffffff",
       "--code-bg": "#1d1117", "--hl-bg": "#1a0f15", "--hl-head": "#26161e",
     },
   },
@@ -48,7 +48,7 @@ export const CUSTOM_THEMES = [
     id: "rose", name: "Rosé", base: "light", preview: ["#fff8fa", "#fde0ea", "#e0457b"],
     vars: {
       "--bg": "#fff8fa", "--bg-soft": "#fdeef3", "--bg-elev": "#ffffff", "--sidebar": "#fbeef2", "--border": "#f3d5df",
-      "--text": "#2a1520", "--muted": "#8f6676", "--accent": "#e0457b", "--accent-2": "#f08a5d", "--user-bubble": "#fde0ea",
+      "--text": "#2a1520", "--muted": "#8f6676", "--accent": "#e0457b", "--accent-2": "#f08a5d", "--user-bubble": "#fde0ea", "--accent-text": "#ffffff",
       "--code-bg": "#fbeef2", "--hl-bg": "#fff5f8", "--hl-head": "#fbe6ee",
     },
   },
@@ -56,7 +56,7 @@ export const CUSTOM_THEMES = [
     id: "paper", name: "Paper", base: "light", preview: ["#faf7f0", "#efe6d2", "#b5651d"],
     vars: {
       "--bg": "#faf7f0", "--bg-soft": "#f2ede1", "--bg-elev": "#fffdf8", "--sidebar": "#f3eee2", "--border": "#e4dccb",
-      "--text": "#2b261c", "--muted": "#7d7461", "--accent": "#b5651d", "--accent-2": "#d4893b", "--user-bubble": "#efe6d2",
+      "--text": "#2b261c", "--muted": "#7d7461", "--accent": "#b5651d", "--accent-2": "#d4893b", "--user-bubble": "#efe6d2", "--accent-text": "#ffffff",
       "--code-bg": "#f3eee2", "--hl-bg": "#fbf8f1", "--hl-head": "#f0e9da",
     },
   },

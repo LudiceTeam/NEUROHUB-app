@@ -28,12 +28,12 @@ function hash(str) {
   return x >>> 0;
 }
 
-// Each track gets its own soft gradient cover.
+// Each track gets its own grey cover.
 function cover(id, extra = "") {
   const n = hash(id);
   const a = n % 360;
   const b = (a + 40 + (n >> 8) % 80) % 360;
-  return h("span", { class: `ms-cover ${extra}`.trim(), style: `background: linear-gradient(135deg, hsl(${a} 70% 58%), hsl(${b} 65% 38%))`, "aria-hidden": "true" }, icon("music"));
+  return h("span", { class: `ms-cover ${extra}`.trim(), style: `background: linear-gradient(135deg, hsl(0 0% ${26 + (a % 20)}%), hsl(0 0% ${8 + (b % 10)}%))`, "aria-hidden": "true" }, icon("music"));
 }
 
 /**

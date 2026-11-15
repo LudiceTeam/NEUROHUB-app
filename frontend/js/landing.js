@@ -1,6 +1,4 @@
 import { MODEL_GROUPS } from "./config.js";
-import { mountCrystal } from "./crystal.js";
-import { enhanceLanding } from "./landing-fx.js";
 import { languageSwitch } from "./i18n.js";
 import { SELLER as S, CONTACT_EMAIL } from "./legal.js";
 import { PLANS, FREE_PLAN, planFeatures, rubles } from "./plans.js";
@@ -20,7 +18,7 @@ const SELLER = [
 ];
 
 const FEATURES = [
-  { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true, accent: true },
+  { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true },
   { icon: "M13 2L4 14h7l-1 8 9-12h-7z", title: "Auto mode", text: "Not sure which model to use? Veora picks the best one for every request." },
   { icon: "M4 6h16v12H4zM8 13l2.5-3 3 4 2-2.5L19 16", title: "Vision", text: "Attach up to five photos and ask anything about them." },
   { icon: "M4 5h16v14H4zM8 10a1.5 1.5 0 1 0 0-.01M20 15l-5-5-9 9", title: "Image generation", text: "Create images from a sentence with Gemini image models." },
@@ -44,6 +42,12 @@ const FAQ = [
   ["Do I need a password?", "No. Sign in with Google or with a one-time code sent to your email. Sign in with Apple is coming to the web soon."],
 ];
 
+// Logo strip under the hero (icons/models/*.svg, drawn in the text color).
+const LABS = [
+  ["openai", "OpenAI"], ["claude", "Anthropic"], ["gemini", "Google"], ["meta", "Meta"], ["mistral", "Mistral"],
+  ["xai", "xAI"], ["qwen", "Qwen"], ["bytedance", "ByteDance"], ["kimi", "Moonshot"], ["kling", "Kling"],
+];
+
 const svgIcon = (d) => `<svg viewBox="0 0 24 24" class="l-icon" aria-hidden="true"><path d="${d}"/></svg>`;
 const ARROW = `<svg viewBox="0 0 24 24" class="l-icon" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
 
@@ -59,10 +63,8 @@ export function renderLanding(root, { onLogin, onSignup }) {
   const page = document.createElement("div");
   page.className = "landing";
   page.innerHTML = `
-    <div class="l-bg" aria-hidden="true"><span class="l-orb a"></span><span class="l-orb b"></span><span class="l-grid"></span></div>
-
     <header class="l-nav">
-      <a class="l-brand" href="#top"><img src="logo.png" alt="" width="30" height="30"><span>Veora</span></a>
+      <a class="l-brand" href="#top"><img src="logo.png" alt="" width="28" height="28"><span>Veora</span></a>
       <nav class="l-links" aria-label="Sections">
         <a href="#features">Features</a><a href="#models">Models</a><a href="#plans">Plans</a><a href="#faq">FAQ</a>
       </nav>
@@ -74,30 +76,56 @@ export function renderLanding(root, { onLogin, onSignup }) {
 
     <main id="top">
       <section class="l-hero">
-        <div class="l-hero-copy">
-          <span class="l-eyebrow"><span class="l-dot"></span>${modelCount} models · images · video · voice</span>
-          <h1><span class="l-line"><span class="l-gradient">Veora</span></span></h1>
-          <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.</p>
-          <div class="l-cta">
-            <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
-            <button class="l-btn ghost lg" type="button" data-action="login">I have an account</button>
-          </div>
-          <p class="l-fine">No credit card. 25 free credits every day.</p>
+        <span class="l-eyebrow">${modelCount} models · images · video · voice</span>
+        <h1>All the best AI models.<br><span class="l-dim">One subscription.</span></h1>
+        <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.</p>
+        <div class="l-cta">
+          <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
+          <button class="l-btn ghost lg" type="button" data-action="login">I have an account</button>
         </div>
-        <div class="l-hero-art">
-          <div class="l-halo" aria-hidden="true"></div>
-          <div class="l-crystal" aria-label="Veora crystal, drag to spin" role="img"></div>
-          <div class="l-float f1"><span class="l-chip-dot" style="background:#10a37f"></span>GPT-4o</div>
-          <div class="l-float f2"><span class="l-chip-dot" style="background:#d97757"></span>Claude Opus</div>
-          <div class="l-float f3"><span class="l-chip-dot" style="background:#4285f4"></span>Gemini 3</div>
+        <p class="l-fine">No credit card. 25 free credits every day.</p>
+      </section>
+
+      <section class="l-logos" aria-label="Models from the leading AI labs">
+        <p>Models from the leading AI labs</p>
+        <div class="l-logo-row">
+          ${LABS.map(([logo, name]) => `<span class="l-logo"><span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/${logo}.svg);mask-image:url(icons/models/${logo}.svg)"></span>${name}</span>`).join("")}
+        </div>
+      </section>
+
+      <section class="l-preview" aria-hidden="true">
+        <div class="l-window">
+          <div class="l-window-bar"><i></i><i></i><i></i><span>web.nexi.center</span></div>
+          <div class="l-window-body">
+            <aside class="l-window-side">
+              <span class="l-side-new">New chat</span>
+              <span class="l-side-label">Today</span>
+              <span class="l-side-chat on">Pricing for a coffee shop</span>
+              <span class="l-side-chat">Fix a React bug</span>
+              <span class="l-side-chat">Logo ideas</span>
+              <span class="l-side-label">Yesterday</span>
+              <span class="l-side-chat">Summarize a PDF</span>
+              <span class="l-side-chat">Workout plan</span>
+            </aside>
+            <div class="l-window-main">
+              <span class="l-window-model"><span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/claude.svg);mask-image:url(icons/models/claude.svg)"></span>Claude Sonnet</span>
+              <div class="l-msg user">Help me price a coffee subscription: 10 drinks a month.</div>
+              <div class="l-msg bot">
+                <p>Start at <b>1 490 ₽ a month</b> — about 25% below buying ten drinks one by one.</p>
+                <p>Why it works:</p>
+                <ul><li>regulars feel the saving right away</li><li>you get paid upfront, even for drinks they skip</li><li>a yearly plan can add a second discount later</li></ul>
+              </div>
+              <div class="l-window-input"><span>Message Veora…</span><b>${ARROW}</b></div>
+            </div>
+          </div>
         </div>
       </section>
 
       <section class="l-stats reveal" aria-label="Veora in numbers">
-        <div><strong data-count="${parseInt(modelCount, 10)}" data-suffix="+">${modelCount}</strong><span>AI models</span></div>
-        <div><strong data-count="${providers.size}">${providers.size}</strong><span>AI labs</span></div>
-        <div><strong data-count="4">4</strong><span>Modalities: text, image, video, voice</span></div>
-        <div><strong data-count="1">1</strong><span>Subscription for everything</span></div>
+        <div><strong>${modelCount}</strong><span>AI models</span></div>
+        <div><strong>${providers.size}</strong><span>AI labs</span></div>
+        <div><strong>4</strong><span>Modalities: text, image, video, voice</span></div>
+        <div><strong>1</strong><span>Subscription for everything</span></div>
       </section>
 
       <section class="l-section" id="features">
@@ -105,9 +133,9 @@ export function renderLanding(root, { onLogin, onSignup }) {
           <span class="l-kicker">Features</span>
           <h2>Everything you'd want from AI.<br>Nothing you'd have to juggle.</h2>
         </div>
-        <div class="l-bento">
+        <div class="l-bento reveal">
           ${FEATURES.map((f) => `
-            <article class="l-card reveal${f.wide ? " wide" : ""}${f.accent ? " accent" : ""}">
+            <article class="l-card${f.wide ? " wide" : ""}${f.accent ? " accent" : ""}">
               <span class="l-card-icon">${svgIcon(f.icon)}</span>
               <h3>${f.title}</h3>
               <p>${f.text}</p>
@@ -126,9 +154,9 @@ export function renderLanding(root, { onLogin, onSignup }) {
             ${[...modelIds, ...modelIds].filter((id) => !id.endsWith(":free")).map((id) => `<span class="l-model">${pretty(id)}</span>`).join("")}
           </div>
         </div>
-        <div class="l-model-groups">
+        <div class="l-model-groups reveal">
           ${textGroups.map(([group, ids]) => `
-            <div class="l-group reveal">
+            <div class="l-group">
               <h3>${group}</h3>
               <ul>${ids.filter((id) => !id.endsWith(":free")).map((id) => `<li>${pretty(id)}</li>`).join("")}</ul>
             </div>`).join("")}
@@ -140,10 +168,10 @@ export function renderLanding(root, { onLogin, onSignup }) {
           <span class="l-kicker">How it works</span>
           <h2>From sign-up to answer in a minute.</h2>
         </div>
-        <ol class="l-steps">
-          <li class="reveal"><span>01</span><h3>Sign up with email</h3><p>Enter your email, type the 6-digit code. No passwords to remember.</p></li>
-          <li class="reveal"><span>02</span><h3>Pick a model — or Auto</h3><p>Choose from ${modelCount} models or let Veora route each request to the best one.</p></li>
-          <li class="reveal"><span>03</span><h3>Chat, create, listen</h3><p>Ask questions, send photos, generate images, videos and speech.</p></li>
+        <ol class="l-steps reveal">
+          <li><span>01</span><h3>Sign up with email</h3><p>Enter your email, type the 6-digit code. No passwords to remember.</p></li>
+          <li><span>02</span><h3>Pick a model — or Auto</h3><p>Choose from ${modelCount} models or let Veora route each request to the best one.</p></li>
+          <li><span>03</span><h3>Chat, create, listen</h3><p>Ask questions, send photos, generate images, videos and speech.</p></li>
         </ol>
       </section>
 
@@ -186,8 +214,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
       </section>
 
       <section class="l-final reveal">
-        <img src="logo.png" alt="" width="72" height="72">
-        <h2>Veora</h2>
+        <h2>Try every model today.</h2>
         <p>Join Veora and get 25 free credits every day.</p>
         <div class="l-cta center">
           <button class="l-btn primary lg" type="button" data-action="signup">Create free account ${ARROW}</button>
@@ -243,7 +270,6 @@ export function renderLanding(root, { onLogin, onSignup }) {
     for (const entry of entries) {
       if (entry.isIntersecting) {
         entry.target.classList.add("in");
-        entry.target.querySelectorAll("[data-count]").forEach(countUp);
         io.unobserve(entry.target);
       }
     }
@@ -253,46 +279,11 @@ export function renderLanding(root, { onLogin, onSignup }) {
     io.observe(el);
   });
 
-  // Cursor glow on cards.
-  page.querySelectorAll(".l-card, .l-plan").forEach((card) => {
-    card.addEventListener("pointermove", (e) => {
-      const r = card.getBoundingClientRect();
-      card.style.setProperty("--mx", `${e.clientX - r.left}px`);
-      card.style.setProperty("--my", `${e.clientY - r.top}px`);
-    });
-  });
-
-  const destroyFx = enhanceLanding(page);
-  let destroyCrystal = null;
-  let destroyed = false;
-  mountCrystal(page.querySelector(".l-crystal")).then((destroy) => {
-    if (destroyed) destroy(); else destroyCrystal = destroy;
-  });
-
   return () => {
-    destroyed = true;
-    destroyFx();
-    destroyCrystal?.();
     io.disconnect();
     removeEventListener("scroll", onScroll);
     document.documentElement.classList.remove("landing-mode");
   };
-}
-
-// Numbers tick up from zero when the stats strip scrolls into view.
-function countUp(el) {
-  const target = Number(el.dataset.count);
-  const suffix = el.dataset.suffix || "";
-  if (!target || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const start = performance.now();
-  const duration = 1100 + target * 8;
-  const tick = (now) => {
-    const t = Math.min(1, (now - start) / duration);
-    const eased = 1 - Math.pow(1 - t, 3);
-    el.textContent = `${Math.round(target * eased)}${t === 1 ? suffix : ""}`;
-    if (t < 1) requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
 }
 
 function pretty(id) {

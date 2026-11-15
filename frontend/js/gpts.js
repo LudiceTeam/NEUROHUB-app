@@ -73,6 +73,6 @@ export function gptAvatar(gpt, size = "") {
   const a = x % 360;
   return h("span", {
     class: `gpt-avatar ${size}`.trim(), "aria-hidden": "true",
-    style: `background: linear-gradient(135deg, hsl(${a} 75% 60%), hsl(${(a + 50) % 360} 70% 45%))`,
+    style: `background: hsl(0 0% ${18 + (a % 24)}%)`,   // a grey shade per GPT
   }, (gpt.gpt_name || "?").trim().charAt(0).toUpperCase());
 }

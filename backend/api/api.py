@@ -2849,6 +2849,25 @@ async def rename_chat_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
 
 
+class CreateChatTitle(BaseModel):
+    chat_id:str
+    first_message:str
+
+@app.post("/chat/title/create")
+@limiter.limit("20/minute")
+async def chat_create_title(request:Request,req:CreateChatTitle,user_data:dict = Depends(get_current_user)):
+    try:
+        user_id = user_data["user_id"]
+        await check_ban(user_id)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+    
+
+
 @app.post("/get_chat_messages")
 @limiter.limit("20/minute")
 async def get_chat_messages_handler(request:Request,req:ChatId,user_data:dict = Depends(get_current_user)):

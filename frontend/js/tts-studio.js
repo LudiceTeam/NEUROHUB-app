@@ -45,7 +45,7 @@ function voiceAvatar(id, size = "") {
   const n = hash(splitId(id)[1]);
   const a = n % 360;
   const b = (a + 60 + (n >> 8) % 90) % 360;
-  return h("span", { class: `voice-avatar ${size}`, style: `background: radial-gradient(circle at 30% 30%, hsl(${a} 85% 70%), hsl(${b} 70% 45%))`, "aria-hidden": "true" });
+  return h("span", { class: `voice-avatar ${size}`, style: `background: radial-gradient(circle at 30% 30%, hsl(0 0% ${55 + (a % 25)}%), hsl(0 0% ${14 + (b % 14)}%))`, "aria-hidden": "true" });
 }
 
 function formatTime(sec) {
