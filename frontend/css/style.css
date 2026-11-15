@@ -1,4 +1,4 @@
-/* Soft neutral palette with a sage-green accent; headings use the rounded Onest. */
+/* Soft neutral palette with a muted violet accent; headings use the rounded Onest. */
 :root {
   --bg: #f7f7f4;
   --bg-soft: #eeeee9;
@@ -7,10 +7,10 @@
   --border: #e4e4de;
   --text: #1b1c1a;
   --muted: #6d6e69;
-  --accent: #2f6f5e;
-  --accent-2: #2f6f5e;
+  --accent: #5b4fc4;
+  --accent-2: #5b4fc4;
   --accent-text: #ffffff;
-  --user-bubble: #e8efe9;
+  --user-bubble: #ecebf8;
   --danger: #d1453b;
   --ok: #3f8f5a;
   --code-bg: #f3f3ef;
@@ -43,10 +43,10 @@
     --border: #313335;
     --text: #ecedea;
     --muted: #9c9e99;
-    --accent: #7cc4ac;
-    --accent-2: #7cc4ac;
-    --accent-text: #0f1f1a;
-    --user-bubble: #24302c;
+    --accent: #a99cf5;
+    --accent-2: #a99cf5;
+    --accent-text: #17132e;
+    --user-bubble: #2a283d;
     --danger: #ef6f63;
     --ok: #5fb97f;
     --code-bg: #131415;
@@ -77,10 +77,10 @@
   --border: #313335;
   --text: #ecedea;
   --muted: #9c9e99;
-  --accent: #7cc4ac;
-  --accent-2: #7cc4ac;
-  --accent-text: #0f1f1a;
-  --user-bubble: #24302c;
+  --accent: #a99cf5;
+  --accent-2: #a99cf5;
+  --accent-text: #17132e;
+  --user-bubble: #2a283d;
   --danger: #ef6f63;
   --ok: #5fb97f;
   --code-bg: #131415;
