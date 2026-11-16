@@ -21,6 +21,7 @@ from backend.database.main_database.main_core import get_all_table, count_users,
 from backend.database.stats_db.stats_core import get_models_stats
 from backend.database.ban_db.ban_core import ban_user, get_ban_info, unban_user
 from backend.bot.data_gather import get_all_user_messages
+from backend.bot import health
 
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -97,10 +98,11 @@ def main_menu():
     kb = InlineKeyboardBuilder()
     kb.button(text = "📊 Статистика", callback_data = Menu(action = "stats"))
     kb.button(text = "🤖 Модели", callback_data = Menu(action = "models"))
+    kb.button(text = "🩺 Здоровье", callback_data = Menu(action = "health"))
     kb.button(text = "👥 Все пользователи", callback_data = UsersPage(kind = "all", page = 0))
     kb.button(text = "💎 Подписчики", callback_data = UsersPage(kind = "paid", page = 0))
     kb.button(text = "🔍 Найти пользователя", callback_data = Menu(action = "search"))
-    kb.adjust(2, 2, 1)
+    kb.adjust(3, 2, 1)
     return kb.as_markup()
 
 
@@ -209,6 +211,54 @@ async def models_stats(callback:CallbackQuery):
     lines = [f"{i}. <code>{escape(m)}</code> — <b>{c}</b> ({c / total * 100:.0f}%)" for i, (m, c) in enumerate(used[:25], 1)]
     text = f"🤖 <b>Модели</b> (всего запросов: {total})\n\n" + "\n".join(lines)
     await show(callback, text, back_menu())
+
+
+@dp.callback_query(Menu.filter(F.action == "health"))
+async def health_stats(callback:CallbackQuery):
+    """Is everything fine for users: activity trend and failed generations with their reasons."""
+    days = 14
+    try:
+        activity = await health.activity(days)
+        jobs = await health.jobs(days)
+    except Exception as e:
+        return await show(callback, f"⚠️ Не удалось прочитать базу: {escape(str(e))[:300]}", back_menu())
+
+    lines = [f"🩺 <b>Здоровье</b> · последние {days} дней\n"]
+    if activity:
+        lines.append("<b>Активность</b> (пользователи · сообщения):")
+        for day, users, messages in activity[-7:]:
+            lines.append(f"  {day:%d.%m}: <b>{users}</b> · {messages}")
+        # Last week against the one before: is the audience growing?
+        recent = sum(u for _, u, _ in activity[-7:])
+        before = sum(u for _, u, _ in activity[-14:-7])
+        if before:
+            change = (recent - before) / before * 100
+            lines.append(f"  Неделя к неделе: <b>{change:+.0f}%</b> {'📈' if change >= 0 else '📉'}")
+    else:
+        lines.append("Сообщений за период нет.")
+
+    lines.append("\n<b>Генерации</b>:")
+    warnings = []
+    for kind, (statuses, errors) in jobs.items():
+        total = sum(statuses.values())
+        if not total:
+            lines.append(f"{kind}: не было")
+            continue
+        failed = statuses.get("failed", 0)
+        stuck = statuses.get("pending", 0) + statuses.get("processing", 0)
+        rate = failed / total * 100
+        lines.append(f"{kind}: {total} · ✅ {statuses.get('completed', 0)} · ❌ {failed} ({rate:.0f}%)" + (f" · ⏳ {stuck}" if stuck else ""))
+        for error, count in errors.most_common(3):
+            lines.append(f"    — {short(error, 90)}: {count}")
+        if rate >= 15:
+            warnings.append(f"{kind}: падает {rate:.0f}% генераций")
+
+    lines.append("\n" + ("⚠️ <b>Обратить внимание:</b>\n" + "\n".join(f"  • {w}" for w in warnings) if warnings else "✅ Явных проблем не видно"))
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text = "🔄 Обновить", callback_data = Menu(action = "health"))
+    kb.button(text = "⬅️ Меню", callback_data = Menu(action = "home"))
+    await show(callback, "\n".join(lines), kb.as_markup())
 
 
 # ---------- users ----------
