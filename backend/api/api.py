@@ -55,7 +55,7 @@ from backend.api.file_text import extract_text,extension,UnsupportedFile,DOC_EXT
 from backend.api.config import MAX_DOCS,MAX_DOC_SIZE,MAX_DOC_CHARS,DOC_CREDITS
 from backend.api.config import VIDEO_INPUT_MODELS,VIDEO_INPUT_MODEL,VIDEO_INPUT_FREE_MODEL,MAX_VIDEO_INPUT_SIZE,MAX_VIDEO_INPUT_SECONDS,VIDEO_INPUT_CREDITS_PER_MINUTE
 from backend.api.video_input import VIDEO_INPUT_TYPES,mp4_duration,mp4_pixels,normalize_clip,FFMPEG
-from backend.api.config import FACE_SWAP_MODEL,FACE_SWAP_USD_PER_SECOND,FACE_SWAP_RESOLUTION,FACE_SWAP_EXTRA,FACE_SWAP_PROMPT,MAX_FACE_SWAP_SECONDS,MIN_FACE_SWAP_SECONDS,MIN_FACE_SWAP_PIXELS,MAX_FACE_SWAP_SIZE,face_swap_cost
+from backend.api.config import FACE_SWAP_ENABLED,FACE_SWAP_OUTPUT,FACE_SWAP_MODEL,FACE_SWAP_USD_PER_SECOND,FACE_SWAP_RESOLUTION,FACE_SWAP_EXTRA,FACE_SWAP_PROMPT,MAX_FACE_SWAP_SECONDS,MIN_FACE_SWAP_SECONDS,MIN_FACE_SWAP_PIXELS,MAX_FACE_SWAP_SIZE,face_swap_cost
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_PRO_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1371,7 +1371,7 @@ async def video_models_handler(request:Request, user_data:dict = Depends(get_cur
         "max_prompt": MAX_VIDEO_PROMPT,
         "credit_usd": VIDEO_CREDIT_USD,
         # "Put yourself in a video": the studio shows the price before upload (see face_swap_cost).
-        "face_swap": {"usd_per_second": FACE_SWAP_USD_PER_SECOND, "min_seconds": MIN_FACE_SWAP_SECONDS, "max_seconds": MAX_FACE_SWAP_SECONDS, "min_pixels": MIN_FACE_SWAP_PIXELS, "auto_fix": bool(FFMPEG)},
+        "face_swap": {"usd_per_second": FACE_SWAP_USD_PER_SECOND, "min_seconds": MIN_FACE_SWAP_SECONDS, "max_seconds": MAX_FACE_SWAP_SECONDS, "min_pixels": MIN_FACE_SWAP_PIXELS, "auto_fix": bool(FFMPEG), "enabled": FACE_SWAP_ENABLED},
     }
 
 
@@ -1491,6 +1491,8 @@ async def video_faceswap_handler(
         await update_last_online(user_data_jwt["device_id"])
         await refil_all_requests(user_id)
 
+        if not FACE_SWAP_ENABLED:
+            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "Not found")
         if not consent:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Confirm the face swap rules")
         user_data = await get_user_state(user_id)
@@ -1546,9 +1548,8 @@ async def video_faceswap_handler(
         body = {
             "model": FACE_SWAP_MODEL,
             "prompt": prompt,
-            "duration": duration,
             "resolution": FACE_SWAP_RESOLUTION,
-            "aspect_ratio": aspect_ratio,
+            **FACE_SWAP_OUTPUT,
             # The provider downloads the clip itself, so it gets a link that outlives the queue.
             "input_references": [
                 {"type": "video_url", "video_url": {"url": AWS_CLIENT.sign(source_key, expires = 3 * 3600, cache = False)}},

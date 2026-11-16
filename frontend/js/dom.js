@@ -83,7 +83,7 @@ const ERRORS = {
   "Unsupported video format": "Send the video as MP4 or MOV.",
   "Videos work with chat models": "Videos work with chat models. Pick a chat model or Auto.",
   "Clip too long": "The clip is longer than 10 seconds. Trim it and try again.",
-  "Clip too short": "The clip is shorter than 2 seconds.",
+  "Clip too short": "The clip is shorter than 4 seconds.",
   "Clip too large": "The clip is larger than 100 MB.",
   "Clip resolution too low": "The video resolution is too low. Use at least 480p (854×480) or 640×640.",
   "Confirm the face swap rules": "Tick the box to confirm the face swap rules.",

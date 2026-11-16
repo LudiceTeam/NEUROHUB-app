@@ -2105,6 +2105,7 @@ textarea.improving {
 }
 
 /* ---------- video studio: "Create from text" / "Put yourself in a video" ---------- */
+.vs-tabs[hidden] { display: none; }
 .vs-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 4px; border-radius: 12px; background: var(--bg-soft); }
 .vs-tab { padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; line-height: 1.25; }
 .vs-tab:hover { color: var(--text); }

@@ -392,12 +392,17 @@ VIDEO_CREDIT_USD = 0.75
 # "Put yourself in a video": a video-editing model gets the user's clip plus their selfie and swaps
 # the main person's face. Check the model with scripts/test_faceswap.py before changing it; the price
 # is OpenRouter's per second of output and decides how many video credits a clip costs.
+# The studio hides the tab and /videos/faceswap answers 404 while this is False.
+# Note: Seedance and Grok refuse selfies of real people (PrivacyInformation); those jobs fail and are refunded.
+FACE_SWAP_ENABLED = True
 FACE_SWAP_MODEL = "bytedance/seedance-2.5"
 FACE_SWAP_USD_PER_SECOND = 0.15
 FACE_SWAP_RESOLUTION = "720p"
 FACE_SWAP_EXTRA = {"watermark": True}   # the provider's own "AI generated" mark
+# In editing mode Seedance takes the shape and length from the source clip and refuses anything else.
+FACE_SWAP_OUTPUT = {"aspect_ratio": "adaptive", "duration": -1}
 MAX_FACE_SWAP_SECONDS = 10
-MIN_FACE_SWAP_SECONDS = 2
+MIN_FACE_SWAP_SECONDS = 4                 # Seedance edits clips of 4–30 s
 MIN_FACE_SWAP_PIXELS = 407_696           # Seedance 2.5 refuses smaller clips (about 854×480 or 640×640)
 MAX_FACE_SWAP_SIZE = 100 * 1024 * 1024    # the upload; longer clips are cut to MAX_FACE_SWAP_SECONDS on the server
 FACE_SWAP_PROMPT = (

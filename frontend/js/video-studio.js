@@ -99,7 +99,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     visible: false,
     tab: "create",          // "create" (prompt -> clip) | "swap" (your face in a clip)
     swap: { video: null, seconds: null, aspect: "16:9", selfie: null, consent: false },   // video/selfie: { file, url }
-    swapSpec: { usd_per_second: 0.15, min_seconds: 2, max_seconds: 10, min_pixels: 407696, auto_fix: false },
+    swapSpec: { usd_per_second: 0.15, min_seconds: 4, max_seconds: 10, min_pixels: 407696, auto_fix: false, enabled: false },
   };
   let pollTimer = 0;
   let tickTimer = 0;
@@ -151,9 +151,10 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
   const tabButtons = [["create", "Create from text"], ["swap", "Put yourself in a video"]].map(([id, label]) => h("button", {
     class: "vs-tab", type: "button", role: "tab", "data-tab": id, onclick: () => setTab(id),
   }, label));
+  const tabs = h("div", { class: "vs-tabs", role: "tablist", hidden: true }, tabButtons);
   const panel = h("aside", { class: "vs-panel" },
     h("div", { class: "vs-panel-scroll" },
-      h("div", { class: "vs-tabs", role: "tablist" }, tabButtons),
+      tabs,
       createView, swapView),
     footer);
   const gallery = h("div", { class: "vs-gallery" });
@@ -602,6 +603,9 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
       st.maxPrompt = res?.max_prompt || st.maxPrompt;
       st.creditUsd = res?.credit_usd || st.creditUsd;
       if (res?.face_swap) st.swapSpec = res.face_swap;
+      // The server can switch "Put yourself in a video" off (FACE_SWAP_ENABLED); then only text-to-video stays.
+      tabs.hidden = !st.swapSpec.enabled;
+      if (!st.swapSpec.enabled && st.tab === "swap") setTab("create");
       if (!saved.duration && res?.defaults?.duration) st.duration = res.defaults.duration;
       if (!st.models.some((m) => m.id === st.model)) st.model = st.models[0]?.id || null;
       clampToModel();
