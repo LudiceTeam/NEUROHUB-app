@@ -399,8 +399,9 @@ FACE_SWAP_MODEL = "bytedance/seedance-2.5"
 FACE_SWAP_USD_PER_SECOND = 0.15
 FACE_SWAP_RESOLUTION = "720p"
 FACE_SWAP_EXTRA = {"watermark": True}   # the provider's own "AI generated" mark
-# In editing mode Seedance takes the shape and length from the source clip and refuses anything else.
-FACE_SWAP_OUTPUT = {"aspect_ratio": "adaptive", "duration": -1}
+# In editing mode Seedance takes the shape and length from the source clip and refuses anything else
+# (ratio "adaptive", duration -1). OpenRouter doesn't accept "adaptive", so no aspect_ratio is sent at all.
+FACE_SWAP_OUTPUT = {"duration": -1}
 MAX_FACE_SWAP_SECONDS = 10
 MIN_FACE_SWAP_SECONDS = 4                 # Seedance edits clips of 4–30 s
 MIN_FACE_SWAP_PIXELS = 407_696           # Seedance 2.5 refuses smaller clips (about 854×480 or 640×640)
