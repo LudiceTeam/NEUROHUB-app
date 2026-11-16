@@ -398,7 +398,8 @@ FACE_SWAP_RESOLUTION = "720p"
 FACE_SWAP_EXTRA = {"watermark": True}   # the provider's own "AI generated" mark
 MAX_FACE_SWAP_SECONDS = 10
 MIN_FACE_SWAP_SECONDS = 2
-MAX_FACE_SWAP_SIZE = 50 * 1024 * 1024
+MIN_FACE_SWAP_PIXELS = 407_696           # Seedance 2.5 refuses smaller clips (about 854×480 or 640×640)
+MAX_FACE_SWAP_SIZE = 100 * 1024 * 1024    # the upload; longer clips are cut to MAX_FACE_SWAP_SECONDS on the server
 FACE_SWAP_PROMPT = (
     "Edit the reference video: replace the face of the main person with the face of the person in the "
     "reference photo, so it looks like the person from the photo. Keep everything else exactly as in the "

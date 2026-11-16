@@ -54,8 +54,8 @@ from backend.api.watermark import add_watermark
 from backend.api.file_text import extract_text,extension,UnsupportedFile,DOC_EXTENSIONS
 from backend.api.config import MAX_DOCS,MAX_DOC_SIZE,MAX_DOC_CHARS,DOC_CREDITS
 from backend.api.config import VIDEO_INPUT_MODELS,VIDEO_INPUT_MODEL,VIDEO_INPUT_FREE_MODEL,MAX_VIDEO_INPUT_SIZE,MAX_VIDEO_INPUT_SECONDS,VIDEO_INPUT_CREDITS_PER_MINUTE
-from backend.api.video_input import VIDEO_INPUT_TYPES,mp4_duration
-from backend.api.config import FACE_SWAP_MODEL,FACE_SWAP_USD_PER_SECOND,FACE_SWAP_RESOLUTION,FACE_SWAP_EXTRA,FACE_SWAP_PROMPT,MAX_FACE_SWAP_SECONDS,MIN_FACE_SWAP_SECONDS,MAX_FACE_SWAP_SIZE,face_swap_cost
+from backend.api.video_input import VIDEO_INPUT_TYPES,mp4_duration,mp4_pixels,normalize_clip,FFMPEG
+from backend.api.config import FACE_SWAP_MODEL,FACE_SWAP_USD_PER_SECOND,FACE_SWAP_RESOLUTION,FACE_SWAP_EXTRA,FACE_SWAP_PROMPT,MAX_FACE_SWAP_SECONDS,MIN_FACE_SWAP_SECONDS,MIN_FACE_SWAP_PIXELS,MAX_FACE_SWAP_SIZE,face_swap_cost
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_PRO_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1371,7 +1371,7 @@ async def video_models_handler(request:Request, user_data:dict = Depends(get_cur
         "max_prompt": MAX_VIDEO_PROMPT,
         "credit_usd": VIDEO_CREDIT_USD,
         # "Put yourself in a video": the studio shows the price before upload (see face_swap_cost).
-        "face_swap": {"usd_per_second": FACE_SWAP_USD_PER_SECOND, "min_seconds": MIN_FACE_SWAP_SECONDS, "max_seconds": MAX_FACE_SWAP_SECONDS},
+        "face_swap": {"usd_per_second": FACE_SWAP_USD_PER_SECOND, "min_seconds": MIN_FACE_SWAP_SECONDS, "max_seconds": MAX_FACE_SWAP_SECONDS, "min_pixels": MIN_FACE_SWAP_PIXELS, "auto_fix": bool(FFMPEG)},
     }
 
 
@@ -1503,6 +1503,11 @@ async def video_faceswap_handler(
         mime = magic.from_buffer(video_bytes[:8192], mime = True)
         if mime not in VIDEO_INPUT_TYPES:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
+        # TikTok and phone clips are often longer than the limit or too small for the model:
+        # ffmpeg keeps the first seconds and scales them up. Without ffmpeg the clip must already fit.
+        normalized = await normalize_clip(video_bytes, MAX_FACE_SWAP_SECONDS, MIN_FACE_SWAP_PIXELS)
+        if normalized:
+            video_bytes, mime = normalized, "video/mp4"
         seconds = await asyncio.to_thread(mp4_duration, video_bytes)
         if seconds is None:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
@@ -1510,6 +1515,9 @@ async def video_faceswap_handler(
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Clip too long")
         if seconds < MIN_FACE_SWAP_SECONDS:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Clip too short")
+        pixels = await asyncio.to_thread(mp4_pixels, video_bytes)
+        if pixels is not None and pixels < MIN_FACE_SWAP_PIXELS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Clip resolution too low")
 
         face = await read_frame(selfie, "first_frame")
         if face is None:

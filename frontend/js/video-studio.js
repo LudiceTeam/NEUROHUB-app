@@ -17,7 +17,7 @@ const IDEAS = [
   "A cozy coffee shop interior, steam rising from a latte, soft morning light",
 ];
 
-const MAX_SWAP_BYTES = 50 * 1024 * 1024;     // backend MAX_FACE_SWAP_SIZE
+const MAX_SWAP_BYTES = 100 * 1024 * 1024;    // backend MAX_FACE_SWAP_SIZE
 
 // Mirrors face_swap_cost in backend/api/config.py.
 export function faceSwapCost(seconds, usdPerSecond, creditUsd = 0.75) {
@@ -99,7 +99,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     visible: false,
     tab: "create",          // "create" (prompt -> clip) | "swap" (your face in a clip)
     swap: { video: null, seconds: null, aspect: "16:9", selfie: null, consent: false },   // video/selfie: { file, url }
-    swapSpec: { usd_per_second: 0.15, min_seconds: 2, max_seconds: 10 },
+    swapSpec: { usd_per_second: 0.15, min_seconds: 2, max_seconds: 10, min_pixels: 407696, auto_fix: false },
   };
   let pollTimer = 0;
   let tickTimer = 0;
@@ -339,7 +339,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     if (file) {
       const { min_seconds: min, max_seconds: max } = st.swapSpec;
       if (!isVideoFile(file)) toast("Send the video as MP4 or MOV.");
-      else if (file.size > MAX_SWAP_BYTES) toast("The video is larger than 50 MB.");
+      else if (file.size > MAX_SWAP_BYTES) toast("The video is larger than 100 MB.");
       else {
         const url = URL.createObjectURL(file);
         const meta = await new Promise((resolve) => {
@@ -350,11 +350,18 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
           v.src = url;
         });
         const seconds = meta?.seconds ?? (await videoSeconds(file));
-        if (seconds && seconds > max + 0.5) { toast(`The video is longer than ${max} seconds. Trim it and try again.`); URL.revokeObjectURL(url); }
+        // With auto_fix the server cuts long clips to the first seconds and scales small ones up.
+        const fix = st.swapSpec.auto_fix;
+        if (!fix && seconds && seconds > max + 0.5) { toast(`The video is longer than ${max} seconds. Trim it and try again.`); URL.revokeObjectURL(url); }
         else if (seconds && seconds < min) { toast(`The video is shorter than ${min} seconds.`); URL.revokeObjectURL(url); }
+        else if (!fix && meta?.w && meta?.hh && meta.w * meta.hh < (st.swapSpec.min_pixels || 0)) {
+          toast("The video resolution is too low. Use at least 480p (854×480) or 640×640.");
+          URL.revokeObjectURL(url);
+        }
         else {
           st.swap.video = { file, url };
-          st.swap.seconds = seconds || max;   // unknown length: show the highest price, the server charges the real one
+          st.swap.seconds = Math.min(seconds || max, max);   // unknown length: the highest price; the server charges the real one
+          if (fix && seconds > max + 0.5) toast(`Only the first ${max} seconds of the video will be used.`, "info");
           if (meta?.w && meta?.hh) st.swap.aspect = nearestAspect(meta.w, meta.hh);
         }
       }
@@ -374,8 +381,8 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
   }
 
   // A tappable box that holds a picked file (video or photo) and shows it.
-  function dropSlot({ label, hint, accept, item, isVideo, onFile, capture }) {
-    const input = h("input", { type: "file", accept, hidden: true, ...(capture ? { capture } : {}),
+  function dropSlot({ label, hint, accept, item, isVideo, onFile }) {
+    const input = h("input", { type: "file", accept, hidden: true,
       onchange: () => { onFile(input.files[0]); input.value = ""; } });
     const slot = h("div", {
       class: `vs-swap-slot${item ? " filled" : ""}`, role: "button", tabindex: "0",
@@ -401,12 +408,14 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     const { min_seconds: min, max_seconds: max } = st.swapSpec;
     swapView.replaceChildren(
       h("div", { class: "vs-swap-steps" },
-        h("p", {}, h("b", {}, "1"), `Upload a short clip with one person in it (${min}–${max} s).`),
+        h("p", {}, h("b", {}, "1"), st.swapSpec.auto_fix
+          ? `Upload a clip with one person in it, e.g. from TikTok. The first ${max} seconds are used.`
+          : `Upload a short clip with one person in it (${min}–${max} s).`),
         h("p", {}, h("b", {}, "2"), "Add a clear photo of your face, looking at the camera."),
         h("p", {}, h("b", {}, "3"), "Veora puts your face on the person in the clip.")),
       h("div", { class: "vs-swap-slots" },
-        dropSlot({ label: "Video", hint: `MP4 or MOV, up to ${max} s`, accept: VIDEO_ACCEPT, item: st.swap.video, isVideo: true, onFile: setSwapVideo }),
-        dropSlot({ label: "Your face", hint: "A selfie works best", accept: FRAME_TYPES, item: st.swap.selfie, isVideo: false, onFile: setSelfie, capture: "user" })),
+        dropSlot({ label: "Video", hint: st.swapSpec.auto_fix ? "MP4 or MOV, any length" : `MP4 or MOV, up to ${max} s`, accept: VIDEO_ACCEPT, item: st.swap.video, isVideo: true, onFile: setSwapVideo }),
+        dropSlot({ label: "Your face", hint: "A selfie or a photo from your gallery", accept: FRAME_TYPES, item: st.swap.selfie, isVideo: false, onFile: setSelfie })),
       h("div", { class: "vs-field" },
         h("div", { class: "vs-field-head" }, h("span", {}, "Wishes"), h("small", {}, "Optional")),
         swapNotes),
