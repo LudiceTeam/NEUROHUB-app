@@ -293,7 +293,7 @@ const RU = {
   "Smart": "Рекомендуем", "Veora needs JavaScript to run.": "Для работы Veora нужен JavaScript.",
   "Voice models don't accept images": "Голосовые модели не принимают фото",
   "Footer": "Подвал", "Sections": "Разделы",
-  "All the best AI models.": "Все лучшие ИИ-модели.", "One subscription.": "Одна подписка.",
+  "All the best AI models.": "Все лучшие ИИ-модели.", "New": "Новое", "One subscription.": "Одна подписка.",
   "Models from the leading AI labs": "Модели ведущих ИИ-лабораторий", "Try every model today.": "Попробуйте все модели уже сегодня.",
   "Pricing for a coffee shop": "Цены для кофейни", "Fix a React bug": "Починить баг в React", "Logo ideas": "Идеи для логотипа",
   "Summarize a PDF": "Пересказать PDF", "Workout plan": "План тренировок",

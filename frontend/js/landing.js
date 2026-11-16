@@ -18,12 +18,12 @@ const SELLER = [
 ];
 
 const FEATURES = [
-  { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true },
+  { icon: "M12 3l2.5 5.5L20 9l-4.2 4 1 5.8L12 16l-4.8 2.8 1-5.8L4 9l5.5-.5z", title: "Every top model", text: "GPT, Claude, Gemini, Llama, Mistral, Qwen and more — switch in one tap, mid-conversation.", wide: true, art: "logos" },
   { icon: "M13 2L4 14h7l-1 8 9-12h-7z", title: "Auto mode", text: "Not sure which model to use? Veora picks the best one for every request." },
   { icon: "M4 6h16v12H4zM8 13l2.5-3 3 4 2-2.5L19 16", title: "Vision", text: "Attach up to five photos and ask anything about them." },
   { icon: "M4 5h16v14H4zM8 10a1.5 1.5 0 1 0 0-.01M20 15l-5-5-9 9", title: "Image generation", text: "Create images from a sentence with Gemini image models." },
   { icon: "M4 6h12v12H4zM16 10l4-2v8l-4-2", title: "Video generation", text: "Turn ideas into short clips with Google Veo 3.1." },
-  { icon: "M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4", title: "Voice studio", text: "Lifelike speech in Russian, English and more — six voices, three models.", wide: true },
+  { icon: "M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4", title: "Voice studio", text: "Lifelike speech in Russian, English and more — six voices, three models.", wide: true, art: "wave" },
   { icon: "M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4zM5 21a7 7 0 0 1 14 0", title: "Custom GPTs", text: "Build your own assistants with custom instructions." },
   { icon: "M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM12 7v5l3 2", title: "Memory", text: "Veora remembers what matters about you, so answers get more personal." },
   { icon: "M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z", title: "Folders & pins", text: "Keep chats organized with folders, tags and pinned threads — drag and drop included.", wide: true },
@@ -76,7 +76,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
 
     <main id="top">
       <section class="l-hero">
-        <span class="l-eyebrow">${modelCount} models · images · video · voice</span>
+        <span class="l-eyebrow"><b>New</b>${modelCount} models · images · video · voice</span>
         <h1>All the best AI models.<br><span class="l-dim">One subscription.</span></h1>
         <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.</p>
         <div class="l-cta">
@@ -94,6 +94,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
       </section>
 
       <section class="l-preview" aria-hidden="true">
+        <div class="l-preview-glow"></div>
         <div class="l-window">
           <div class="l-window-bar"><i></i><i></i><i></i><span>web.nexi.center</span></div>
           <div class="l-window-body">
@@ -139,6 +140,7 @@ export function renderLanding(root, { onLogin, onSignup }) {
               <span class="l-card-icon">${svgIcon(f.icon)}</span>
               <h3>${f.title}</h3>
               <p>${f.text}</p>
+              ${f.art ? cardArt(f.art) : ""}
             </article>`).join("")}
         </div>
       </section>
@@ -284,6 +286,17 @@ export function renderLanding(root, { onLogin, onSignup }) {
     removeEventListener("scroll", onScroll);
     document.documentElement.classList.remove("landing-mode");
   };
+}
+
+// Small illustrations at the bottom of the wide feature cards.
+function cardArt(kind) {
+  const mark = (logo) => `<span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/${logo}.svg);mask-image:url(icons/models/${logo}.svg)"></span>`;
+  if (kind === "logos") {
+    return `<div class="l-art l-art-logos" aria-hidden="true">${LABS.slice(0, 8).map(([logo]) => `<span>${mark(logo)}</span>`).join("")}</div>`;
+  }
+  // A fixed waveform so the card looks the same on every load.
+  const bars = [8, 14, 22, 30, 18, 26, 36, 24, 14, 28, 34, 20, 12, 24, 32, 22, 16, 26, 18, 10, 20, 28, 14, 8];
+  return `<div class="l-art l-art-wave" aria-hidden="true">${bars.map((h, i) => `<i style="height:${h}px;animation-delay:${(i % 6) * -0.2}s"></i>`).join("")}</div>`;
 }
 
 function pretty(id) {
