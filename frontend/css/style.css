@@ -524,6 +524,10 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
   border-radius: 50%; border: 0; background: var(--text); color: var(--bg); padding: 0;
 }
 .preview .icon { width: 12px; height: 12px; }
+.preview.video video { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); display: block; background: #000; }
+.preview-play { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: rgb(0 0 0 / .55); color: #fff; pointer-events: none; }
+.preview-play .icon { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+.msg-video { width: min(320px, 100%); max-height: 360px; border-radius: 14px; border: 1px solid var(--border); background: #000; }
 /* Attached documents: a small card with the type icon, name and extension (composer and sent messages). */
 .file-chip {
   position: relative; display: flex; align-items: center; gap: 10px; max-width: 240px; min-width: 0;
@@ -2078,3 +2082,24 @@ textarea.improving {
 /* rounded display face for headings and prices */
 .welcome h1, .modal h2, .plan-card h3, .sub-plan, .plan-price strong, .sub-price strong { font-family: var(--display); font-weight: 600; letter-spacing: -.02em; }
 .welcome h1 { font-size: 32px; }
+
+/* ---------- mode bar: chat / images / video / music / voice-over ---------- */
+.mode-bar {
+  display: flex; justify-content: center; gap: 4px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; flex: none;
+  border-bottom: 1px solid var(--border);
+}
+.mode-bar::-webkit-scrollbar { display: none; }
+.mode-btn {
+  display: inline-flex; align-items: center; gap: 7px; flex: none; padding: 7px 14px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--muted); font-size: 14px; font-weight: 500; transition: background .15s, color .15s, border-color .15s;
+}
+.mode-btn .icon { width: 17px; height: 17px; }
+.mode-btn:hover { background: var(--bg-soft); color: var(--text); }
+.mode-btn.on { background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); border-color: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent); }
+@media (max-width: 640px) {
+  /* On phones the five modes share the width equally, icon on top. */
+  .mode-bar { justify-content: space-between; gap: 2px; padding: 6px 8px; }
+  .mode-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 3px; padding: 6px 2px; border-radius: 12px; font-size: 11px; }
+  .mode-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mode-btn .icon { width: 20px; height: 20px; }
+}

@@ -85,6 +85,27 @@ MAX_DOC_SIZE = 10 * 1024 * 1024
 MAX_DOC_CHARS = 30000
 DOC_CREDITS = 2
 
+# Videos sent to a chat model (not generated ones). Only these models take video input on OpenRouter;
+# any other chat model hands the video to VIDEO_INPUT_MODEL (or the free one on the free plan).
+# Gemini reads ~300 tokens per second of video, so the price grows with the length.
+VIDEO_INPUT_MODELS = [
+    "google/gemini-3-flash-preview",
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-3.1-flash-lite-preview",
+    "google/gemma-4-26b-a4b-it",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-31b-it:free",
+    "z-ai/glm-4.6v",
+    "bytedance-seed/seed-2.0-mini",
+    "rekaai/reka-edge",
+]
+VIDEO_INPUT_MODEL = "google/gemini-3-flash-preview"
+VIDEO_INPUT_FREE_MODEL = "google/gemma-4-31b-it"
+MAX_VIDEO_INPUT_SIZE = 20 * 1024 * 1024
+MAX_VIDEO_INPUT_SECONDS = 180
+VIDEO_INPUT_CREDITS_PER_MINUTE = 4
+
 # Cost caps that the limits above are calculated with.
 MAX_OUTPUT_TOKENS = 1500
 MAX_HISTORY_CHARS = 24000   # ~6k tokens of chat history in the prompt

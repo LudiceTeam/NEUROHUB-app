@@ -56,6 +56,7 @@ export function icon(name) {
     plane: "M21 4L10.5 13.5M21 4l-7 17-3.5-7.5L3 10z",
     mail: "M4 6h16v12H4zM4 7l8 6 8-6",
     mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3",
+    chat: "M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
     alert: "M12 3l10 18H2zM12 10v5M12 18h.01",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -77,6 +78,10 @@ const ERRORS = {
   "File too large": "The file is larger than 10 MB.",
   "Too many files": "You can attach up to 3 files.",
   "Files work with text models": "Files work with chat models. Pick a chat model to ask about a document.",
+  "Video too large": "The video is larger than 20 MB.",
+  "Video too long": "The video is longer than 3 minutes. Trim it and try again.",
+  "Unsupported video format": "Send the video as MP4 or MOV.",
+  "Videos work with chat models": "Videos work with chat models. Pick a chat model or Auto.",
   "Invalid google token": "Google sign-in failed. Try again or use email.",
   "Email is not verified": "Your Google account email isn't verified.",
   "Not enough credits": "Not enough credits left today for this model. Pick a cheaper model or upgrade your plan.",

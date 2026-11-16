@@ -13,7 +13,7 @@ import { improveButton } from "./prompt-improve.js";
 import { openGallery } from "./gallery.js";
 import { creditsMeter } from "./credits-meter.js";
 import { isImageFile, prepareImage } from "./image-prep.js";
-import { DOC_ACCEPT, MAX_DOCS, MAX_DOC_SIZE, isDocFile, splitFiles, fileChip, fileChips } from "./files.js";
+import { DOC_ACCEPT, MAX_DOCS, MAX_DOC_SIZE, isDocFile, splitFiles, fileChip, fileChips, VIDEO_ACCEPT, MAX_VIDEO_SIZE, MAX_VIDEO_SECONDS, isVideoFile, isVideoUrl, videoSeconds } from "./files.js";
 import { shareChatModal } from "./share.js";
 import { moveToFolderModal, tagsModal } from "./folders.js";
 import { applyAppearance, cachedPerks, cachePerks, hasPerks, loadPrefs } from "./appearance.js";
@@ -28,6 +28,7 @@ import { gptEditor, gptAvatar } from "./gpts.js";
 const PLAN_PHOTOS = { Starter: 3, Basic: 5, Plus: 5, Premium: 5, Max: 5, Elite: 5 };
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const PINNED_KEY = "veora_pinned";
+const MODE_MODELS_KEY = "veora_mode_models";   // { chat, photo, video, music, voice }: last model per mode
 const SUGGESTIONS = [
   ["bulb", "Explain quantum computing like I'm 12"],
   ["code", "Write a Python script that renames files by date"],
@@ -46,6 +47,7 @@ export function renderApp(root, logout) {
     profile: null,
     attachments: [],      // File[] (images)
     docs: [],             // File[] (PDF, Word, text) read through /files/read
+    video: null,          // File (MP4/MOV) sent on its own through /ask_video
     sending: false,
     pinned: new Set(JSON.parse(localStorage.getItem(PINNED_KEY) || "[]")),
     folders: [],          // [{ folder_id, folder_name, tags }]
@@ -95,6 +97,56 @@ export function renderApp(root, logout) {
       onDelete: (g) => removeGpt(g),
     },
   });
+
+  // What do you want to make? One tap opens the right studio with the last model used there,
+  // so nobody has to know that images live behind an image model in the picker.
+  const MODES = [
+    { id: "chat", label: "Chat", icon: "chat" },
+    { id: "photo", label: "Images", icon: "gallery", models: IMAGE_MODELS },
+    { id: "video", label: "Video", icon: "film", models: VIDEO_MODELS },
+    { id: "music", label: "Music", icon: "music", models: MUSIC_MODELS },
+    { id: "voice", label: "Voice-over", icon: "mic", models: VOICE_MODELS },
+  ];
+  const modeOf = (id) => MODES.find((m) => m.models?.has(id))?.id || "chat";
+  let modeModels = {};
+  try { modeModels = JSON.parse(localStorage.getItem(MODE_MODELS_KEY) || "{}"); } catch { /* ignore */ }
+
+  // The model a mode opens with: the last one used there, else the first one this plan can use.
+  function modeModel(mode) {
+    if (mode.id === "chat") return modeModels.chat || "auto";
+    const all = [...mode.models];
+    const last = modeModels[mode.id];
+    if (all.includes(last) && !isLockedModel(last)) return last;
+    return all.find((id) => !isLockedModel(id)) || all[0];
+  }
+
+  async function switchMode(mode) {
+    if (modeOf(state.model) === mode.id) return;
+    const id = modeModel(mode);
+    if (isLockedModel(id)) {
+      toast("This mode is included with every paid plan.", "info");
+      openPlans(state.profile);
+      return;
+    }
+    toggleSidebar(false);
+    try {
+      await onModelChange(id);
+      picker.setValue(id);
+    } catch { /* onModelChange already showed the error */ }
+  }
+
+  const modeButtons = MODES.map((mode) => h("button", {
+    class: "mode-btn", type: "button", "data-mode": mode.id, onclick: () => switchMode(mode),
+  }, icon(mode.icon), h("span", {}, mode.label)));
+  const modeBar = h("nav", { class: "mode-bar", "aria-label": "What to create" }, modeButtons);
+  function renderModes() {
+    const current = modeOf(state.model);
+    for (const btn of modeButtons) {
+      const on = btn.dataset.mode === current;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+  }
 
   const title = h("div", { class: "chat-title" });
   const shareBtn = h("button", {
@@ -157,11 +209,11 @@ export function renderApp(root, logout) {
     },
   });
   const fileInput = h("input", {
-    type: "file", accept: `image/*,.heic,.heif,${DOC_ACCEPT}`, multiple: true, hidden: true,
+    type: "file", accept: `image/*,.heic,.heif,${VIDEO_ACCEPT},${DOC_ACCEPT}`, multiple: true, hidden: true,
     onchange: () => { addFiles([...fileInput.files]); fileInput.value = ""; },
   });
   const previews = h("div", { class: "previews" });
-  const attachBtn = h("button", { class: "icon-btn", type: "button", "aria-label": "Attach files", title: "Attach photos or files", onclick: () => fileInput.click() }, icon("clip"));
+  const attachBtn = h("button", { class: "icon-btn", type: "button", "aria-label": "Attach files", title: "Attach photos, videos or files", onclick: () => fileInput.click() }, icon("clip"));
   // Web search toggle: remembered per browser, sent with every text answer while it's on.
   const WEB_SEARCH_KEY = "veora_web_search";
   let webSearch = false;
@@ -242,7 +294,7 @@ export function renderApp(root, logout) {
     getProfile: () => state.profile,
   });
   const chatView = h("div", { class: "chat-view" }, scroller, h("div", { class: "composer-wrap" }, composer, quota));
-  const main = h("main", { class: "main" }, header, chatView, studio.el, videoStudio.el, musicStudio.el, photoStudio.el);
+  const main = h("main", { class: "main" }, header, modeBar, chatView, studio.el, videoStudio.el, musicStudio.el, photoStudio.el);
   // Shown only if the first load takes longer than a moment, so fast loads don't flash.
   const splash = h("div", { class: "boot-splash", hidden: true, role: "status", "aria-live": "polite" },
     h("div", { class: "boot-inner" },
@@ -266,7 +318,7 @@ export function renderApp(root, logout) {
   main.addEventListener("drop", (e) => {
     e.preventDefault();
     main.classList.remove("dragging");
-    addFiles([...e.dataTransfer.files].filter((f) => isImageFile(f) || isDocFile(f)));
+    addFiles([...e.dataTransfer.files].filter((f) => isImageFile(f) || isDocFile(f) || isVideoFile(f)));
   });
 
   // ---------- rendering ----------
@@ -498,7 +550,7 @@ export function renderApp(root, logout) {
           ? h("h1", { class: "gpt-name" }, activeGpt().gpt_name)
           : h("h1", {}, `How can I help${name}?`),
         activeGpt() && h("p", { class: "gpt-welcome-note" }, "Your custom GPT is on. Its instructions apply to every message."),
-        h("p", { class: "muted" }, "Pick a model at the top or leave it on Auto — Veora will choose the best one for your request."),
+        h("p", { class: "muted" }, "Ask anything here. To make a picture, a video, a song or a voice-over, switch the mode at the top."),
         h("div", { class: "suggestions" }, SUGGESTIONS.map(([iconName, text], i) => h("button", {
           class: "suggestion", type: "button", style: `--i:${i}`,
           onclick: () => { textarea.value = text; autosize(); textarea.focus(); },
@@ -514,6 +566,7 @@ export function renderApp(root, logout) {
       const { text, files } = splitFiles(m.text);
       const el = h("div", { class: `msg user${m.fresh ? " enter" : ""}` },
         m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, fadeImg(src, "Attached image")))),
+        m.videos?.length > 0 && h("div", { class: "msg-images" }, m.videos.map((src) => h("video", { class: "msg-video", src, controls: true, playsinline: true, preload: "metadata" }))),
         fileChips(m.files || files),
         text && h("div", { class: "bubble" }, text));
       m.fresh = false;
@@ -630,7 +683,14 @@ export function renderApp(root, logout) {
 
   function renderPreviews() {
     const docs = state.docs.map((file, i) => fileChip(file.name, () => { state.docs.splice(i, 1); renderPreviews(); }));
-    previews.replaceChildren(...docs, ...state.attachments.map((file, i) => {
+    const video = state.video && (() => {
+      const url = URL.createObjectURL(state.video);
+      return h("div", { class: "preview video" },
+        h("video", { src: url, muted: true, playsinline: true, preload: "metadata", onloadeddata: () => URL.revokeObjectURL(url) }),
+        h("span", { class: "preview-play", "aria-hidden": "true" }, icon("play")),
+        h("button", { type: "button", "aria-label": "Remove video", onclick: () => { state.video = null; renderPreviews(); } }, icon("close")));
+    })();
+    previews.replaceChildren(...docs, ...(video ? [video] : []), ...state.attachments.map((file, i) => {
       const url = URL.createObjectURL(file);
       return h("div", { class: "preview" },
         h("img", { src: url, alt: file.name, onload: () => URL.revokeObjectURL(url),
@@ -683,6 +743,7 @@ export function renderApp(root, logout) {
   // Voice models open the TTS studio; the chat composer also refuses images for them.
   function updateMode() {
     renderWebBtn();
+    renderModes();
     const voice = VOICE_MODELS.has(state.model);
     const wasVoice = main.classList.contains("tts-mode");
     main.classList.toggle("tts-mode", voice);
@@ -731,10 +792,11 @@ export function renderApp(root, logout) {
       : activeGpt() ? `Message ${activeGpt().gpt_name}…`
       : "Message Veora…";
     attachBtn.disabled = voice;
-    attachBtn.title = voice ? "Voice models don't accept files" : "Attach photos or files";
-    if (voice && (state.attachments.length || state.docs.length)) {
+    attachBtn.title = voice ? "Voice models don't accept files" : "Attach photos, videos or files";
+    if (voice && (state.attachments.length || state.docs.length || state.video)) {
       state.attachments = [];
       state.docs = [];
+      state.video = null;
       renderPreviews();
     }
   }
@@ -831,6 +893,8 @@ export function renderApp(root, logout) {
       }
       await api.changeModel(id);
       state.model = id;
+      modeModels[modeOf(id)] = id;
+      try { localStorage.setItem(MODE_MODELS_KEY, JSON.stringify(modeModels)); } catch { /* ignore */ }
       updateMode();
     } catch (e) {
       toast(errorText(e));
@@ -1142,6 +1206,19 @@ export function renderApp(root, logout) {
       return;
     }
     for (const original of files) {
+      if (isVideoFile(original)) {
+        // A video goes on its own: models watch one clip per message, without photos or documents.
+        if (IMAGE_MODELS.has(state.model) || VIDEO_MODELS.has(state.model) || MUSIC_MODELS.has(state.model)) { toast("Videos work with chat models. Pick a chat model or Auto."); continue; }
+        if (original.size > MAX_VIDEO_SIZE) { toast(`${original.name} is larger than 20 MB`); continue; }
+        const seconds = await videoSeconds(original);
+        if (seconds && seconds > MAX_VIDEO_SECONDS) { toast("The video is longer than 3 minutes. Trim it and try again."); continue; }
+        if (state.attachments.length || state.docs.length) toast("A video is sent on its own, so the photos and files were removed.", "info");
+        state.attachments = [];
+        state.docs = [];
+        state.video = original;
+        continue;
+      }
+      if (state.video) { toast("Send the video on its own, then the other files.", "info"); continue; }
       if (isDocFile(original)) {
         if (original.size > MAX_DOC_SIZE) { toast(`${original.name} is larger than 10 MB`); continue; }
         if (state.docs.length >= MAX_DOCS) { toast(`You can attach up to ${MAX_DOCS} files.`, "info"); break; }
@@ -1167,14 +1244,16 @@ export function renderApp(root, logout) {
     const text = textarea.value.trim();
     const files = [...state.attachments];
     const docs = [...state.docs];
-    if (state.sending || (!text && !files.length && !docs.length)) return;
+    const video = state.video;
+    if (state.sending || (!text && !files.length && !docs.length && !video)) return;
 
     setSending(true);
     const knownChats = new Set(state.chats.map(([id]) => id));
-    const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)), files: docs.map((f) => f.name), fresh: true };
+    const userMsg = { role: "user", text, images: files.map((f) => URL.createObjectURL(f)), videos: video ? [URL.createObjectURL(video)] : [], files: docs.map((f) => f.name), fresh: true };
     const reply = {
       role: "assistant", pending: true, fresh: true,
-      pendingLabel: VIDEO_MODELS.has(state.model) ? "Starting your video"
+      pendingLabel: video ? "Watching your video"
+        : VIDEO_MODELS.has(state.model) ? "Starting your video"
         : docs.length ? "Reading your files"
         : files.length ? "Looking at your images"
         : IMAGE_MODELS.has(state.model) ? "Creating your image"
@@ -1185,13 +1264,16 @@ export function renderApp(root, logout) {
     autosize();
     state.attachments = [];
     state.docs = [];
+    state.video = null;
     renderPreviews();
     renderThread();
 
     try {
       // Documents are read into text first; the answer request carries that text.
       const read = docs.length ? (await api.readFiles(docs)).files : null;
-      const res = files.length
+      const res = video
+        ? await api.askVideo(state.chatId, text, video)
+        : files.length
         ? await api.askPhoto(state.chatId, text, files, webSearch && canWebSearch(), read)
         : await api.askText(state.chatId, text, null, null, webSearch && canWebSearch(), read);
       applyReply(reply, res);
@@ -1244,7 +1326,8 @@ export function renderApp(root, logout) {
   }
 
   function applyReply(reply, res) {
-    reply.model = state.model === "auto" ? null : state.model;
+    // /ask_video may answer with another model than the picked one (not every model watches video).
+    reply.model = res?.model || (state.model === "auto" ? null : state.model);
     if (!res || typeof res !== "object") { reply.error = "Empty response from server."; return; }
     if (res.audio) reply.audio = res.audio;
     else if (res.image) reply.image = res.image;
@@ -1281,7 +1364,9 @@ export function renderApp(root, logout) {
 export function fromHistory(m) {
   const out = [];
   if (m.message || m.image_message?.length) {
-    out.push({ role: "user", text: m.message && m.message !== "None" ? m.message : "", images: m.image_message || [] });
+    const attached = m.image_message || [];
+    out.push({ role: "user", text: m.message && m.message !== "None" ? m.message : "",
+      images: attached.filter((url) => !isVideoUrl(url)), videos: attached.filter(isVideoUrl) });
   }
   const reply = { role: "assistant", model: m.model };
   if (m.response) reply.text = m.response.replace(/^\u26a0\ufe0f?\s*/, "");

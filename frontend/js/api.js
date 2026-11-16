@@ -229,6 +229,14 @@ export const api = {
   },
   renameVoice: (voice_id, new_name) => post("/voice/rename", { voice_id, new_name }),
   deleteVoice: (voice_id) => request("/voice/delete", { method: "DELETE", body: { voice_id } }),
+  // A question about one short video (MP4/MOV); the backend picks a model that can watch it.
+  askVideo: (chat_id, text, video) => {
+    const form = new FormData();
+    if (chat_id) form.append("chat_id_form", chat_id);
+    if (text) form.append("request_text", text);
+    form.append("video", video);
+    return request("/ask_video", { method: "POST", form });
+  },
   askPhoto: (chat_id, text, files, web_search = false, docs = null) => {
     const form = new FormData();
     if (chat_id) form.append("chat_id_form", chat_id);

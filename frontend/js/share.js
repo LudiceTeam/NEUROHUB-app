@@ -125,6 +125,7 @@ function renderShared(m) {
     const { text, files } = splitFiles(m.text);
     return h("div", { class: "msg user" },
       m.images?.length > 0 && h("div", { class: "msg-images" }, m.images.map((src) => h("a", { href: src, target: "_blank", rel: "noopener" }, fadeImg(src, "Attached image")))),
+      m.videos?.length > 0 && h("div", { class: "msg-images" }, m.videos.map((src) => h("video", { class: "msg-video", src, controls: true, playsinline: true, preload: "metadata" }))),
       fileChips(files),
       text && h("div", { class: "bubble" }, text));
   }

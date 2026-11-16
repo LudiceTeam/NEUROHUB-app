@@ -1,3 +1,4 @@
+import math
 from fastapi import Depends,HTTPException,Request,FastAPI,Header,status,File,UploadFile,Form
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from pydantic import BaseModel,EmailStr,Field
@@ -52,6 +53,8 @@ from backend.api.config import PLAN_PRICES_RUB,PLAN_TITLES,RENEWAL_RETRIES,REASO
 from backend.api.watermark import add_watermark
 from backend.api.file_text import extract_text,extension,UnsupportedFile,DOC_EXTENSIONS
 from backend.api.config import MAX_DOCS,MAX_DOC_SIZE,MAX_DOC_CHARS,DOC_CREDITS
+from backend.api.config import VIDEO_INPUT_MODELS,VIDEO_INPUT_MODEL,VIDEO_INPUT_FREE_MODEL,MAX_VIDEO_INPUT_SIZE,MAX_VIDEO_INPUT_SECONDS,VIDEO_INPUT_CREDITS_PER_MINUTE
+from backend.api.video_input import VIDEO_INPUT_TYPES,mp4_duration
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_PRO_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1650,9 +1653,11 @@ async def ask_chat_gpt(request: str | List, user_model:str, web_search:bool = Fa
     try:
         req = ""
         images_base64 = None
+        video = None   # (base64, mime type) from /ask_video
         if isinstance(request, list):
             req = request[0]
             images_base64 = request[1]
+            video = request[2] if len(request) > 2 else None
 
         else:
             req = request
@@ -1676,6 +1681,9 @@ async def ask_chat_gpt(request: str | List, user_model:str, web_search:bool = Fa
                             }
                     }
                 )
+
+        if video:
+            content.append({"type": "video_url", "video_url": {"url": f"data:{video[1]};base64,{video[0]}"}})
 
 
 
@@ -2675,6 +2683,142 @@ async def ask_photo_handler(request:Request,chat_id_form: Optional[str] = Form(N
     finally:
         for image in image_list:
             await image.close()
+
+
+
+
+@app.post("/ask_video")
+@limiter.limit("10/minute")
+async def ask_video_handler(request:Request,chat_id_form: Optional[str] = Form(None),
+    request_text:Optional[str] = Form(None),video:UploadFile = File(...),user_data_jwt:dict = Depends(get_current_user)):
+    """A question about a short video (MP4/MOV, up to MAX_VIDEO_INPUT_SECONDS): the video goes to a model that can watch it."""
+    try:
+        user_id = user_data_jwt["user_id"]
+        device_id = user_data_jwt["device_id"]
+
+        ban_info = await get_ban_info(
+            user_id = user_id
+        )
+        if ban_info is not None:
+            if ban_info["unban_date"] > datetime.now().date():
+                raise HTTPException(status_code = status.HTTP_403_FORBIDDEN,detail = "Access denied")
+            else:
+                await unban_user(
+                    user_id = user_id
+                )
+
+        user_data = await get_user_state(user_id)
+        if user_data == {}:
+            return {
+                "message":"None"
+            }
+
+        await update_last_online(device_id)
+        await refil_all_requests(user_id)
+
+        chat_id = chat_id_form
+        true_request = request_text if request_text is not None else ""
+
+        if chat_id_form is None:
+            chat_id:str = await create_chat(user_id)
+        else:
+            user_chats = await get_user_chats(user_id)
+            if chat_id_form not in user_chats:
+                return {
+                    "message":"error"
+                }
+
+        video_bytes = await video.read(MAX_VIDEO_INPUT_SIZE + 1)
+        if len(video_bytes) > MAX_VIDEO_INPUT_SIZE:
+            raise HTTPException(status_code = 413, detail = "Video too large")
+        mime = magic.from_buffer(video_bytes[:8192], mime = True)
+        if mime not in VIDEO_INPUT_TYPES:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
+        model_mime, ext = VIDEO_INPUT_TYPES[mime]
+        # The length sets the price; a file without a readable length is refused rather than guessed.
+        seconds = await asyncio.to_thread(mp4_duration, video_bytes)
+        if seconds is None:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
+        if seconds > MAX_VIDEO_INPUT_SECONDS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Video too long")
+
+        user_model = await get_user_model_name(user_id)
+        paid = has_paid_plan(user_data)
+        if user_model in tts_models or user_model in image_generation_models + video_generation_models:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Videos work with chat models")
+        # Models that can't watch video (and Auto) hand it to one that can.
+        if user_model not in VIDEO_INPUT_MODELS or (not paid and not free_model_allowed(user_model)):
+            user_model = VIDEO_INPUT_MODEL if paid else VIDEO_INPUT_FREE_MODEL
+
+        credits = model_credits(user_model) + VIDEO_INPUT_CREDITS_PER_MINUTE * max(1, math.ceil(seconds / 60))
+        if (user_data["requests"] or 0) < credits:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Doesn`t have requests")
+
+        current_chat_messages = await get_chat_messages_2(
+            chat_id = chat_id
+        )
+        user_facts = await get_user_fact(
+            user_id = user_id
+        )
+        user_custom_gpt_promt = await get_user_custom_model_promt(
+            user_id = user_id
+        )
+        promt = generate_main_promt(
+            current_chat_messages = current_chat_messages,
+            user_facts = user_facts,
+            current_message = true_request or "Describe this video.",
+            custom_model_prompt = user_custom_gpt_promt
+        )
+
+        video_base64 = base64.b64encode(video_bytes).decode("utf-8")
+        response = await ask_chat_gpt([promt, [], (video_base64, model_mime)], user_model)
+        del video_base64
+
+        if response in AI_ERRORS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST,detail = "Error while generating")
+
+        await minus_requests(user_id, credits)
+
+        # Stored with the message like attached photos; the chat shows it with a player.
+        video_key = await AWS_CLIENT.upload_file(
+            file_path = f"{uuid.uuid4()}.{ext}",
+            file_data = video_bytes,
+            content_type = "video/quicktime" if ext == "mov" else "video/mp4"
+        )
+
+        await create_message(
+            user_id = user_id,
+            chat_id = chat_id,
+            message = encrypt(true_request, os.getenv("HASH_MESSAGES_KEY")),
+            response = encrypt(response, os.getenv("HASH_MESSAGES_KEY")),
+            image = [video_key],
+            model_name = user_model
+        )
+        await update_chat_last_message_date(chat_id)
+
+        try_streak_increase = await plus_one_streak_day(
+            user_id = user_id
+        )
+        await write_record(user_id = user_id)
+        if not try_streak_increase:
+            await reset_streak(
+                user_id = user_id
+            )
+
+        return {
+            "message":response,
+            "model":user_model
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,detail = "Server error")
+
+    finally:
+        await video.close()
 
 
 

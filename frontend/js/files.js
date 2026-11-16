@@ -10,6 +10,25 @@ export const MAX_DOCS = 3;
 export const MAX_DOC_SIZE = 10 * 1024 * 1024;
 export const DOC_ACCEPT = DOC_EXTENSIONS.map((e) => `.${e}`).join(",");
 
+// A short video for a chat model (backend /ask_video: MP4/MOV, MAX_VIDEO_INPUT_SIZE and _SECONDS).
+export const MAX_VIDEO_SIZE = 20 * 1024 * 1024;
+export const MAX_VIDEO_SECONDS = 180;
+export const VIDEO_ACCEPT = "video/mp4,video/quicktime,.mp4,.mov,.m4v";
+export const isVideoFile = (file) => /^video\/(mp4|quicktime|x-m4v)$/.test(file.type) || /\.(mp4|mov|m4v)$/i.test(file.name);
+export const isVideoUrl = (url) => /\.(mp4|mov)(\?|$)/i.test(url);
+
+/** Length of a local video in seconds (null if the browser can't read it; the server checks again). */
+export function videoSeconds(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(Number.isFinite(v.duration) ? v.duration : null); };
+    v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    v.src = url;
+  });
+}
+
 const ext = (name) => (name.includes(".") ? name.split(".").pop().toLowerCase() : "");
 export const isDocFile = (file) => DOC_EXTENSIONS.includes(ext(file.name));
 
