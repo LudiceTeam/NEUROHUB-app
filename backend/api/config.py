@@ -389,6 +389,28 @@ MAX_VIDEO_PROMPT = 2000
 # One video credit is worth this much OpenRouter spend; a clip costs as many credits as it needs.
 VIDEO_CREDIT_USD = 0.75
 
+# "Put yourself in a video": a video-editing model gets the user's clip plus their selfie and swaps
+# the main person's face. Check the model with scripts/test_faceswap.py before changing it; the price
+# is OpenRouter's per second of output and decides how many video credits a clip costs.
+FACE_SWAP_MODEL = "bytedance/seedance-2.5"
+FACE_SWAP_USD_PER_SECOND = 0.15
+FACE_SWAP_RESOLUTION = "720p"
+FACE_SWAP_EXTRA = {"watermark": True}   # the provider's own "AI generated" mark
+MAX_FACE_SWAP_SECONDS = 10
+MIN_FACE_SWAP_SECONDS = 2
+MAX_FACE_SWAP_SIZE = 50 * 1024 * 1024
+FACE_SWAP_PROMPT = (
+    "Edit the reference video: replace the face of the main person with the face of the person in the "
+    "reference photo, so it looks like the person from the photo. Keep everything else exactly as in the "
+    "video: body, clothes, hair outline, movements, expressions, lip movement, background, camera, lighting "
+    "and timing. Photorealistic, consistent across every frame."
+)
+
+
+def face_swap_cost(seconds:float) -> int:
+    """Video credits for swapping the face in a clip of this length."""
+    return max(1, math.ceil(round(FACE_SWAP_USD_PER_SECOND * math.ceil(seconds) / VIDEO_CREDIT_USD, 6)))
+
 
 def video_credit_cost(model:str, duration:int, resolution:str) -> int:
     """Video credits for one clip, from the model's price per second at that resolution."""

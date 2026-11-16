@@ -3,6 +3,7 @@ import { h, icon, toast, errorText, confirmModal, modal } from "./dom.js";
 import { mark } from "./model-picker.js";
 import { openPlans } from "./billing.js";
 import { improveButton } from "./prompt-improve.js";
+import { VIDEO_ACCEPT, isVideoFile, videoSeconds } from "./files.js";
 
 const SETTINGS_KEY = "veora_video_settings";
 const MAX_FRAME_BYTES = 5 * 1024 * 1024;     // backend MAX_IMAGE_SIZE
@@ -15,6 +16,24 @@ const IDEAS = [
   "Aerial shot over turquoise ocean waves crashing on black volcanic rocks",
   "A cozy coffee shop interior, steam rising from a latte, soft morning light",
 ];
+
+const MAX_SWAP_BYTES = 50 * 1024 * 1024;     // backend MAX_FACE_SWAP_SIZE
+
+// Mirrors face_swap_cost in backend/api/config.py.
+export function faceSwapCost(seconds, usdPerSecond, creditUsd = 0.75) {
+  return Math.max(1, Math.ceil(Math.round((usdPerSecond * Math.ceil(seconds) / creditUsd) * 1e6) / 1e6));
+}
+
+// Closest supported aspect ratio for a clip of this size.
+function nearestAspect(w, hh) {
+  const ratios = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
+  const r = w / hh;
+  return ratios.reduce((best, x) => {
+    const [a, b] = ratioParts(x);
+    const [c, d] = ratioParts(best);
+    return Math.abs(a / b - r) < Math.abs(c / d - r) ? x : best;
+  });
+}
 
 // Mirrors video_credit_cost in backend/api/config.py: the model's price per second at that
 // resolution, in video credits of `creditUsd` each.
@@ -78,12 +97,17 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     credits: null,
     profile: null,
     visible: false,
+    tab: "create",          // "create" (prompt -> clip) | "swap" (your face in a clip)
+    swap: { video: null, seconds: null, aspect: "16:9", selfie: null, consent: false },   // video/selfie: { file, url }
+    swapSpec: { usd_per_second: 0.15, min_seconds: 2, max_seconds: 10 },
   };
   let pollTimer = 0;
   let tickTimer = 0;
 
   const spec = () => st.models.find((m) => m.id === st.model) || st.models[0] || null;
-  const cost = () => videoCost(spec(), st.duration, st.resolution, st.creditUsd);
+  const cost = () => (st.tab === "swap"
+    ? (st.swap.seconds ? faceSwapCost(st.swap.seconds, st.swapSpec.usd_per_second, st.creditUsd) : 0)
+    : videoCost(spec(), st.duration, st.resolution, st.creditUsd));
   const paid = () => PAID_PLANS.some((k) => st.profile?.[k]);
   const pending = () => st.items.some((v) => v.status === "pending" || v.status === "processing");
 
@@ -117,13 +141,20 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
   const costLine = h("div", { class: "vs-cost" });
   const genBtn = h("button", { class: "btn vs-generate", type: "button", onclick: generate });
   const footer = h("div", { class: "vs-footer" }, costLine, genBtn);
+  const createView = h("div", { class: "vs-tab-view" },
+    h("div", { class: "vs-field" },
+      h("div", { class: "vs-field-head" }, h("span", {}, "Prompt"),
+        h("span", { class: "vs-head-right" }, counter, improveButton({ field: prompt, kind: "video", getProfile, label: "Improve" }))),
+      h("div", { class: "vs-prompt-wrap" }, prompt)),
+    settings);
+  const swapView = h("div", { class: "vs-tab-view", hidden: true });
+  const tabButtons = [["create", "Create from text"], ["swap", "Put yourself in a video"]].map(([id, label]) => h("button", {
+    class: "vs-tab", type: "button", role: "tab", "data-tab": id, onclick: () => setTab(id),
+  }, label));
   const panel = h("aside", { class: "vs-panel" },
     h("div", { class: "vs-panel-scroll" },
-      h("div", { class: "vs-field" },
-        h("div", { class: "vs-field-head" }, h("span", {}, "Prompt"),
-          h("span", { class: "vs-head-right" }, counter, improveButton({ field: prompt, kind: "video", getProfile, label: "Improve" }))),
-        h("div", { class: "vs-prompt-wrap" }, prompt)),
-      settings),
+      h("div", { class: "vs-tabs", role: "tablist" }, tabButtons),
+      createView, swapView),
     footer);
   const gallery = h("div", { class: "vs-gallery" });
   const galleryHead = h("div", { class: "vs-gallery-head" });
@@ -259,14 +290,17 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     const short = left != null && left < c;
 
     costLine.replaceChildren(...[
-      h("span", { class: "vs-cost-main" }, ICON.film(), `${c} video credit${c === 1 ? "" : "s"}`),
+      h("span", { class: "vs-cost-main" }, ICON.film(), c ? `${c} video credit${c === 1 ? "" : "s"}` : "Add a video to see the price"),
       left != null && h("small", {}, `${left} left this month`),
     ].filter(Boolean));
 
+    const swap = st.tab === "swap";
     genBtn.replaceChildren(st.busy ? h("span", { class: "spinner" }) : ICON.spark(),
-      locked ? "Unlock video" : st.busy ? "Starting…" : "Generate video");
+      locked ? "Unlock video" : st.busy ? "Starting…" : swap ? "Put me in the video" : "Generate video");
     genBtn.classList.toggle("upgrade", Boolean(locked || short));
-    genBtn.disabled = st.busy || !spec() || (!locked && !short && (!prompt.value.trim() || n > st.maxPrompt));
+    genBtn.disabled = st.busy || (swap
+      ? !locked && !short && !(st.swap.video && st.swap.selfie && st.swap.consent)
+      : !spec() || (!locked && !short && (!prompt.value.trim() || n > st.maxPrompt)));
     genBtn.title = short && !locked ? "Not enough video credits for these settings" : "";
   }
 
@@ -284,6 +318,132 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     }
   }
 
+  // ---------- put yourself in a video ----------
+  function setTab(id) {
+    st.tab = id;
+    for (const b of tabButtons) {
+      const on = b.dataset.tab === id;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", String(on));
+    }
+    createView.hidden = id !== "create";
+    swapView.hidden = id !== "swap";
+    if (id === "swap") renderSwap();
+    renderFooter();
+  }
+
+  async function setSwapVideo(file) {
+    if (st.swap.video) URL.revokeObjectURL(st.swap.video.url);
+    st.swap.video = null;
+    st.swap.seconds = null;
+    if (file) {
+      const { min_seconds: min, max_seconds: max } = st.swapSpec;
+      if (!isVideoFile(file)) toast("Send the video as MP4 or MOV.");
+      else if (file.size > MAX_SWAP_BYTES) toast("The video is larger than 50 MB.");
+      else {
+        const url = URL.createObjectURL(file);
+        const meta = await new Promise((resolve) => {
+          const v = document.createElement("video");
+          v.preload = "metadata";
+          v.onloadedmetadata = () => resolve({ seconds: v.duration, w: v.videoWidth, hh: v.videoHeight });
+          v.onerror = () => resolve(null);
+          v.src = url;
+        });
+        const seconds = meta?.seconds ?? (await videoSeconds(file));
+        if (seconds && seconds > max + 0.5) { toast(`The video is longer than ${max} seconds. Trim it and try again.`); URL.revokeObjectURL(url); }
+        else if (seconds && seconds < min) { toast(`The video is shorter than ${min} seconds.`); URL.revokeObjectURL(url); }
+        else {
+          st.swap.video = { file, url };
+          st.swap.seconds = seconds || max;   // unknown length: show the highest price, the server charges the real one
+          if (meta?.w && meta?.hh) st.swap.aspect = nearestAspect(meta.w, meta.hh);
+        }
+      }
+    }
+    renderSwap();
+  }
+
+  function setSelfie(file) {
+    if (st.swap.selfie) URL.revokeObjectURL(st.swap.selfie.url);
+    st.swap.selfie = null;
+    if (file) {
+      if (!FRAME_TYPES.split(",").includes(file.type)) toast("Use a JPG, PNG or WebP image.");
+      else if (file.size > MAX_FRAME_BYTES) toast("Image is too large");
+      else st.swap.selfie = { file, url: URL.createObjectURL(file) };
+    }
+    renderSwap();
+  }
+
+  // A tappable box that holds a picked file (video or photo) and shows it.
+  function dropSlot({ label, hint, accept, item, isVideo, onFile, capture }) {
+    const input = h("input", { type: "file", accept, hidden: true, ...(capture ? { capture } : {}),
+      onchange: () => { onFile(input.files[0]); input.value = ""; } });
+    const slot = h("div", {
+      class: `vs-swap-slot${item ? " filled" : ""}`, role: "button", tabindex: "0",
+      "aria-label": item ? `${label}: change` : label,
+      onclick: () => input.click(),
+      onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } },
+      ondragover: (e) => { e.preventDefault(); slot.classList.add("drag"); },
+      ondragleave: () => slot.classList.remove("drag"),
+      ondrop: (e) => { e.preventDefault(); slot.classList.remove("drag"); onFile(e.dataTransfer.files[0]); },
+    }, input,
+      item
+        ? [isVideo ? h("video", { src: item.url, muted: true, playsinline: true, loop: true, autoplay: true }) : h("img", { src: item.url, alt: "" }),
+          h("button", { class: "vs-frame-remove", type: "button", "aria-label": `Remove ${label.toLowerCase()}`,
+            onclick: (e) => { e.stopPropagation(); onFile(null); } }, ICON.close())]
+        : [isVideo ? ICON.film() : ICON.image(), h("strong", {}, label), h("small", {}, hint)]);
+    return slot;
+  }
+
+  const swapNotes = h("textarea", { class: "input vs-swap-notes", rows: "2", maxlength: "500",
+    placeholder: "Optional: anything to keep in mind, e.g. keep my glasses" });
+
+  function renderSwap() {
+    const { min_seconds: min, max_seconds: max } = st.swapSpec;
+    swapView.replaceChildren(
+      h("div", { class: "vs-swap-steps" },
+        h("p", {}, h("b", {}, "1"), `Upload a short clip with one person in it (${min}–${max} s).`),
+        h("p", {}, h("b", {}, "2"), "Add a clear photo of your face, looking at the camera."),
+        h("p", {}, h("b", {}, "3"), "Veora puts your face on the person in the clip.")),
+      h("div", { class: "vs-swap-slots" },
+        dropSlot({ label: "Video", hint: `MP4 or MOV, up to ${max} s`, accept: VIDEO_ACCEPT, item: st.swap.video, isVideo: true, onFile: setSwapVideo }),
+        dropSlot({ label: "Your face", hint: "A selfie works best", accept: FRAME_TYPES, item: st.swap.selfie, isVideo: false, onFile: setSelfie, capture: "user" })),
+      h("div", { class: "vs-field" },
+        h("div", { class: "vs-field-head" }, h("span", {}, "Wishes"), h("small", {}, "Optional")),
+        swapNotes),
+      h("label", { class: "vs-consent" },
+        h("input", { type: "checkbox", checked: st.swap.consent, onchange: (e) => { st.swap.consent = e.target.checked; renderFooter(); } }),
+        h("span", {}, "This is my face, or I have the person's permission. I won't use the video to deceive, harass or pass myself off as someone else. Clips are marked as AI-generated.")));
+    renderFooter();
+  }
+
+  async function generateSwap() {
+    const { video, selfie, consent, aspect } = st.swap;
+    if (!video || !selfie || !consent) return;
+    const form = new FormData();
+    form.append("video", video.file);
+    form.append("selfie", selfie.file);
+    form.append("consent", "true");
+    form.append("aspect_ratio", aspect);
+    if (swapNotes.value.trim()) form.append("notes", swapNotes.value.trim());
+
+    st.busy = true;
+    renderFooter();
+    try {
+      const res = await api.faceSwap(form);
+      const item = res?.result;
+      if (item?.id) st.items = [item, ...st.items.filter((v) => v.id !== item.id)];
+      if (st.credits != null) st.credits = Math.max(0, st.credits - (res?.cost ?? cost()));
+      renderGallery();
+      startPolling();
+      onChange();
+      toast("Started. Your video will appear on the right in a few minutes.", "ok");
+    } catch (e) {
+      toast(errorText(e));
+    }
+    st.busy = false;
+    renderFooter();
+  }
+
   // ---------- generate ----------
   async function generate() {
     if (st.busy) return;
@@ -293,6 +453,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
       if (!st.credits) openPlans(st.profile);
       return;
     }
+    if (st.tab === "swap") { await generateSwap(); return; }
     const text = prompt.value.trim();
     if (!text || text.length > st.maxPrompt) { prompt.focus(); return; }
 
@@ -431,6 +592,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
       st.models = res?.result || [];
       st.maxPrompt = res?.max_prompt || st.maxPrompt;
       st.creditUsd = res?.credit_usd || st.creditUsd;
+      if (res?.face_swap) st.swapSpec = res.face_swap;
       if (!saved.duration && res?.defaults?.duration) st.duration = res.defaults.duration;
       if (!st.models.some((m) => m.id === st.model)) st.model = st.models[0]?.id || null;
       clampToModel();
@@ -484,6 +646,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     loadItems();
   }, true);
 
+  setTab("create");
   renderSettings();
   renderGallery();
 

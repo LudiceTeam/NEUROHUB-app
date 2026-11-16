@@ -55,6 +55,7 @@ from backend.api.file_text import extract_text,extension,UnsupportedFile,DOC_EXT
 from backend.api.config import MAX_DOCS,MAX_DOC_SIZE,MAX_DOC_CHARS,DOC_CREDITS
 from backend.api.config import VIDEO_INPUT_MODELS,VIDEO_INPUT_MODEL,VIDEO_INPUT_FREE_MODEL,MAX_VIDEO_INPUT_SIZE,MAX_VIDEO_INPUT_SECONDS,VIDEO_INPUT_CREDITS_PER_MINUTE
 from backend.api.video_input import VIDEO_INPUT_TYPES,mp4_duration
+from backend.api.config import FACE_SWAP_MODEL,FACE_SWAP_USD_PER_SECOND,FACE_SWAP_RESOLUTION,FACE_SWAP_EXTRA,FACE_SWAP_PROMPT,MAX_FACE_SWAP_SECONDS,MIN_FACE_SWAP_SECONDS,MAX_FACE_SWAP_SIZE,face_swap_cost
 from backend.database.music_db.music_core import migrate_music_table,create_music_task,set_music_result,get_user_music,get_music_track,delete_music_track
 from backend.api.config import models,expensive_models,image_generation_models,video_generation_models,VIDEO_MODEL_SPECS,VIDEO_DEFAULTS,MAX_VIDEO_PROMPT,video_credit_cost,tts_models,MAX_TTS_CHARS,CLONE_MODELS,CLONE_MODEL_PREFERENCE,MAX_OUTPUT_TOKENS,FREE_MODELS,FREE_PRO_MODELS,FREE_DEFAULT_MODEL,PAID_DEFAULT_MODEL,FREE_PLAN,model_credits,SUBSCRIPTIONS,generate_promt_for_image_models,gennerate_promt_for_video_generation,generate_main_promt
 import aiohttp
@@ -1369,6 +1370,8 @@ async def video_models_handler(request:Request, user_data:dict = Depends(get_cur
         "defaults": VIDEO_DEFAULTS,
         "max_prompt": MAX_VIDEO_PROMPT,
         "credit_usd": VIDEO_CREDIT_USD,
+        # "Put yourself in a video": the studio shows the price before upload (see face_swap_cost).
+        "face_swap": {"usd_per_second": FACE_SWAP_USD_PER_SECOND, "min_seconds": MIN_FACE_SWAP_SECONDS, "max_seconds": MAX_FACE_SWAP_SECONDS},
     }
 
 
@@ -1467,6 +1470,110 @@ async def video_generate_handler(
         raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
 
 
+FACE_SWAP_ASPECTS = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
+
+
+@app.post("/videos/faceswap")
+@limiter.limit("5/minute")
+async def video_faceswap_handler(
+        request:Request,
+        video:UploadFile = File(...),
+        selfie:UploadFile = File(...),
+        consent:bool = Form(False),
+        aspect_ratio:str = Form("9:16"),
+        notes:Optional[str] = Form(None),
+        user_data_jwt:dict = Depends(get_current_user)):
+    """Puts the user's face (from a selfie) on the main person of a short clip. Runs like a studio video:
+    credits are taken now, the clip shows up in /videos/list and the credits come back if it fails."""
+    try:
+        user_id = user_data_jwt["user_id"]
+        await check_ban(user_id)
+        await update_last_online(user_data_jwt["device_id"])
+        await refil_all_requests(user_id)
+
+        if not consent:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Confirm the face swap rules")
+        user_data = await get_user_state(user_id)
+        if not has_paid_plan(user_data):
+            raise HTTPException(status_code = status.HTTP_403_FORBIDDEN, detail = "Upgrade required")
+
+        video_bytes = await video.read(MAX_FACE_SWAP_SIZE + 1)
+        if len(video_bytes) > MAX_FACE_SWAP_SIZE:
+            raise HTTPException(status_code = 413, detail = "Clip too large")
+        mime = magic.from_buffer(video_bytes[:8192], mime = True)
+        if mime not in VIDEO_INPUT_TYPES:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
+        seconds = await asyncio.to_thread(mp4_duration, video_bytes)
+        if seconds is None:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
+        if seconds > MAX_FACE_SWAP_SECONDS + 0.5:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Clip too long")
+        if seconds < MIN_FACE_SWAP_SECONDS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Clip too short")
+
+        face = await read_frame(selfie, "first_frame")
+        if face is None:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Add a photo of your face")
+        notes = (notes or "").strip()[:500]
+        if aspect_ratio not in FACE_SWAP_ASPECTS:
+            aspect_ratio = "16:9"
+
+        cost = face_swap_cost(seconds)
+        if not await take_video_credits(user_id, cost):
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "No video credits")
+
+        _, ext = VIDEO_INPUT_TYPES[mime]
+        source_key = await AWS_CLIENT.upload_file(
+            file_path = f"{uuid.uuid4()}.{ext}",
+            file_data = video_bytes,
+            content_type = "video/quicktime" if ext == "mov" else "video/mp4"
+        )
+        del video_bytes
+        duration = max(1, round(seconds))
+        prompt = FACE_SWAP_PROMPT + (f" Extra wishes: {notes}" if notes else "")
+        body = {
+            "model": FACE_SWAP_MODEL,
+            "prompt": prompt,
+            "duration": duration,
+            "resolution": FACE_SWAP_RESOLUTION,
+            "aspect_ratio": aspect_ratio,
+            # The provider downloads the clip itself, so it gets a link that outlives the queue.
+            "input_references": [
+                {"type": "video_url", "video_url": {"url": AWS_CLIENT.sign(source_key, expires = 3 * 3600, cache = False)}},
+                {"type": "image_url", "image_url": {"url": face["url"]}},
+            ],
+            **FACE_SWAP_EXTRA,
+        }
+
+        task_id = str(uuid.uuid4())
+        created = await create_video_task(
+            id = task_id, user_id = user_id,
+            prompt = encrypt(notes or "Face swap", os.getenv("HASH_MESSAGES_KEY")),
+            model = FACE_SWAP_MODEL, duration = duration, aspect_ratio = aspect_ratio, resolution = FACE_SWAP_RESOLUTION,
+            audio = True, cost = cost, in_studio = True
+        )
+        if not created:
+            await refund_video_credits(user_id, cost)
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+        # Kept for complaints: who swapped which clip and when (the source stays in S3).
+        logger.info("FACE SWAP user=%s task=%s source=%s seconds=%.1f", user_id, task_id, source_key, seconds)
+
+        start_video_task(
+            task_id = task_id, prompt = prompt, model = FACE_SWAP_MODEL, message_id = None, user_id = user_id,
+            cost = cost, edit = body
+        )
+        rows = await get_studio_videos(user_id, limit = 1)
+        return {"result": video_item(rows[0]) if rows else {"id": task_id, "status": "pending"}, "cost": cost}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("ERROR")
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR, detail = "Server error")
+    finally:
+        await video.close()
+        await selfie.close()
+
+
 class VideoDelete(BaseModel):
     video_id:str
 
@@ -1510,9 +1617,11 @@ def video_error_text(raw:str) -> str:
 async def process_video_task(task_id:str, prompt:str | List, model:str, message_id:str | None, user_id:str,
                              duration:int = VIDEO_DEFAULTS["duration"], aspect_ratio:str = VIDEO_DEFAULTS["aspect_ratio"],
                              resolution:str = VIDEO_DEFAULTS["resolution"], generate_audio:bool = VIDEO_DEFAULTS["generate_audio"],
-                             frames:List | None = None, seed:int | None = None, cost:int = 1) -> str:
+                             frames:List | None = None, seed:int | None = None, cost:int = 1,
+                             edit:dict | None = None) -> str:
     """Generates a video with OpenRouter (POST /videos, poll, download) and stores it in S3.
-    Chat videos (message_id set) also get the URL written into their message. On failure the credits are refunded."""
+    Chat videos (message_id set) also get the URL written into their message. On failure the credits are refunded.
+    edit: a ready request body for video editing (face swap) that replaces the generation settings."""
     headers = {"Authorization": f"Bearer {OPEN_AI_KEY}"}
     try:
         if isinstance(prompt, list):
@@ -1522,16 +1631,16 @@ async def process_video_task(task_id:str, prompt:str | List, model:str, message_
 
         await update_video_status(video_id = task_id, status = "processing")
 
-        body = {
+        body = edit or {
             "model": model,
             "prompt": request,
             "duration": duration,
             "aspect_ratio": aspect_ratio,
             "resolution": resolution,
         }
-        if VIDEO_MODEL_SPECS.get(model, {}).get("audio"):
+        if not edit and VIDEO_MODEL_SPECS.get(model, {}).get("audio"):
             body["generate_audio"] = generate_audio
-        if seed is not None:
+        if seed is not None and not edit:
             body["seed"] = seed
         # Chat: the first attached photo becomes the first frame. Studio: frames come ready as data URLs.
         if images_list and not frames:

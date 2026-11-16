@@ -173,6 +173,8 @@ export const api = {
   improvePrompt: (prompht, kind = "chat") => post("/prompt/improve", { prompht, kind }),
   videoList: () => request("/videos/list"),
   generateVideo: (form) => request("/videos/generate", { method: "POST", form }),
+  // "Put yourself in a video": form with video, selfie, consent, aspect_ratio, notes.
+  faceSwap: (form) => request("/videos/faceswap", { method: "POST", form }),
   deleteVideo: (video_id) => post("/videos/delete", { video_id }),
 
   // billing (Stripe)

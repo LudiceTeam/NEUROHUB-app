@@ -2103,3 +2103,33 @@ textarea.improving {
   .mode-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mode-btn .icon { width: 20px; height: 20px; }
 }
+
+/* ---------- video studio: "Create from text" / "Put yourself in a video" ---------- */
+.vs-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 4px; border-radius: 12px; background: var(--bg-soft); }
+.vs-tab { padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; line-height: 1.25; }
+.vs-tab:hover { color: var(--text); }
+.vs-tab.on { background: var(--bg-elev); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / .08); }
+.vs-tab-view { display: flex; flex-direction: column; gap: 18px; }
+.vs-tab-view[hidden] { display: none; }
+.vs-swap-steps { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.vs-swap-steps p { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.vs-swap-steps b {
+  display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 12px;
+}
+.vs-swap-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vs-swap-slot {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  aspect-ratio: 3 / 4; padding: 12px; overflow: hidden; cursor: pointer; text-align: center;
+  border: 1.5px dashed var(--border); border-radius: 14px; background: var(--bg-soft); color: var(--muted);
+  transition: border-color .15s, background .15s;
+}
+.vs-swap-slot:hover, .vs-swap-slot.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--bg-soft)); }
+.vs-swap-slot .icon { width: 26px; height: 26px; margin-bottom: 4px; }
+.vs-swap-slot strong { color: var(--text); font-size: 14px; }
+.vs-swap-slot small { font-size: 12px; line-height: 1.35; }
+.vs-swap-slot.filled { padding: 0; border-style: solid; }
+.vs-swap-slot.filled :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vs-swap-notes { resize: vertical; min-height: 60px; font-size: 14px; }
+.vs-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; line-height: 1.45; color: var(--muted); cursor: pointer; }
+.vs-consent input { width: 17px; height: 17px; margin: 1px 0 0; flex: none; accent-color: var(--accent); }
