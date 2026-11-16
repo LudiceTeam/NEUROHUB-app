@@ -48,6 +48,12 @@ const LABS = [
   ["xai", "xAI"], ["qwen", "Qwen"], ["bytedance", "ByteDance"], ["kimi", "Moonshot"], ["kling", "Kling"],
 ];
 
+// Models the hero headline cycles through: "Ask GPT", "Ask Claude"…
+const ROTATING = [
+  ["openai", "GPT"], ["claude", "Claude"], ["gemini", "Gemini"], ["meta", "Llama"], ["mistral", "Mistral"], ["qwen", "Qwen"], ["xai", "Grok"],
+];
+
+const mark = (logo) => `<span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/${logo}.svg);mask-image:url(icons/models/${logo}.svg)"></span>`;
 const svgIcon = (d) => `<svg viewBox="0 0 24 24" class="l-icon" aria-hidden="true"><path d="${d}"/></svg>`;
 const ARROW = `<svg viewBox="0 0 24 24" class="l-icon" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
 
@@ -76,8 +82,15 @@ export function renderLanding(root, { onLogin, onSignup }) {
 
     <main id="top">
       <section class="l-hero">
+        <div class="l-emblem" aria-hidden="true">
+          <span class="l-ring a"></span><span class="l-ring b"></span>
+          <div class="l-orbit">
+            ${LABS.slice(0, 8).map(([logo], i) => `<span style="--i:${i}"><span class="l-orbit-icon">${mark(logo)}</span></span>`).join("")}
+          </div>
+          <div class="l-emblem-core"><img src="logo.png" alt="" width="64" height="64"></div>
+        </div>
         <span class="l-eyebrow"><b>New</b>${modelCount} models · images · video · voice</span>
-        <h1>All the best AI models.<br><span class="l-dim">One subscription.</span></h1>
+        <h1>Ask <span class="l-rot" aria-hidden="true">${ROTATING.map(([logo, name], i) => `<span${i === 0 ? ' class="on"' : ""}>${mark(logo)}${name}</span>`).join("")}</span><br><span class="l-dim">All in one subscription.</span></h1>
         <p class="l-lead">Chat with GPT, Claude, Gemini, Llama and dozens more. Generate images, videos and lifelike speech — all in one beautifully simple place.</p>
         <div class="l-cta">
           <button class="l-btn primary lg" type="button" data-action="signup">Get started — it's free ${ARROW}</button>
@@ -281,7 +294,21 @@ export function renderLanding(root, { onLogin, onSignup }) {
     io.observe(el);
   });
 
+  // Hero headline: swap the model name every couple of seconds (the first one stays for reduced motion).
+  const names = [...page.querySelectorAll(".l-rot > span")];
+  let current = 0;
+  const rotate = setInterval(() => {
+    const prev = names[current];
+    current = (current + 1) % names.length;
+    prev.classList.replace("on", "out");
+    // The leaving name slides up; once it's gone it waits below for its next turn.
+    setTimeout(() => prev.classList.remove("out"), 600);
+    names[current].classList.add("on");
+  }, 2200);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) clearInterval(rotate);
+
   return () => {
+    clearInterval(rotate);
     io.disconnect();
     removeEventListener("scroll", onScroll);
     document.documentElement.classList.remove("landing-mode");
@@ -290,7 +317,6 @@ export function renderLanding(root, { onLogin, onSignup }) {
 
 // Small illustrations at the bottom of the wide feature cards.
 function cardArt(kind) {
-  const mark = (logo) => `<span class="l-logo-mark" style="-webkit-mask-image:url(icons/models/${logo}.svg);mask-image:url(icons/models/${logo}.svg)"></span>`;
   if (kind === "logos") {
     return `<div class="l-art l-art-logos" aria-hidden="true">${LABS.slice(0, 8).map(([logo]) => `<span>${mark(logo)}</span>`).join("")}</div>`;
   }

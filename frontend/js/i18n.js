@@ -293,7 +293,7 @@ const RU = {
   "Smart": "Рекомендуем", "Veora needs JavaScript to run.": "Для работы Veora нужен JavaScript.",
   "Voice models don't accept images": "Голосовые модели не принимают фото",
   "Footer": "Подвал", "Sections": "Разделы",
-  "All the best AI models.": "Все лучшие ИИ-модели.", "New": "Новое", "One subscription.": "Одна подписка.",
+  "Ask": "Спросите", "All in one subscription.": "Всё в одной подписке.", "New": "Новое",
   "Models from the leading AI labs": "Модели ведущих ИИ-лабораторий", "Try every model today.": "Попробуйте все модели уже сегодня.",
   "Pricing for a coffee shop": "Цены для кофейни", "Fix a React bug": "Починить баг в React", "Logo ideas": "Идеи для логотипа",
   "Summarize a PDF": "Пересказать PDF", "Workout plan": "План тренировок",
@@ -425,7 +425,7 @@ export function t(text) {
 const SKIP = ".md, .bubble, .chat-link > span, .tts-editor, .tts-history-text > span, .model-trigger-label, .msg-model, "
   + "pre, code, textarea, input, select, .tag-chip, .profile-meta strong, .tts-player-info strong, .clone-script p, .l-model, .l-group li, "
   + ".lang-switch, .ac-time, .dict-time, .vg-time, .folder-option > span, .devices strong, .gpt-chip > span, .gpt-name, .gpt-desc, "
-  + ".gal-caption p, .vs-card-prompt, .ms-title, .ms-lyrics-text, .ps-prompt, .l-req-row dd, .auth-legal, .plans-legal, .legal-doc, .legal-tabs, .file-chip-text";
+  + ".gal-caption p, .vs-card-prompt, .ms-title, .ms-lyrics-text, .ps-prompt, .l-req-row dd, .auth-legal, .plans-legal, .legal-doc, .legal-tabs, .file-chip-text, .l-rot";
 // Our own sample texts that sit inside otherwise-skipped elements.
 const UNSKIP = ".appearance-preview";
 const ATTRS = ["placeholder", "title", "aria-label"];

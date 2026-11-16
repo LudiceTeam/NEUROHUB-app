@@ -60,7 +60,7 @@ html.landing-mode #app { height: auto; }
 .l-btn:hover .l-icon { transform: translateX(2px); }
 
 /* hero */
-.l-hero { position: relative; max-width: 900px; margin: 0 auto; padding: 112px 24px 64px; text-align: center; }
+.l-hero { position: relative; max-width: 960px; margin: 0 auto; padding: 96px 24px 64px; text-align: center; }
 /* Soft lavender wash and a faint dot grid behind the hero, fading out at the edges. */
 .landing::before {
   content: ""; position: absolute; inset: 0 0 auto; height: 1100px; pointer-events: none;
@@ -78,6 +78,45 @@ html.landing-mode #app { height: auto; }
   border: 1px solid var(--l-border); border-radius: 999px; background: var(--l-surface); color: var(--l-muted); font-size: 13px;
 }
 .l-eyebrow b { padding: 2px 8px; border-radius: 999px; background: var(--l-accent); color: #fff; font-size: 12px; font-weight: 600; }
+/* emblem: the Veora crystal with the labs' logos slowly orbiting it */
+.l-emblem { position: relative; width: 260px; height: 260px; margin: -40px auto 40px; }
+.l-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--l-accent) 28%, transparent); }
+.l-ring.b { inset: 52px; border-style: solid; border-color: var(--l-border); }
+.l-emblem::before {
+  content: ""; position: absolute; inset: 70px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(91, 79, 196, .35), transparent); filter: blur(18px);
+}
+.l-emblem-core {
+  position: absolute; inset: 88px; display: grid; place-items: center; border-radius: 24px;
+  background: #fff; border: 1px solid var(--l-border); box-shadow: 0 2px 4px rgba(27, 28, 26, .04), 0 14px 34px rgba(91, 79, 196, .18);
+}
+.l-emblem-core img { width: 58px; height: 58px; }
+.l-orbit { position: absolute; inset: 0; animation: orbit 60s linear infinite; }
+.l-orbit > span {
+  position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  transform: rotate(calc(var(--i) * 45deg)) translateX(130px) rotate(calc(var(--i) * -45deg));
+}
+.l-orbit-icon {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 12px;
+  background: var(--l-surface); border: 1px solid var(--l-border); color: var(--l-text); box-shadow: var(--l-shadow);
+  animation: orbit 60s linear infinite reverse;
+}
+.l-orbit-icon .l-logo-mark { width: 20px; height: 20px; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+
+/* "Ask GPT / Claude / Gemini…": the names share one grid cell, so the chip never changes width;
+   landing.js moves the .on class along. */
+.l-rot {
+  display: inline-grid; vertical-align: bottom; padding: 0 .28em .04em; border-radius: .28em;
+  background: var(--l-accent-soft); color: var(--l-accent); overflow: hidden;
+}
+.l-rot > span {
+  grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: .18em;
+  opacity: 0; transform: translateY(60%); transition: opacity .45s ease, transform .55s cubic-bezier(.2, .8, .2, 1);
+}
+.l-rot > span.on { opacity: 1; transform: none; }
+.l-rot > span.out { transform: translateY(-60%); }
+.l-rot .l-logo-mark { width: .72em; height: .72em; }
 .l-hero h1 { font-size: clamp(40px, 6.4vw, 72px); line-height: 1.06; letter-spacing: -.04em; }
 .l-dim { color: var(--l-dim); }
 .l-lead { max-width: 600px; margin: 24px auto 0; color: var(--l-muted); font-size: 18px; line-height: 1.6; }
@@ -300,7 +339,8 @@ html.landing-mode #app { height: auto; }
 }
 @media (max-width: 760px) {
   .l-nav { padding: 12px 16px; gap: 12px; }
-  .l-hero { padding: 64px 16px 40px; }
+  .l-hero { padding: 56px 16px 40px; }
+  .l-emblem { transform: scale(.78); margin: -40px auto -10px; }
   .l-lead { font-size: 16px; }
   .l-logos { padding-inline: 16px; }
   .l-logo-row { gap: 12px 22px; }
