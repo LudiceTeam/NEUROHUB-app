@@ -1501,13 +1501,17 @@ async def video_faceswap_handler(
         if len(video_bytes) > MAX_FACE_SWAP_SIZE:
             raise HTTPException(status_code = 413, detail = "Clip too large")
         mime = magic.from_buffer(video_bytes[:8192], mime = True)
-        if mime not in VIDEO_INPUT_TYPES:
+        # Only real video files reach ffmpeg (a text playlist could make it read other files).
+        if not mime.startswith("video/"):
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
-        # TikTok and phone clips are often longer than the limit or too small for the model:
-        # ffmpeg keeps the first seconds and scales them up. Without ffmpeg the clip must already fit.
+        # TikTok and phone clips are often too long, too small, fragmented MP4 (no length in the header),
+        # HEVC or WebM: ffmpeg turns any of them into a plain MP4 of the first seconds, scaled up if needed.
+        # Without ffmpeg the clip must already fit.
         normalized = await normalize_clip(video_bytes, MAX_FACE_SWAP_SECONDS, MIN_FACE_SWAP_PIXELS)
         if normalized:
             video_bytes, mime = normalized, "video/mp4"
+        elif mime not in VIDEO_INPUT_TYPES:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")
         seconds = await asyncio.to_thread(mp4_duration, video_bytes)
         if seconds is None:
             raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Unsupported video format")

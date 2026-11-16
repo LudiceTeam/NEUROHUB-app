@@ -3,7 +3,7 @@ import { h, icon, toast, errorText, confirmModal, modal } from "./dom.js";
 import { mark } from "./model-picker.js";
 import { openPlans } from "./billing.js";
 import { improveButton } from "./prompt-improve.js";
-import { VIDEO_ACCEPT, isVideoFile, videoSeconds } from "./files.js";
+import { VIDEO_ACCEPT, isVideoFile, isAnyVideoFile, videoSeconds } from "./files.js";
 
 const SETTINGS_KEY = "veora_video_settings";
 const MAX_FRAME_BYTES = 5 * 1024 * 1024;     // backend MAX_IMAGE_SIZE
@@ -338,7 +338,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     st.swap.seconds = null;
     if (file) {
       const { min_seconds: min, max_seconds: max } = st.swapSpec;
-      if (!isVideoFile(file)) toast("Send the video as MP4 or MOV.");
+      if (!(st.swapSpec.auto_fix ? isAnyVideoFile(file) : isVideoFile(file))) toast("Send the video as MP4 or MOV.");
       else if (file.size > MAX_SWAP_BYTES) toast("The video is larger than 100 MB.");
       else {
         const url = URL.createObjectURL(file);
@@ -414,7 +414,7 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
         h("p", {}, h("b", {}, "2"), "Add a clear photo of your face, looking at the camera."),
         h("p", {}, h("b", {}, "3"), "Veora puts your face on the person in the clip.")),
       h("div", { class: "vs-swap-slots" },
-        dropSlot({ label: "Video", hint: st.swapSpec.auto_fix ? "MP4 or MOV, any length" : `MP4 or MOV, up to ${max} s`, accept: VIDEO_ACCEPT, item: st.swap.video, isVideo: true, onFile: setSwapVideo }),
+        dropSlot({ label: "Video", hint: st.swapSpec.auto_fix ? "Any video, e.g. saved from TikTok" : `MP4 or MOV, up to ${max} s`, accept: st.swapSpec.auto_fix ? "video/*" : VIDEO_ACCEPT, item: st.swap.video, isVideo: true, onFile: setSwapVideo }),
         dropSlot({ label: "Your face", hint: "A selfie or a photo from your gallery", accept: FRAME_TYPES, item: st.swap.selfie, isVideo: false, onFile: setSelfie })),
       h("div", { class: "vs-field" },
         h("div", { class: "vs-field-head" }, h("span", {}, "Wishes"), h("small", {}, "Optional")),

@@ -15,6 +15,8 @@ export const MAX_VIDEO_SIZE = 20 * 1024 * 1024;
 export const MAX_VIDEO_SECONDS = 180;
 export const VIDEO_ACCEPT = "video/mp4,video/quicktime,.mp4,.mov,.m4v";
 export const isVideoFile = (file) => /^video\/(mp4|quicktime|x-m4v)$/.test(file.type) || /\.(mp4|mov|m4v)$/i.test(file.name);
+// Any video a phone or a TikTok downloader saves; the face swap server converts it with ffmpeg.
+export const isAnyVideoFile = (file) => file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp|avi)$/i.test(file.name);
 export const isVideoUrl = (url) => /\.(mp4|mov)(\?|$)/i.test(url);
 
 /** Length of a local video in seconds (null if the browser can't read it; the server checks again). */
