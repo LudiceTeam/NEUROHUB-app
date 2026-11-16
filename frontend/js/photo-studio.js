@@ -364,6 +364,8 @@ export function createPhotoStudio({ onSelectModel, onChange = () => {}, getProfi
     setCredits(n) { st.credits = n; renderFooter(); },
     setPlan(profile) { st.profile = profile; renderFooter(); },
     show() { st.visible = true; loadModels(); loadItems(); },
+    // Loads models and the gallery while hidden, so the studio opens filled in.
+    prefetch() { loadModels(); loadItems(); },
     hide() { st.visible = false; stopPolling(); },
     focus() { prompt.focus(); },
   };

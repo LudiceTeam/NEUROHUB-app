@@ -129,10 +129,19 @@ export function renderApp(root, logout) {
       return;
     }
     toggleSidebar(false);
+    // The studio opens right away; the server learns about the model in the background
+    // and a refusal (e.g. the plan ended) switches back.
+    const prev = state.model;
+    state.model = id;
+    picker.setValue(id);
+    updateMode();
     try {
       await onModelChange(id);
-      picker.setValue(id);
-    } catch { /* onModelChange already showed the error */ }
+    } catch {
+      state.model = prev;
+      picker.setValue(prev);
+      updateMode();
+    }
   }
 
   const modeButtons = MODES.map((mode) => h("button", {
@@ -822,6 +831,7 @@ export function renderApp(root, logout) {
     loadProfile();
   }
 
+  let studiosPrefetched = false;
   async function loadProfile() {
     try {
       state.profile = await api.profile();
@@ -830,6 +840,11 @@ export function renderApp(root, logout) {
     }
     state.loading.profile = false;
     picker.refresh();
+    // Once per session, a moment after the chat is up: fill the studios so switching modes is instant.
+    if (state.profile && !studiosPrefetched) {
+      studiosPrefetched = true;
+      setTimeout(() => { photoStudio.prefetch(); videoStudio.prefetch(); musicStudio.prefetch(); }, 1500);
+    }
     // A free account still set to a PLUS model (e.g. after the plan ended) goes back to Auto.
     if (isLockedModel(state.model)) {
       onModelChange("auto").then(() => picker.setValue("auto")).catch(() => {});

@@ -659,6 +659,8 @@ export function createVideoStudio({ onSelectModel, onChange = () => {}, getProfi
     },
     setCredits(n) { st.credits = n; renderFooter(); },
     setPlan(profile) { st.profile = profile; renderFooter(); },
+    // Loads models and the gallery while hidden, so the studio opens filled in.
+    prefetch() { loadModels(); loadItems(); },
     show() {
       st.visible = true;
       loadModels();
